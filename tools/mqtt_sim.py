@@ -65,11 +65,11 @@ class Device:
         threshold = {"min": 0, "max": 100, "step": 0.1, "mode": "box",
                      "device_class": "temperature", "unit_of_measurement": "°C"}
         e = [
-            ("sensor", "local_temp", {"name": "Local temperature", **temp}),
-            ("sensor", "network_temp", {"name": "Network temperature", **temp}),
-            ("sensor", "blended_temp", {"name": "Blended temperature", **temp}),
-            ("binary_sensor", "local_probe_fault", {"name": "Local probe fault", "device_class": "problem"}),
-            ("binary_sensor", "network_probe_fault", {"name": "Network probe fault", "device_class": "problem"}),
+            ("sensor", "local_temp", {"name": "Air temperature local", **temp}),
+            ("sensor", "network_temp", {"name": "Air temperature network", **temp}),
+            ("sensor", "blended_temp", {"name": "Air temperature blended", **temp}),
+            ("binary_sensor", "local_probe_fault", {"name": "Fault local probe", "device_class": "problem"}),
+            ("binary_sensor", "network_probe_fault", {"name": "Fault network probe", "device_class": "problem"}),
             ("number", "t_min", {"name": "Min threshold", "icon": "mdi:thermometer-low", **threshold}),
             ("number", "t_max", {"name": "Max threshold", "icon": "mdi:thermometer-high", **threshold}),
             ("switch", "override", {"name": "Manual override", "icon": "mdi:hand-back-right"}),
@@ -83,11 +83,11 @@ class Device:
         ]
         for i in range(1, self.fans + 1):
             e += [
-                ("sensor", f"fan{i}_rpm", {"name": f"Fan {i} speed", "unit_of_measurement": "RPM",
+                ("sensor", f"fan{i}_rpm", {"name": f"Fan speed {i}", "unit_of_measurement": "RPM",
                                            "state_class": "measurement", "icon": "mdi:fan"}),
-                ("sensor", f"fan{i}_duty", {"name": f"Fan {i} duty", "unit_of_measurement": "%",
+                ("sensor", f"fan{i}_duty", {"name": f"Fan duty {i}", "unit_of_measurement": "%",
                                             "state_class": "measurement", "icon": "mdi:fan-chevron-up"}),
-                ("binary_sensor", f"fan{i}_fault", {"name": f"Fan {i} fault", "device_class": "problem"}),
+                ("binary_sensor", f"fan{i}_fault", {"name": f"Fault fan {i}", "device_class": "problem"}),
             ]
         return e
 

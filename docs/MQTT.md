@@ -27,8 +27,12 @@ Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
 - `nodeID` (web page setting, default `fanController_xx`) is the device name, MQTT client ID,
   topic base and `unique_id` prefix. Letters, digits, `_`, `-` only. MQTT stays off while it
   is still `fanController_xx`, so two unconfigured units can't fight over one name.
-- HA entity IDs are lower case: `fanController_02` + "Local temperature" becomes
-  `sensor.fancontroller_02_local_temperature`.
+- HA entity IDs are lower case: `fanController_02` + "Air temperature local" becomes
+  `sensor.fancontroller_02_air_temperature_local` (IDs are fixed when an entity is first
+  created; renaming later changes only the displayed name).
+- Entity names sort into groups on HA's device page (it lists by name): "Air temperature
+  blended/local/network", "Fan duty N", "Fan speed N", "Fault fan N / local probe /
+  network probe"; IP address and Uptime under Diagnostic.
 - Discovery: `homeassistant/<component>/<nodeID>/<object>/config`, retained.
 - Availability: `<nodeID>/status` = `online` / `offline` (Last Will), retained.
 

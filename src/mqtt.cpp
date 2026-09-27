@@ -56,22 +56,24 @@ struct EntityDef {
 
 static const char* DEG_C = "\xC2\xB0" "C"; // "°C"
 
+// HA lists a device's entities alphabetically by name, so the names group
+// them: "Air temperature ...", "Fan duty N", "Fan speed N", "Fault ...".
 // Every entity the device can have (all NUM_FANS fans), so the ones no
 // longer wanted can be removed from HA as well as the wanted ones added.
 static int buildEntities(EntityDef *out) {
     int n = 0;
-    out[n++] = {"sensor", "local_temp", "Local temperature", "temperature", DEG_C, nullptr, true, false};
-    out[n++] = {"sensor", "network_temp", "Network temperature", "temperature", DEG_C, nullptr, true, false};
-    out[n++] = {"sensor", "blended_temp", "Blended temperature", "temperature", DEG_C, nullptr, true, false};
-    out[n++] = {"binary_sensor", "local_probe_fault", "Local probe fault", "problem", nullptr, nullptr, false, false};
-    out[n++] = {"binary_sensor", "network_probe_fault", "Network probe fault", "problem", nullptr, nullptr, false, false};
+    out[n++] = {"sensor", "local_temp", "Air temperature local", "temperature", DEG_C, nullptr, true, false};
+    out[n++] = {"sensor", "network_temp", "Air temperature network", "temperature", DEG_C, nullptr, true, false};
+    out[n++] = {"sensor", "blended_temp", "Air temperature blended", "temperature", DEG_C, nullptr, true, false};
+    out[n++] = {"binary_sensor", "local_probe_fault", "Fault local probe", "problem", nullptr, nullptr, false, false};
+    out[n++] = {"binary_sensor", "network_probe_fault", "Fault network probe", "problem", nullptr, nullptr, false, false};
     out[n++] = {"sensor", "ip", "IP address", nullptr, nullptr, "mdi:ip-network", false, true};
     out[n++] = {"sensor", "uptime", "Uptime", "duration", "s", nullptr, false, true};
     for (int i = 1; i <= NUM_FANS; i++) {
         String f = "fan" + String(i);
-        out[n++] = {"sensor", f + "_rpm", "Fan " + String(i) + " speed", nullptr, "RPM", "mdi:fan", true, false};
-        out[n++] = {"sensor", f + "_duty", "Fan " + String(i) + " duty", nullptr, "%", "mdi:fan-chevron-up", true, false};
-        out[n++] = {"binary_sensor", f + "_fault", "Fan " + String(i) + " fault", "problem", nullptr, nullptr, false, false};
+        out[n++] = {"sensor", f + "_rpm", "Fan speed " + String(i), nullptr, "RPM", "mdi:fan", true, false};
+        out[n++] = {"sensor", f + "_duty", "Fan duty " + String(i), nullptr, "%", "mdi:fan-chevron-up", true, false};
+        out[n++] = {"binary_sensor", f + "_fault", "Fault fan " + String(i), "problem", nullptr, nullptr, false, false};
     }
     return n;
 }
