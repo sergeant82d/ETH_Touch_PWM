@@ -16,7 +16,7 @@ SystemConfig config = {
     true,
     -5,
     true,
-    2,
+    1,  // fanCount: fan 1 only; more are ticked on the Fan Control tab
     DEFAULT_NODE_ID,
     "", "", "", 0, // unused REST-era HA token/sensor/host/port
     300, 2200,   // fan RPM gauge display range
@@ -34,14 +34,16 @@ SystemConfig config = {
     false,        // wifiStatic: DHCP
     0, 0, 0, 0,   // wifiIp, wifiGateway, wifiSubnet, wifiDns
     "",           // hostname: derived from the node ID
-    "12345678"    // apPass (as on Wifi_Fan_Knob; change it on the WiFi tab)
+    "12345678",   // apPass (as on Wifi_Fan_Knob; change it on the WiFi tab)
+    true          // ethDhcp: new boards take an address from the router
 };
 
 // Older settings files = this struct cut before the fields added since
 // (offsetof, rounded up to the struct's 4-byte alignment): version 4 ends
 // before the MQTT fields (864 bytes, checked against the old struct
 // 2026-09-27), version 5 before the web login (1028 bytes), version 6
-// before the time zone (1124 bytes), version 7 before WiFi (1236 bytes).
+// before the time zone (1124 bytes), version 7 before WiFi (1236 bytes),
+// version 8 before Ethernet DHCP.
 // offsetof warns because IPAddress has virtual functions; GCC supports it.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
@@ -49,11 +51,13 @@ static const size_t V4_NEW_FROM = offsetof(SystemConfig, mqttBroker);
 static const size_t V5_NEW_FROM = offsetof(SystemConfig, webUser);
 static const size_t V6_NEW_FROM = offsetof(SystemConfig, tzName);
 static const size_t V7_NEW_FROM = offsetof(SystemConfig, wifiSsid);
+static const size_t V8_NEW_FROM = offsetof(SystemConfig, ethDhcp);
 #pragma GCC diagnostic pop
 static const size_t V4_FILE_SIZE = (V4_NEW_FROM + 3) & ~(size_t)3;
 static const size_t V5_FILE_SIZE = (V5_NEW_FROM + 3) & ~(size_t)3;
 static const size_t V6_FILE_SIZE = (V6_NEW_FROM + 3) & ~(size_t)3;
 static const size_t V7_FILE_SIZE = (V7_NEW_FROM + 3) & ~(size_t)3;
+static const size_t V8_FILE_SIZE = (V8_NEW_FROM + 3) & ~(size_t)3;
 
 // LittleFS.begin()'s formatOnFail reliably reformats a *missing* filesystem,
 // but doesn't always catch genuine on-disk *corruption* (e.g. littlefs
@@ -127,6 +131,7 @@ void loadSettings() {
     SystemConfig loaded = config;
     size_t fileSize = f.size();
     uint32_t fileVersion = fileSize == sizeof(loaded) ? CONFIG_STRUCT_VERSION
+                         : fileSize == V8_FILE_SIZE ? 8
                          : fileSize == V7_FILE_SIZE ? 7
                          : fileSize == V6_FILE_SIZE ? 6
                          : fileSize == V5_FILE_SIZE ? 5
@@ -138,8 +143,9 @@ void loadSettings() {
         // The file's tail padding may have landed on the first new bytes:
         // put the defaults of everything newer back (no IPAddress in there)
         size_t newFrom = fileVersion == 4 ? V4_NEW_FROM : fileVersion == 5 ? V5_NEW_FROM
-                       : fileVersion == 6 ? V6_NEW_FROM : V7_NEW_FROM;
+                       : fileVersion == 6 ? V6_NEW_FROM : fileVersion == 7 ? V7_NEW_FROM : V8_NEW_FROM;
         memcpy((uint8_t*)&loaded + newFrom, (const uint8_t*)&config + newFrom, sizeof(loaded) - newFrom);
+        loaded.ethDhcp = false; // a board set up before DHCP existed keeps its static address
         loaded.configVersion = CONFIG_STRUCT_VERSION;
         upgraded = true;
     }
@@ -162,8 +168,8 @@ void loadSettings() {
         saveSettings();
     }
 
-    if (config.fanCount < 1 || config.fanCount > 2) { // 1 fan is valid (the web page offers it)
-        config.fanCount = 2;
-        Serial.println("Config fanCount out of range, reset to 2.");
+    if (config.fanCount < 1 || config.fanCount > 2) { // pins exist for 2 fans (pins.h)
+        config.fanCount = 1;
+        Serial.println("Config fanCount out of range, reset to 1.");
     }
 }

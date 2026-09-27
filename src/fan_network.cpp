@@ -316,7 +316,12 @@ void networkInit() {
     if (!ETH.begin(ETH_PHY_W5500, 1, W5500_CS, W5500_INT, W5500_RST, SPI)) {
         Serial.println("ERROR: W5500 not found - check wiring / pins.h.");
     }
-    ETH.config(config.ip, config.gateway, config.subnet, config.dns);
+    if (config.ethDhcp) {
+        ETH.config();  // DHCP: address from the router (find the board by its device name)
+        Serial.println("Ethernet: DHCP");
+    } else {
+        ETH.config(config.ip, config.gateway, config.subnet, config.dns);
+    }
     WiFi.persistent(false);    // WiFi settings live in our config, not the WiFi driver's flash
     WiFi.mode(WIFI_OFF);       // on only when needed (backup, hotspot, scan)
     applyHostname();

@@ -7,7 +7,7 @@
 // Bump this whenever the SystemConfig struct's fields/layout change.
 // loadSettings() checks this and falls back to defaults on a mismatch,
 // so a firmware update never reads a stale/misaligned raw-byte blob.
-#define CONFIG_STRUCT_VERSION 8
+#define CONFIG_STRUCT_VERSION 9
 
 // Factory nodeID. MQTT stays off until the user changes it on the web page,
 // so two unconfigured boards can't share one name on the broker / in HA.
@@ -71,6 +71,10 @@ struct SystemConfig {
     uint32_t wifiIp, wifiGateway, wifiSubnet, wifiDns;
     char hostname[32];     // name.local and in the router; empty = from the node ID
     char apPass[64];       // setup hotspot password, 8-63 characters
+
+    // Ethernet address by DHCP (version 9). Factory default true; a board
+    // upgraded from an older version keeps its static address (loadSettings).
+    bool ethDhcp;
 };
 
 extern SystemConfig config;

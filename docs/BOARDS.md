@@ -28,8 +28,9 @@ board uses its chip's own MAC (the ESP32-S3-ETH: `2E:84:85:53:86:65`), no longer
   Opened from disk it shows a demo with made-up data. Tabs follow the URL (`/#system`).
 - Login: viewing is open; every change needs it. Until one is set, changes are refused
   (setting the first one needs none). **Forgotten login:** erase the settings partition over
-  USB; everything goes back to the defaults (IP .53 / .54, node ID `fanController_xx`, MQTT
-  login, theme, time zone America/Chicago), SD logs are kept:
+  USB; everything goes back to the defaults (Ethernet by DHCP, so open
+  http://fancontroller-xx.local; node ID `fanController_xx`, 1 fan, MQTT login, theme, time
+  zone America/Chicago, hotspot password 12345678), SD logs are kept:
   `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32s3 --port COM10 erase_region 0x610000 0x9E0000`
 - OTA: System tab, `.pio/build/<env>/firmware.bin`. The image's board name
   (`@@BOARD=<BOARD_NAME>@@`, `web_server.cpp`) must match the running board, so the other

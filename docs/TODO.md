@@ -37,8 +37,15 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
       pulled): joined Lost-Link2 by DHCP (.199, -50 dBm), MQTT and .local over WiFi, no
       restart; cable back: Ethernet in use at once, WiFi dropped ~60 s later. NOT yet tested:
       hotspot, static WiFi address
-- [ ] Network: Add block to set Static IP Address
-- [ ] Web page - Fan Control - turn the fan-channels into a table, selectable check boxes, not radio buttons. Defaults to only one, the first one listed in the firmware, and user can select additional fans at run time on the web page, but only in order; i.e., #2 is available at first start up, but #3 is not available until #2 has been selected. Grey-out unavailable fans.
+- [x] Network: Add block to set Static IP Address (it existed; now with the DHCP choice below)
+- [x] Web page - Fan Control - turn the fan-channels into a table, selectable check boxes, not radio buttons. Defaults to only one, the first one listed in the firmware, and user can select additional fans at run time on the web page, but only in order; i.e., #2 is available at first start up, but #3 is not available until #2 has been selected. Grey-out unavailable fans.
+      (2026-09-27: table with pins and live RPM; fan 1 fixed, next wired channel addable, last
+      removable; channels 3-4 "not wired" on both boards; factory default 1 fan. Saving a
+      change on the board not yet tried: needs the user's login)
+- [x] On the Network page, there needs to be the option for DHCP or Static IP, like there is on the WiFi page
+      (2026-09-27, settings version 9: new/reset boards start on DHCP, boards upgraded from an
+      older version keep their static address. Switching on the board not yet tried: needs
+      the user's login)
 
 ## Needs the board
 
@@ -61,6 +68,9 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 
 ## Use ESP32's MAC
 	- BDH
+- [x] Done with the ETH driver switch (2026-09-27, `a43d531`): Ethernet and WiFi use the chip's
+      own MACs (ESP32-S3-ETH: Ethernet 2E:84:85:53:86:65, WiFi 28:84:85:53:86:64; both on the
+      WiFi tab)
 
 
 ## Planned, no spec yet

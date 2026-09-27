@@ -211,12 +211,19 @@ static void handleStatus(NetworkClient &client) {
 static void handleGetConfig(NetworkClient &client) {
     JsonDocument doc;
     doc["fanCount"] = config.fanCount;
-    doc["maxFans"] = 2; // pins exist for 2 fans on both boards (pins.h)
+    // Every channel with its pins; -1 = not wired on this board (can't be ticked)
+    JsonArray chans = doc["channels"].to<JsonArray>();
+    for (int i = 0; i < NUM_FANS; i++) {
+        JsonObject c = chans.add<JsonObject>();
+        c["pwm"] = pwmPins[i];
+        c["tach"] = tachPins[i];
+    }
     doc["fahrenheit"] = config.isFahrenheit;
     doc["tMinC"] = serialized(String(config.tMin, 1));
     doc["tMaxC"] = serialized(String(config.tMax, 1));
     doc["tzName"] = config.tzName;
     doc["clock24"] = config.is24Hour;
+    doc["ethDhcp"] = config.ethDhcp;
     doc["ip"] = config.ip.toString();
     doc["subnet"] = config.subnet.toString();
     doc["gateway"] = config.gateway.toString();
@@ -249,7 +256,9 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
 
     if (in["fanCount"].is<int>()) {
         int n = in["fanCount"];
-        if (n < 1 || n > 2) { sendResult(client, 400, "Fan count must be 1 or 2."); return; }
+        int wired = 0;
+        while (wired < NUM_FANS && pwmPins[wired] >= 0) wired++;
+        if (n < 1 || n > wired) { sendResult(client, 400, "That fan channel isn't wired on this board."); return; }
         next.fanCount = n;
     }
     if (in["fahrenheit"].is<bool>()) next.isFahrenheit = in["fahrenheit"];
@@ -275,6 +284,7 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
     }
     if (in["clock24"].is<bool>()) next.is24Hour = in["clock24"];
 
+    if (in["ethDhcp"].is<bool>()) next.ethDhcp = in["ethDhcp"];
     const char* ipKeys[] = {"ip", "subnet", "gateway", "dns"};
     IPAddress* ipFields[] = {&next.ip, &next.subnet, &next.gateway, &next.dns};
     for (int i = 0; i < 4; i++) {
@@ -315,8 +325,9 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
     }
 
     bool tzChanged = strcmp(next.tzPosix, config.tzPosix) != 0;
-    bool networkChanged = next.ip != config.ip || next.subnet != config.subnet ||
-                          next.gateway != config.gateway || next.dns != config.dns;
+    bool networkChanged = next.ethDhcp != config.ethDhcp ||
+                          (!next.ethDhcp && (next.ip != config.ip || next.subnet != config.subnet ||
+                                             next.gateway != config.gateway || next.dns != config.dns));
     logThreshold("tMin", config.tMin, next.tMin);
     logThreshold("tMax", config.tMax, next.tMax);
     config = next;
@@ -326,6 +337,7 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
     JsonDocument out;
     out["ok"] = true;
     out["restart"] = networkChanged;
+    out["hostname"] = deviceHostname(); // where to find the page after a switch to DHCP
     sendJson(client, 200, out);
     if (tzChanged && !networkChanged) {
         client.flush();

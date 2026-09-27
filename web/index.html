@@ -144,6 +144,13 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
   color: var(--muted); cursor: pointer; font-size: .9rem; }
 .drop:hover, .drop.over { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
 .drop.has-file { border-style: solid; border-color: var(--accent); color: var(--text); }
+.fan-table { width: 100%; border-collapse: collapse; margin: 4px 0 18px; font-size: .9rem; }
+.fan-table th { text-align: left; color: var(--muted); font-weight: 500; font-size: .8rem; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.fan-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
+.fan-table td.mono { font-family: var(--mono); }
+.fan-table tr.off td { color: var(--muted); opacity: .55; }
+.fan-table input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.fan-table input[type=checkbox]:disabled { cursor: not-allowed; }
 .scan-list { display: grid; gap: 6px; margin-top: 14px; }
 .scan-item { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; text-align: left; }
@@ -235,10 +242,14 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
     <!-- ===== Fan Control ===== -->
     <section class="page" id="page-fans">
       <form class="panel" id="form-fans">
+        <h2>Fan channels</h2>
+        <table class="fan-table">
+          <thead><tr><th>Use</th><th>Channel</th><th>PWM pin</th><th>Tach pin</th><th>Speed</th></tr></thead>
+          <tbody id="fan-rows"></tbody>
+        </table>
+        <div class="hint" style="margin: -8px 0 18px">Tick the fans that are connected, in order: the next channel becomes available once the one before it is ticked; only the last ticked one can be unticked. Grey = not available (or not wired on this board).</div>
         <h2>Fan curve</h2>
         <div class="form">
-          <div class="field"><span class="label">Fans connected</span>
-            <div class="radios"><label><input type="radio" name="fanCount" value="1"> 1 fan</label><label><input type="radio" name="fanCount" value="2"> 2 fans</label></div></div>
           <div class="field"><span class="label">Temperature unit (web page and LCD)</span>
             <div class="radios"><label><input type="radio" name="unit" value="C"> Celsius</label><label><input type="radio" name="unit" value="F"> Fahrenheit</label></div></div>
           <div class="field"><label for="tMin">Fan curve start (<span class="u"></span>)</label><input type="number" id="tMin" step="0.1" required></div>
@@ -270,14 +281,15 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
     <!-- ===== Network ===== -->
     <section class="page" id="page-network">
       <form class="panel" id="form-net">
-        <h2>Static address</h2>
-        <div class="form">
-          <div class="field"><label for="ip">IP address</label><input type="text" id="ip" required></div>
-          <div class="field"><label for="subnet">Subnet mask</label><input type="text" id="subnet" required></div>
-          <div class="field"><label for="gateway">Gateway</label><input type="text" id="gateway" required></div>
-          <div class="field"><label for="dns">DNS server</label><input type="text" id="dns" required></div>
+        <h2>Ethernet address</h2>
+        <div class="radios"><label><input type="radio" name="ethMode" value="dhcp"> Automatic (DHCP)</label><label><input type="radio" name="ethMode" value="static"> Static</label></div>
+        <div class="form" id="eth-static">
+          <div class="field"><label for="ip">IP address</label><input type="text" id="ip"></div>
+          <div class="field"><label for="subnet">Subnet mask</label><input type="text" id="subnet"></div>
+          <div class="field"><label for="gateway">Gateway</label><input type="text" id="gateway"></div>
+          <div class="field"><label for="dns">DNS server</label><input type="text" id="dns"></div>
         </div>
-        <div class="hint">Changing these restarts the controller; the page moves to the new address.</div>
+        <div class="hint">Changing this restarts the controller. With DHCP the router picks the address: open the page by the device name (WiFi tab), e.g. http://fancontroller-01.local.</div>
         <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
       </form>
       <form class="panel" id="form-time">
@@ -443,7 +455,12 @@ async function save(form, body, after) {
   const msg = form.querySelector(".msg");
   try {
     const r = await api("/api/config", body);
-    if (r.restart) { showMsg(msg, "Saved. Restarting at the new address...", true); setTimeout(() => location.href = "http://" + body.ip + "/", 8000); return; }
+    if (r.restart) {
+      const target = body.ethDhcp ? r.hostname + ".local" : body.ip;
+      showMsg(msg, `Saved. Restarting; opening http://${target}/ in 10 s...`, true);
+      setTimeout(() => location.href = "http://" + target + "/", 10000);
+      return;
+    }
     showMsg(msg, "Saved.", true);
     await loadConfig();
     if (after) after();
@@ -536,6 +553,7 @@ function renderStatus() {
   $("#login-state").textContent = s.loginSet ? "A login is set. To change it, log in with the current one first." : "No login set: all changes are refused until you set one here.";
   document.querySelectorAll(".u").forEach((e) => e.textContent = "°" + unit());
   timeBase = s.timeSet ? { t: s.time, at: Date.now() } : null;
+  if ($("#page-fans").classList.contains("active")) renderFanRows();
   tickClock();
 }
 
@@ -566,6 +584,27 @@ $("#ovr-slider").onchange = async (e) => {
   sliderBusy = false;
 };
 
+// ---------- Fan channel table ----------
+let fanCount = 1;
+function renderFanRows() {
+  if (!config) return;
+  const ch = config.channels, rows = $("#fan-rows");
+  rows.innerHTML = ch.map((c, i) => {
+    const wired = c.pwm >= 0;
+    const on = i < fanCount;
+    // Only the next channel can be added, only the last one removed (fan 1 always stays)
+    const canChange = wired && i > 0 && (i === fanCount || i === fanCount - 1);
+    const live = status && status.fans[i];
+    return `<tr class="${on || canChange ? "" : "off"}">
+      <td><input type="checkbox" data-i="${i}" ${on ? "checked" : ""} ${canChange ? "" : "disabled"}></td>
+      <td>Fan ${i + 1}</td>
+      <td class="mono">${wired ? "GPIO " + c.pwm : "not wired"}</td>
+      <td class="mono">${c.tach >= 0 ? "GPIO " + c.tach : "--"}</td>
+      <td class="mono">${on && live ? live.rpm + " RPM" : "--"}</td></tr>`;
+  }).join("");
+  rows.querySelectorAll("input").forEach((cb) => cb.onchange = () => { fanCount = cb.checked ? +cb.dataset.i + 1 : +cb.dataset.i; renderFanRows(); });
+}
+
 // ---------- Config forms ----------
 const radio = (form, name) => form.querySelector(`input[name=${name}]:checked`).value;
 const setRadio = (form, name, v) => form.querySelectorAll(`input[name=${name}]`).forEach((r) => r.checked = r.value === String(v));
@@ -573,7 +612,10 @@ const setRadio = (form, name, v) => form.querySelectorAll(`input[name=${name}]`)
 async function loadConfig() {
   config = await api("/api/config");
   const c = config, f = c.fahrenheit;
-  setRadio($("#form-fans"), "fanCount", c.fanCount);
+  fanCount = c.fanCount;
+  renderFanRows();
+  setRadio($("#form-net"), "ethMode", c.ethDhcp ? "dhcp" : "static");
+  $("#eth-static").hidden = c.ethDhcp;
   setRadio($("#form-fans"), "unit", f ? "F" : "C");
   const show = (v) => (f ? v * 9 / 5 + 32 : +v).toFixed(1);
   $("#tMin").value = show(c.tMinC); $("#tMax").value = show(c.tMaxC);
@@ -593,13 +635,17 @@ $("#form-fans").querySelectorAll("input[name=unit]").forEach((r) => r.onchange =
 });
 
 $("#form-fans").onsubmit = (e) => { e.preventDefault(); const f = e.target, F = radio(f, "unit") === "F";
-  save(f, { fanCount: +radio(f, "fanCount"), fahrenheit: F, tMinC: +toC(+$("#tMin").value, F).toFixed(2), tMaxC: +toC(+$("#tMax").value, F).toFixed(2) }, pollStatus); };
+  save(f, { fanCount, fahrenheit: F, tMinC: +toC(+$("#tMin").value, F).toFixed(2), tMaxC: +toC(+$("#tMax").value, F).toFixed(2) }, pollStatus); };
 $("#form-ha").onsubmit = (e) => { e.preventDefault();
   const body = { nodeId: $("#nodeId").value.trim(), mqttBroker: $("#mqttBroker").value.trim(), mqttPort: +$("#mqttPort").value, mqttUser: $("#mqttUser").value };
   if ($("#mqttPass").value) body.mqttPass = $("#mqttPass").value;
   save(e.target, body, pollStatus); };
+$("#form-net").querySelectorAll("input[name=ethMode]").forEach((r) => r.onchange = () => $("#eth-static").hidden = r.value !== "static");
 $("#form-net").onsubmit = (e) => { e.preventDefault();
-  save(e.target, { ip: $("#ip").value.trim(), subnet: $("#subnet").value.trim(), gateway: $("#gateway").value.trim(), dns: $("#dns").value.trim() }); };
+  const dhcp = radio(e.target, "ethMode") === "dhcp";
+  const body = { ethDhcp: dhcp };
+  if (!dhcp) Object.assign(body, { ip: $("#ip").value.trim(), subnet: $("#subnet").value.trim(), gateway: $("#gateway").value.trim(), dns: $("#dns").value.trim() });
+  save(e.target, body); };
 $("#form-time").onsubmit = (e) => { e.preventDefault();
   const name = $("#time-zone").value;
   save(e.target, { tzName: name, tzPosix: TZ_ZONES[name], clock24: radio(e.target, "clock") === "24" }, pollStatus); };
@@ -805,7 +851,7 @@ function demoApi(path, body) {
       fans: [{ rpm: 690, duty: 38, fault: false }, { rpm: 0, duty: 38, fault: true }], override: false, overridePct: 100,
       sd: true, eth: true, net: "Ethernet", mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true };
   }
-  if (path === "/api/config") return { fanCount: 2, maxFans: 2, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, tzName: "America/Chicago", clock24: false,
+  if (path === "/api/config") return { fanCount: 2, channels: [{ pwm: 1, tach: 2 }, { pwm: 18, tach: 40 }, { pwm: -1, tach: -1 }, { pwm: -1, tach: -1 }], ethDhcp: false, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, tzName: "America/Chicago", clock24: false,
     ip: "192.168.10.53", subnet: "255.255.255.0", gateway: "192.168.10.1", dns: "192.168.10.11", nodeId: "fanController_01",
     defaultNodeId: "fanController_xx", mqttBroker: "192.168.10.85", mqttPort: 1883, mqttUser: "Brad", mqttPassSet: true, loginSet: true, webUser: "admin" };
   if (path === "/api/theme") return theme;
