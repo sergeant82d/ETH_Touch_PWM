@@ -72,3 +72,10 @@ The +17 KB is unexplained (likely build option differences); accepted as close.
   RPM, temperature, HA sync, SD logging against the Arduino build. Needs the board's COM port
   (and IP, to check the web page). Flashing keeps saved settings (same partition table);
   reflash from Arduino IDE to go back.
+- 2026-09-27: fixed the sensor-blackout failsafe (**untested on the board**). With both probes
+  down, `evaluateSensorFailsafes()` set full duty but `calculateFanCurve(0)` ran right after
+  and set duty 0 (0 °C < tMin), so fans stopped instead of running flat out. The check now
+  lives in `calculateFanCurve()`. First deliberate change from the Arduino source; the Arduino
+  repo still has the bug.
+- 2026-09-27: MQTT replacement for the HA REST link designed (`docs/MQTT.md`); HA side
+  verified with the simulator `tools/mqtt_sim.py`. Firmware not started.

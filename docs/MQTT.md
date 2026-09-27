@@ -1,0 +1,88 @@
+# MQTT / Home Assistant
+
+Planned replacement for the HA REST link (`home_assistant.cpp`, token, `input_number` /
+`input_boolean` helpers, `rest_command`, configuration.yaml). **Status 2026-09-27: design
+verified in HA by the user with the simulator `tools/mqtt_sim.py` and the automation below; no
+firmware yet.** Modeled on
+Wifi_Fan_Knob's `src/mqtt.cpp`.
+
+Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
+
+## Device
+
+- `nodeID` (web page setting, default `fanController_xx`) is the device name, MQTT client ID,
+  topic base and `unique_id` prefix. Letters, digits, `_`, `-` only. MQTT stays off while it
+  is still `fanController_xx`, so two unconfigured units can't fight over one name.
+- HA entity IDs are lower case: `fanController_02` + "Local temperature" becomes
+  `sensor.fancontroller_02_local_temperature`.
+- Discovery: `homeassistant/<component>/<nodeID>/<object>/config`, retained.
+- Availability: `<nodeID>/status` = `online` / `offline` (Last Will), retained.
+
+## Topics (base `<nodeID>/`)
+
+Device to HA, retained. Temperatures in °C with the temperature device class, so HA shows
+them in its own unit system. `None` = unknown (probe failed).
+
+| Object | Component | Payload | Replaces |
+|---|---|---|---|
+| `local_temp`, `network_temp`, `blended_temp` | sensor | `24.1` / `None` | attributes of `sensor.<nodeID>` |
+| `fanN_rpm` | sensor | `1450` | `fanN_rpm` attribute |
+| `fanN_duty` | sensor | `0`-`100` % | (new) |
+| `fanN_fault` | binary_sensor, problem | `ON` / `OFF` (duty > 51 of 255 and 0 RPM) | `fanN_fault` attribute |
+| `local_probe_fault`, `network_probe_fault` | binary_sensor, problem | `ON` / `OFF` | persistent notifications |
+| `t_min`, `t_max` | number, °C, 0-100, step 0.1 | `26.7` | `input_number` tmin/tmax helpers |
+| `override` | switch | `ON` / `OFF` | `input_boolean` override helper |
+| `override_speed` | number, 0-100 % | `100` | `input_number` override speed (0-255) |
+| `daily_summary` | sensor, attributes in `daily_summary/attributes` | `2026-09-26` | `sensor.<nodeID>_daily_summary` |
+| `ip`, `uptime` | sensor, diagnostic | `192.168.10.54`, seconds | (new) |
+
+HA to device (not retained): `t_min/set`, `t_max/set`, `override/set`, `override_speed/set`,
+`network_temp/set`.
+
+Rules:
+- `override/set ON` starts at 100 %, like the web page and LCD. `override_speed/set` is
+  ignored while the override is off (as now); the device republishes its real state, so
+  HA's slider snaps back.
+- The device publishes its state after every command, so HA, web page and LCD agree.
+- `network_temp/set` payload: `{"value": "24.1", "unit": "°C"}` (°F is converted). Anything
+  that doesn't parse (e.g. `"value": "unavailable"`) marks the network probe failed, as does
+  no message for 5 minutes.
+
+## HA automation: network temperature
+
+`living_room_probe_02` is a Bluetooth sensor in HA, so HA sends it to the device. Create it in
+Settings > Automations > Create > (three dots) Edit in YAML, paste, save. Set `topic` to the
+device's nodeID (`fanController_sim` for the simulator). For several controllers, add one
+`mqtt.publish` action per controller.
+
+```yaml
+alias: Fan controller - network temperature
+description: Sends living_room_probe_02 to the fan controller over MQTT (every change + every minute)
+triggers:
+  - trigger: state
+    entity_id: sensor.living_room_probe_02_temperature
+  - trigger: time_pattern
+    minutes: /1
+actions:
+  - action: mqtt.publish
+    data:
+      topic: fanController_sim/network_temp/set
+      payload: >-
+        {"value": "{{ states('sensor.living_room_probe_02_temperature') }}",
+        "unit": "{{ state_attr('sensor.living_room_probe_02_temperature', 'unit_of_measurement') }}"}
+mode: queued
+```
+
+## Simulator test checklist
+
+`python tools/mqtt_sim.py` (see its header for setup). In HA: Settings > Devices >
+MQTT > `fanController_sim`.
+
+1. Device appears with all entities; temperatures show in HA's units.
+2. Network temperature fills in within a minute of saving the automation; the simulator logs
+   `[CMD] ... network_temp/set`.
+3. Min/Max threshold changed in HA: simulator logs it, fan duty follows.
+4. Manual override on: duty 100 %; speed slider changes duty; slider while off snaps back.
+5. Type `l` in the simulator: Local probe fault on, blended = network. Type `1`: Fan 1 fault on.
+6. Disable the automation: Network probe fault on after 5 minutes.
+7. `q`: device shows unavailable. `--remove` deletes it from HA.

@@ -7,3 +7,4 @@
 
 # Secrets: keep tokens and passwords here, never in the source
 secrets.h
+tools/mqtt_secrets.json
