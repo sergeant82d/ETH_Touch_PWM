@@ -15,8 +15,9 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
       real day change
 - [ ] In HA: network temperature automation for `fanController_01` (docs/MQTT.md), optional
       fault notification automation
-- [ ] Phase 4 (in HA): remove the old helpers, rest_command and automations (list in
-      `docs/MQTT.md`), rebuild fault notifications on the MQTT problem sensors
+- [x] Phase 4 (in HA): remove the old helpers, rest_command and automations (list in
+      `docs/MQTT.md`), rebuild fault notifications on the MQTT problem sensors (done by the
+      user 2026-09-27)
 - [ ] Phase 5: update docs and success criteria (no longer "same as the Arduino build")
 
 ## Web page
