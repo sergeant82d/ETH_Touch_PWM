@@ -7,7 +7,7 @@
 // Bump this whenever the SystemConfig struct's fields/layout change.
 // loadSettings() checks this and falls back to defaults on a mismatch,
 // so a firmware update never reads a stale/misaligned raw-byte blob.
-#define CONFIG_STRUCT_VERSION 6
+#define CONFIG_STRUCT_VERSION 7
 
 // Factory nodeID. MQTT stays off until the user changes it on the web page,
 // so two unconfigured boards can't share one name on the broker / in HA.
@@ -22,7 +22,7 @@ struct SystemConfig {
     float tMin;
     float tMax;
     bool isFahrenheit;
-    int tzOffset;
+    int tzOffset;          // hours; only used if tzPosix is empty (before version 7)
     bool is24Hour;
     int fanCount;
     char nodeID[64];
@@ -55,6 +55,12 @@ struct SystemConfig {
     // no login set: the web page refuses all changes until one is set.
     char webUser[32];
     char webPass[64];      // never sent to the web page
+
+    // Time zone (version 7): IANA name for the web page, POSIX rule for the
+    // clock (daylight saving included), e.g. "America/Chicago",
+    // "CST6CDT,M3.2.0,M11.1.0". Rules: posix_tz_db, in web/index.html.
+    char tzName[48];
+    char tzPosix[64];
 };
 
 extern SystemConfig config;

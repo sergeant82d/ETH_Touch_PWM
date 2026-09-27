@@ -15,6 +15,11 @@ void networkInit();
 // Blocking NTP time fetch (used as the TimeLib sync provider).
 time_t getNtpTime();
 
+// Sets the clock's time zone rule from config.tzPosix (or the old hour
+// offset). getNtpTime() then returns local time with daylight saving,
+// re-checked at every sync. Call after loadSettings() and after a change.
+void applyTimeZone();
+
 // True if the W5500's physical Ethernet link is up (checks the actual
 // hardware link-detect state, not just whether an IP is assigned - with
 // a static IP config, the IP would still show as "assigned" even with

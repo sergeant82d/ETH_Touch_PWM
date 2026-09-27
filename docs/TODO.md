@@ -27,6 +27,12 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
       screenshots). User check in a browser pending; replace the temporary login.
 - [ ] Classic dark theme uses the Wifi_Fan_Knob gold/navy colours: confirm or change
 - [ ] Later from the Claude web plans: Home tab notes, history viewer
+- [ ] Time zone picker (Network tab, IANA zones + POSIX rules from Wifi_Fan_Knob, daylight
+      saving automatic; settings version 7). Done 2026-09-27; clock checked against the PC.
+      Changing the zone on the page not yet tried (needs the user's login)
+- [ ] Network: switch Ethernet to the core's ETH driver (lwIP), then WiFi as a backup when
+      Ethernet is down, plus the setup hotspot; WiFi page like Wifi_Fan_Knob's (user
+      decisions 2026-09-27)
 
 ## Needs the board
 

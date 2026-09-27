@@ -183,7 +183,8 @@ static void handleStatus(EthernetClient &client) {
     doc["uptime"] = millis() / 1000;
     doc["heap"] = ESP.getFreeHeap();
     doc["timeSet"] = timeStatus() != timeNotSet;
-    doc["time"] = (uint32_t)now(); // local time (NTP + tzOffset), seconds
+    doc["time"] = (uint32_t)now(); // local time (NTP + time zone rule), seconds
+    doc["tz"] = config.tzName;
     doc["fahrenheit"] = config.isFahrenheit;
     doc["clock24"] = config.is24Hour;
     addTemp(doc["local"].to<JsonObject>(), localSensorHealthy, localTempC);
@@ -213,7 +214,7 @@ static void handleGetConfig(EthernetClient &client) {
     doc["fahrenheit"] = config.isFahrenheit;
     doc["tMinC"] = serialized(String(config.tMin, 1));
     doc["tMaxC"] = serialized(String(config.tMax, 1));
-    doc["tzOffset"] = config.tzOffset;
+    doc["tzName"] = config.tzName;
     doc["clock24"] = config.is24Hour;
     doc["ip"] = config.ip.toString();
     doc["subnet"] = config.subnet.toString();
@@ -259,10 +260,17 @@ static void handlePostConfig(EthernetClient &client, const Request &req) {
         next.tMin = lo;
         next.tMax = hi;
     }
-    if (in["tzOffset"].is<int>()) {
-        int tz = in["tzOffset"];
-        if (tz < -12 || tz > 14) { sendResult(client, 400, "Time zone offset must be -12 to 14."); return; }
-        next.tzOffset = tz;
+    if (in["tzName"].is<const char*>() || in["tzPosix"].is<const char*>()) {
+        // Name for the page, rule for the clock (the page's zone table has both)
+        String name = in["tzName"] | "";
+        String rule = in["tzPosix"] | "";
+        bool ok = name.length() > 0 && name.length() < sizeof(next.tzName) &&
+                  rule.length() > 0 && rule.length() < sizeof(next.tzPosix);
+        for (size_t i = 0; ok && i < name.length(); i++) ok = isalnum((unsigned char)name[i]) || strchr("_/+-", name[i]);
+        for (size_t i = 0; ok && i < rule.length(); i++) ok = isalnum((unsigned char)rule[i]) || strchr("<>+-,.:/", rule[i]);
+        if (!ok) { sendResult(client, 400, "Invalid time zone."); return; }
+        strlcpy(next.tzName, name.c_str(), sizeof(next.tzName));
+        strlcpy(next.tzPosix, rule.c_str(), sizeof(next.tzPosix));
     }
     if (in["clock24"].is<bool>()) next.is24Hour = in["clock24"];
 
@@ -305,6 +313,7 @@ static void handlePostConfig(EthernetClient &client, const Request &req) {
         if (p.length()) strlcpy(next.mqttPass, p.c_str(), sizeof(next.mqttPass));
     }
 
+    bool tzChanged = strcmp(next.tzPosix, config.tzPosix) != 0;
     bool networkChanged = next.ip != config.ip || next.subnet != config.subnet ||
                           next.gateway != config.gateway || next.dns != config.dns;
     logThreshold("tMin", config.tMin, next.tMin);
@@ -317,6 +326,11 @@ static void handlePostConfig(EthernetClient &client, const Request &req) {
     out["ok"] = true;
     out["restart"] = networkChanged;
     sendJson(client, 200, out);
+    if (tzChanged && !networkChanged) {
+        client.flush();
+        applyTimeZone();
+        setSyncProvider(getNtpTime); // re-syncs now (up to ~5 s) with the new rule
+    }
     if (networkChanged) {
         // Margin for the settings write to commit and LittleFS to unmount
         // before the reset (a restart too soon after a write once corrupted

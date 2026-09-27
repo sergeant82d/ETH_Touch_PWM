@@ -27,7 +27,7 @@ Both still use the same MAC `DE:AD:BE:EF:FE:ED` (`network.cpp`); see `docs/TODO.
 - Login: viewing is open; every change needs it. Until one is set, changes are refused
   (setting the first one needs none). **Forgotten login:** erase the settings partition over
   USB; everything goes back to the defaults (IP .53 / .54, node ID `fanController_xx`, MQTT
-  login, theme), SD logs are kept:
+  login, theme, time zone America/Chicago), SD logs are kept:
   `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32s3 --port COM10 erase_region 0x610000 0x9E0000`
 - OTA: System tab, `.pio/build/<env>/firmware.bin`. The image's board name
   (`@@BOARD=<BOARD_NAME>@@`, `web_server.cpp`) must match the running board, so the other

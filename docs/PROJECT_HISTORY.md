@@ -111,4 +111,8 @@ The +17 KB is unexplained (likely build option differences); accepted as close.
   headless Edge (`msedge --headless=new --screenshot=... --window-size=W,H URL`; its minimum
   width is ~500 px, narrower shots are cropped, not reflowed).
 
+- 2026-09-27: time zone picker (settings version 7: `tzName`, `tzPosix`). The clock stays in
+  local time for the rest of the firmware; `getNtpTime()` converts UTC with the POSIX rule
+  at each sync, so daylight saving follows within 5 minutes. `tzOffset` is only a fallback.
+
 Open items: `docs/TODO.md`.

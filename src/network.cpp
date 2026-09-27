@@ -2,6 +2,8 @@
 #include "pins.h"
 #include "config.h"
 #include <SPI.h>
+#include <TimeLib.h>
+#include <time.h>
 
 static byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
@@ -14,6 +16,35 @@ static const unsigned int localPortUDP = 8888;
 static const char* ntpServerName = "pool.ntp.org";
 static const int NTP_PACKET_SIZE = 48;
 static byte packetBuffer[NTP_PACKET_SIZE];
+
+void applyTimeZone() {
+    char rule[64];
+    if (config.tzPosix[0]) {
+        strlcpy(rule, config.tzPosix, sizeof(rule));
+    } else {
+        // Old fixed offset: POSIX counts the other way (UTC-5 is "UTC5")
+        snprintf(rule, sizeof(rule), "UTC%d", -config.tzOffset);
+    }
+    setenv("TZ", rule, 1);
+    tzset();
+    Serial.print("Time zone: "); Serial.print(config.tzName); Serial.print(" ("); Serial.print(rule); Serial.println(")");
+}
+
+// UTC -> local wall-clock time as a TimeLib time (the rest of the firmware
+// uses local time: LCD, SD log, day change, web page)
+static time_t toLocal(time_t utc) {
+    struct tm lt;
+    localtime_r(&utc, &lt);
+    tmElements_t te;
+    te.Second = lt.tm_sec;
+    te.Minute = lt.tm_min;
+    te.Hour = lt.tm_hour;
+    te.Wday = lt.tm_wday + 1;
+    te.Day = lt.tm_mday;
+    te.Month = lt.tm_mon + 1;
+    te.Year = lt.tm_year + 1900 - 1970;
+    return makeTime(te);
+}
 
 static void sendNTPpacket(const char* address) {
     memset(packetBuffer, 0, NTP_PACKET_SIZE);
@@ -61,7 +92,7 @@ time_t getNtpTime() {
 
                 unsigned long secsSince1970 = secsSince1900 - 2208988800UL;
                 Serial.print("NTP sync successful on attempt "); Serial.println(attempt);
-                return secsSince1970 + (config.tzOffset * 3600);
+                return toLocal((time_t)secsSince1970);
             }
         }
 

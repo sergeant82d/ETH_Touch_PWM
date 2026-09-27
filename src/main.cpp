@@ -95,6 +95,7 @@ void setup() {
     Serial.println("DIAGNOSTIC: touch disabled for this run (TOUCH_ENABLED=0).");
 #endif
 
+    applyTimeZone();
     setSyncProvider(getNtpTime);
     setSyncInterval(300);
 
