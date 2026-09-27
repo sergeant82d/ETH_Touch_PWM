@@ -1,14 +1,18 @@
 # ETH_Touch_PWM
 
-Two-channel 25 kHz PWM fan controller with Ethernet, touch LCD, DS18B20 probe, SD logging,
-web config page and Home Assistant sync. PlatformIO port of the Arduino IDE sketch
-`ESP32_S3_FanController_2inch` from
-https://github.com/sergeant82d/ESP32S3-Ethernet-Fan-Controller (commit `c23de85`; `main.cpp`
-is the touch-enabled version of the `.ino`). That repo stays as the Arduino reference.
+Two-channel 25 kHz PWM fan controller: DS18B20 probe plus a network temperature from Home
+Assistant, fan curve with failsafes, SD logging, a web page (tabs, themes, login, OTA),
+Home Assistant over MQTT (discovery), Ethernet with a WiFi backup and a setup hotspot, and
+a touch LCD on the board that has one. Two boards from one code base (`docs/BOARDS.md`).
 
-**Read `docs/PROJECT_HISTORY.md` first:** origin, build settings and why, Windows build
-gotchas, size baseline, current status. Open items: `docs/TODO.md`. Home Assistant is moving
-from REST to MQTT: `docs/MQTT.md` (topics, phases, HA cleanup list).
+Started 2026-09-27 as a PlatformIO port of the Arduino IDE sketch
+`ESP32_S3_FanController_2inch` (https://github.com/sergeant82d/ESP32S3-Ethernet-Fan-Controller,
+commit `c23de85`); that repo stays as the Arduino reference and is not changed from here.
+
+**Read `docs/PROJECT_HISTORY.md` first:** current status, build settings and why, Windows
+build gotchas, what was learned. Open items: `docs/TODO.md`. Home Assistant (MQTT topics,
+entities, the HA automations it needs): `docs/MQTT.md`. Boards, pins, OTA, login recovery,
+WiFi/hotspot: `docs/BOARDS.md`.
 
 ## Working principles
 
@@ -47,7 +51,10 @@ from REST to MQTT: `docs/MQTT.md` (topics, phases, HA cleanup list).
   Needs Windows long paths enabled.
 - Partitions `app3M_fat9M_16MB.csv`: LittleFS lives on the `ffat` partition (see `config.cpp`).
   Changing the partition table wipes saved settings.
-- Library versions in `platformio.ini` are pinned to the Arduino IDE ones. Change deliberately.
+- Library versions in `platformio.ini` are pinned (the Arduino IDE ones, plus PubSubClient 2.8
+  and the core's own SD / Ethernet (ETH) / Network libraries). Change deliberately.
+- Settings are a raw struct in LittleFS (`config.h`). New fields go at the end with a version
+  bump; `loadSettings()` upgrades older files in place (see the size notes in `config.cpp`).
 
 ## Rules
 
@@ -58,10 +65,21 @@ from REST to MQTT: `docs/MQTT.md` (topics, phases, HA cleanup list).
 - Mark anything not tested on the board as untested, in commit messages and docs.
 - Commit and push when the user confirms a change works on the board.
 
-## Conversion success criteria
+## Success criteria
 
-1. Builds in PlatformIO.
-2. Flashed, it behaves like the Arduino build: display, touch, Ethernet/web page, fan PWM
-   and RPM, temperature, HA sync, SD logging.
-3. Flash and RAM use are close to the Arduino build (Arduino IDE, 2026-09-27: sketch 549,279
-   bytes of 3,145,728; globals 26,956 bytes).
+Since the move to MQTT (2026-09-27) the firmware does far more than the Arduino build, so it
+is no longer measured against it (the original port criteria and size baseline are in
+`docs/PROJECT_HISTORY.md`).
+
+1. Both environments (`waveshare_s3_lcd2`, `waveshare_s3_eth`) build with no new warnings.
+2. On each board, checked after a change that touches it:
+   - Fans: PWM and RPM per active channel, fan curve, manual override, both-probes-failed
+     failsafe (full speed).
+   - Temperatures: local probe, network temperature from HA, blending.
+   - Home Assistant: entities appear, controls work both ways, availability, daily summary.
+   - Web page: every tab, login, OTA (and refusal of the other board's firmware).
+   - Network: Ethernet (static and DHCP), WiFi backup and back, hotspot, device name (.local).
+   - SD logging; LCD and touch (Touch-LCD-2 only).
+3. Settings survive every firmware update (older settings files upgrade in place).
+4. Size: the app image stays under ~2.5 MB (80 % of the 3 MB OTA slot) and free heap at run
+   time above ~150 KB (System tab). 2026-09-27: 1.36 / 1.39 MB, heap ~255 KB (ESP32-S3-ETH).

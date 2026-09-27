@@ -13,12 +13,14 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 - [ ] Phase 3: network temperature and daily summary over MQTT; REST code, token and fields
       removed. Code done and tested on the ESP32-S3-ETH 2026-09-27; daily summary waits for a
       real day change
-- [ ] In HA: network temperature automation for `fanController_01` (docs/MQTT.md), optional
-      fault notification automation
+- [x] In HA: network temperature automation for `fanController_01` (docs/MQTT.md), optional
+      fault notification automation (both set up by the user 2026-09-27)
 - [x] Phase 4 (in HA): remove the old helpers, rest_command and automations (list in
       `docs/MQTT.md`), rebuild fault notifications on the MQTT problem sensors (done by the
       user 2026-09-27)
-- [ ] Phase 5: update docs and success criteria (no longer "same as the Arduino build")
+- [x] Phase 5: update docs and success criteria (no longer "same as the Arduino build")
+      (2026-09-27: CLAUDE.md criteria, PROJECT_HISTORY status)
+- [ ] Merge `mqtt` into `main` (user's call)
 
 ## Web page
 
@@ -49,7 +51,8 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 
 ## Needs the board
 
-- [ ] Success criterion 2: flash and compare with the Arduino build
+- [ ] Touch-LCD-2: first flash of the current firmware and the checks in CLAUDE.md's success
+      criteria (replaces "compare with the Arduino build")
 - [ ] **Pin remap** (PWM2 = GPIO 6, TACH1 = GPIO 4, TACH2 = GPIO 16) was never tested. Check the
       wiring matches before the first flash
 - [ ] Sensor-blackout failsafe fix (`918439d`): both probes down = both fans full speed

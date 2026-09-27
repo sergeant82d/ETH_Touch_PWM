@@ -1,7 +1,23 @@
 # Project history
 
-How this project came to be, and what was learned setting it up (2026-09-27). Read this before
-starting work; it saves re-discovering things.
+How this project came to be, and what was learned (2026-09-27). Read this before starting
+work; it saves re-discovering things.
+
+## Current status (2026-09-27)
+
+- Branch `mqtt` holds all the work below; `main` is still the plain port (`be88824`) plus the
+  header move. Merge when the user decides.
+- **ESP32-S3-ETH (fan_controller_01, COM10):** runs the current firmware. Tested on it: fans,
+  probe, network temperature from HA, MQTT/HA (all phases), web page with login and OTA,
+  Ethernet static and DHCP, WiFi backup and back, device name, settings upgrades v5 to v9.
+  Not yet: setup hotspot, static WiFi address, daily summary at a real day change.
+- **Touch-LCD-2 (fan_controller_02):** builds, but has run none of this. First flash: check
+  the pin remap wiring first (`docs/TODO.md`), then LCD, touch, the settings upgrade from
+  version 4, and the sensor-blackout failsafe fix.
+- **Home Assistant:** MQTT only (REST link, token and helpers removed, HA cleanup done); needs
+  the network temperature automation (set up) and optionally the fault notifications (set
+  up). `docs/MQTT.md`.
+- Success criteria: `CLAUDE.md`.
 
 ## Origin
 
@@ -33,7 +49,7 @@ Taken from the Arduino IDE Tools menu used for the working board:
 
 - **Partition scheme matters.** Settings live in LittleFS on the partition named `ffat`
   (`config.cpp`), which exists only in this scheme. A different scheme loses saved settings
-  (including the HA token) on the next flash. The built table matches the board's: app0/app1
+  (login, MQTT, WiFi, ...) on the next flash. Its two 3 MB app slots are what OTA uses. The built table matches the board's: app0/app1
   3 MB, `ffat` at 0x610000.
 - **SD library:** the Adafruit ST7789 library declares `SD` as a dependency, so PlatformIO
   installs the generic Arduino SD 1.3.0 and prefers it over the core's. `platformio.ini`
@@ -61,29 +77,35 @@ Taken from the Arduino IDE Tools menu used for the working board:
 - The board profile header reads "8 MB, No PSRAM"; that is the generic devkit description.
   The `platformio.ini` overrides apply.
 
-## Size baseline (success criterion 3)
+## Size
+
+The original port's criterion (close to the Arduino build):
 
 | | Arduino IDE | PlatformIO (`be88824`) |
 |---|---|---|
 | Program | 549,279 B | ~566,700 B (+3 %) |
 | Global variables | 26,956 B | 27,028 B |
 
-The +17 KB is unexplained (likely build option differences); accepted as close.
+The +17 KB was unexplained (likely build option differences); accepted as close. Since then
+(2026-09-27, `firmware.bin`): ESP32-S3-ETH 1,358,144 B, Touch-LCD-2 1,390,736 B of the
+3,145,728 B app slot; the ESP-IDF network stack (+246 KB) and WiFi (+466 KB) are most of the
+growth. Current limit: `CLAUDE.md`, success criteria.
 
 ## Secrets
 
 - Two Home Assistant tokens were once committed to the Arduino repo (a `HA_Token-6.txt` and
   one hard-coded in an old `.ino`). Both, and all other old tokens, were revoked 2026-09-27.
-- The HA token is entered on the web page and stored on the board. Anything else secret goes
-  in git-ignored `secrets.h`. Never commit tokens.
+- Since MQTT Phase 3 the firmware needs no HA token; its stored copy is wiped at boot. The
+  MQTT, web and WiFi passwords are entered on the web page and never sent back to it. The
+  simulator's login is in git-ignored `tools/mqtt_secrets.json`, anything else secret in
+  git-ignored `secrets.h`. Never commit tokens or passwords. Flash backups (they contain
+  settings) live outside the repo (`../ETH_Touch_PWM_backups`).
 
-## Status
+## Log
 
-- Done: project created, builds (criterion 1), size close (criterion 3). Commit `be88824`.
-- Open: criterion 2, flash the board and check display, touch, Ethernet/web page, fan PWM and
-  RPM, temperature, HA sync, SD logging against the Arduino build. Needs the board's COM port
-  (and IP, to check the web page). Flashing keeps saved settings (same partition table);
-  reflash from Arduino IDE to go back.
+- 2026-09-27: port created, builds, size close to the Arduino build (`be88824`). Comparing it
+  on the board with the Arduino build (the original criterion 2) was overtaken by the MQTT
+  work; the Touch-LCD-2 checks are now in `docs/TODO.md`.
 - 2026-09-27: fixed the sensor-blackout failsafe (**untested on the board**). With both probes
   down, `evaluateSensorFailsafes()` set full duty but `calculateFanCurve(0)` ran right after
   and set duty 0 (0 °C < tMin), so fans stopped instead of running flat out. The check now
@@ -91,7 +113,7 @@ The +17 KB is unexplained (likely build option differences); accepted as close.
   repo still has the bug.
 - 2026-09-27: MQTT replacement for the HA REST link designed (`docs/MQTT.md`); HA side
   verified with the simulator `tools/mqtt_sim.py`.
-- 2026-09-27: MQTT Phase 1 (**untested on the board**): settings version 5 (v4 files upgraded,
+- 2026-09-27: MQTT Phase 1 (later tested on the ESP32-S3-ETH): settings version 5 (v4 files upgraded,
   settings kept), default node ID `fanController_xx` (MQTT off until changed), web page MQTT
   section, read-only sensors. NTP back to `pool.ntp.org`. Build: 582,995 B flash, 27,596 B
   RAM (+16 KB / +0.6 KB over `be88824`, mostly PubSubClient and the MQTT code).
@@ -126,6 +148,9 @@ The +17 KB is unexplained (likely build option differences); accepted as close.
 
 - 2026-09-27: WiFi backup + setup hotspot + device name (settings version 8), WiFi tab like
   Wifi_Fan_Knob's. State machine in `networkLoop()` (fan_network.cpp). Image 1.32 MB (WiFi
-  stack +466 KB), 42 % of the app slot.
+  stack +466 KB), 42 % of the app slot. Failover tested with the cable pulled and back.
+- 2026-09-27: Ethernet DHCP option (settings version 9; new boards start on DHCP, upgraded ones
+  keep their static address) and the fan channel table; both tested by the user. HA cleanup
+  (Phase 4) done by the user. Docs and success criteria updated (Phase 5).
 
 Open items: `docs/TODO.md`.
