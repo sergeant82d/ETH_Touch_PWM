@@ -6,6 +6,9 @@ web config page and Home Assistant sync. PlatformIO port of the Arduino IDE sket
 https://github.com/sergeant82d/ESP32S3-Ethernet-Fan-Controller (commit `c23de85`; `main.cpp`
 is the touch-enabled version of the `.ino`). That repo stays as the Arduino reference.
 
+**Read `docs/PROJECT_HISTORY.md` first:** origin, build settings and why, Windows build
+gotchas, size baseline, current status.
+
 ## Working principles
 
 - Don't assume. Don't hide confusion. Surface tradeoffs.
