@@ -57,6 +57,12 @@ const char* SKETCH_FILENAME = "ETH_Touch_PWM (PlatformIO, " BOARD_NAME ")";
 
 void setup() {
     Serial.begin(115200);
+    // Native USB (USB-Serial/JTAG): with the cable in a PC that isn't reading
+    // the port (e.g. after a flash or a closed serial monitor), each write
+    // retries 20x the TX timeout (100 ms default) - ~2 s per Serial.print.
+    // That stalled loop() long enough to drop MQTT and the web page
+    // (2026-09-27). 0 = never wait: output is dropped when nobody reads.
+    Serial.setTxTimeoutMs(0);
     delay(2000);
 
     // NOTE: this partition scheme (app3M_fat9M_16MB, chosen for OTA support)
