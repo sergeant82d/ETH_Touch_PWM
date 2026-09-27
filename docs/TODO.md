@@ -40,12 +40,11 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 - [x] Network: Add block to set Static IP Address (it existed; now with the DHCP choice below)
 - [x] Web page - Fan Control - turn the fan-channels into a table, selectable check boxes, not radio buttons. Defaults to only one, the first one listed in the firmware, and user can select additional fans at run time on the web page, but only in order; i.e., #2 is available at first start up, but #3 is not available until #2 has been selected. Grey-out unavailable fans.
       (2026-09-27: table with pins and live RPM; fan 1 fixed, next wired channel addable, last
-      removable; channels 3-4 "not wired" on both boards; factory default 1 fan. Saving a
-      change on the board not yet tried: needs the user's login)
+      removable; channels 3-4 "not wired" on both boards; factory default 1 fan. User tested
+      2026-09-27: removing and re-adding fan 2 updated HA quickly)
 - [x] On the Network page, there needs to be the option for DHCP or Static IP, like there is on the WiFi page
       (2026-09-27, settings version 9: new/reset boards start on DHCP, boards upgraded from an
-      older version keep their static address. Switching on the board not yet tried: needs
-      the user's login)
+      older version keep their static address. Switching to DHCP on the board: NOT tested)
 
 ## Needs the board
 
