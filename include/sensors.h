@@ -27,8 +27,8 @@ extern bool totalAlertSent;
 
 // Manual fan-speed override (bookmarked feature: touch UI framework).
 // Per the boot-behavior rule, this always starts false - override never
-// persists across reboot, and the sensor-loss failsafe in
-// evaluateSensorFailsafes() takes priority over it regardless of state.
+// persists across reboot, and the sensor-loss failsafe (both probes down =
+// full duty, in calculateFanCurve()) takes priority over it regardless of state.
 extern bool manualOverrideActive;
 extern int manualOverrideDutyCycle; // 0-255, only meaningful when active
 

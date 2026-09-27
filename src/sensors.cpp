@@ -63,10 +63,13 @@ void calculateFanCurve(float targetTemp) {
     int targetDuty = 0;
 
     // Manual override takes priority over the auto curve, per spec - but
-    // NOT over the total-sensor-blackout failsafe, which forces full duty
-    // directly in evaluateSensorFailsafes() without going through this
-    // function at all, so that path is unaffected by override state.
-    if (manualOverrideActive) {
+    // NOT over the total-sensor-blackout failsafe. Checked here because
+    // loop() calls this right after evaluateSensorFailsafes(): with both
+    // probes down blendedAverageC is 0, which is below tMin, so the curve
+    // alone would switch the fans off every second instead of full duty.
+    if (!localSensorHealthy && !networkSensorHealthy) {
+        targetDuty = 255;
+    } else if (manualOverrideActive) {
         targetDuty = manualOverrideDutyCycle;
     } else if (config.tMax <= config.tMin) {
         targetDuty = 255; // corrupt thresholds -> fail safe to full power
