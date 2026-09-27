@@ -44,7 +44,7 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
       2026-09-27: removing and re-adding fan 2 updated HA quickly)
 - [x] On the Network page, there needs to be the option for DHCP or Static IP, like there is on the WiFi page
       (2026-09-27, settings version 9: new/reset boards start on DHCP, boards upgraded from an
-      older version keep their static address. Switching to DHCP on the board: NOT tested)
+      older version keep their static address. User tested DHCP on the ESP32-S3-ETH 2026-09-27: works)
 
 ## Needs the board
 
