@@ -12,7 +12,8 @@ commit `c23de85`); that repo stays as the Arduino reference and is not changed f
 **Read `docs/PROJECT_HISTORY.md` first:** current status, build settings and why, Windows
 build gotchas, what was learned. Open items: `docs/TODO.md`. Home Assistant (MQTT topics,
 entities, the HA automations it needs): `docs/MQTT.md`. Boards, pins, OTA, login recovery,
-WiFi/hotspot: `docs/BOARDS.md`.
+WiFi/hotspot: `docs/BOARDS.md`. End-of-day status reports (written when the user asks):
+`docs/Status_Reports/STATUS_REPORT_NN.md`, next number each session day.
 
 ## Working principles
 
