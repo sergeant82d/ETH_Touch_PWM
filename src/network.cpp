@@ -9,7 +9,9 @@ EthernetServer server(80);
 EthernetUDP Udp;
 
 static const unsigned int localPortUDP = 8888;
-static const char* ntpServerName = "162.159.200.1"; // TEMP: Cloudflare NTP, bypasses DNS for diagnosis - revert to "pool.ntp.org" once resolved
+// A hard-coded Cloudflare IP was used while diagnosing the NTP first-packet
+// drop; DNS was ruled out, so this is back to the pool (resolved via config.dns).
+static const char* ntpServerName = "pool.ntp.org";
 static const int NTP_PACKET_SIZE = 48;
 static byte packetBuffer[NTP_PACKET_SIZE];
 

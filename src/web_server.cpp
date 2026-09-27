@@ -2,6 +2,7 @@
 #include "config.h"
 #include "sensors.h"
 #include "home_assistant.h"
+#include "mqtt.h"
 #include "sd_logger.h"
 #include <TimeLib.h>
 #include <LittleFS.h>
@@ -202,8 +203,45 @@ void handleNativeWebTraffic(EthernetClient& client) {
         String nodeParam = getUrlParam(body, "nodeid=");
         if (nodeParam.length() > 0) {
             nodeParam.replace(" ", "_");
-            strncpy(config.nodeID, nodeParam.c_str(), sizeof(config.nodeID) - 1);
-            config.nodeID[sizeof(config.nodeID) - 1] = '\0';
+            // Part of MQTT topics - refuse anything else (the form's pattern
+            // attribute stops this in the browser already)
+            if (isValidNodeId(nodeParam.c_str())) {
+                strncpy(config.nodeID, nodeParam.c_str(), sizeof(config.nodeID) - 1);
+                config.nodeID[sizeof(config.nodeID) - 1] = '\0';
+            } else {
+                Serial.println("Node ID rejected: letters, digits, _ and - only.");
+            }
+        }
+
+        // MQTT, only when the form sent it (a blank broker means "off", so a
+        // request without these fields must not clear it). Host names / IPs
+        // only; the user name must not break the form's value='...'
+        // attribute. Blank password = keep the saved one.
+        if (body.indexOf("mqtthost=") != -1) {
+            String brokerParam = getUrlParam(body, "mqtthost=");
+            brokerParam.trim();
+            bool brokerOk = true;
+            for (size_t i = 0; i < brokerParam.length(); i++) {
+                char c = brokerParam[i];
+                if (!isalnum((unsigned char)c) && c != '.' && c != '-') brokerOk = false;
+            }
+            if (brokerOk && brokerParam.length() < sizeof(config.mqttBroker)) {
+                strcpy(config.mqttBroker, brokerParam.c_str());
+            }
+
+            int mqttPortParam = getUrlParam(body, "mqttport=").toInt();
+            if (mqttPortParam > 0 && mqttPortParam <= 65535) config.mqttPort = mqttPortParam;
+
+            String userParam = getUrlParam(body, "mqttuser=");
+            if (userParam.indexOf('\'') == -1 && userParam.indexOf('<') == -1 && userParam.indexOf('"') == -1 &&
+                userParam.length() < sizeof(config.mqttUser)) {
+                strcpy(config.mqttUser, userParam.c_str());
+            }
+
+            String passParam = getUrlParam(body, "mqttpass=");
+            if (passParam.length() > 0 && passParam.length() < sizeof(config.mqttPass)) {
+                strcpy(config.mqttPass, passParam.c_str());
+            }
         }
 
         String hostParam = getUrlParam(body, "hahost=");
@@ -254,6 +292,7 @@ void handleNativeWebTraffic(EthernetClient& client) {
         }
 
         saveSettings();
+        mqttReconfigure(); // reconnect with the new node ID / broker / fan count
         regularSettingsChanged = true;
     }
 
@@ -464,10 +503,21 @@ void handleNativeWebTraffic(EthernetClient& client) {
     client.print("Gateway: <input type='text' name='gw' value='"); client.print(config.gateway.toString()); client.println("'>");
     client.print("DNS Server: <input type='text' name='dns' value='"); client.print(config.dns.toString()); client.println("'>");
 
-    client.println("<h3>Home Assistant Integration</h3>");
+    // MQTT: Home Assistant finds the device by itself (discovery). The
+    // password is never sent to the browser; blank = keep the saved one.
+    client.println("<h3>MQTT (Home Assistant)</h3>");
+    client.print("<div class='card-large' style='text-align:left;'><strong>Status:</strong> "); client.print(mqttStatusText()); client.println("</div>");
+    client.print("Node ID (device name in HA, MQTT topics): <input type='text' name='nodeid' value='"); client.print(config.nodeID);
+    client.println("' placeholder='e.g., fanController_02' maxlength='63' pattern='[A-Za-z0-9_\\-]+' title='Letters, digits, _ and - only'>");
+    client.print("Broker IP / Host (blank = MQTT off): <input type='text' name='mqtthost' value='"); client.print(config.mqttBroker); client.println("' placeholder='e.g., 192.168.10.85' maxlength='63'>");
+    client.print("Broker Port: <input type='number' name='mqttport' value='"); client.print(config.mqttPort); client.println("' min='1' max='65535'>");
+    client.print("User Name: <input type='text' name='mqttuser' value='"); client.print(config.mqttUser); client.println("' maxlength='31' autocomplete='off'>");
+    client.print("Password: <input type='password' name='mqttpass' value='' maxlength='63' autocomplete='new-password' placeholder='");
+    client.print(config.mqttPass[0] ? "(saved - leave blank to keep)" : "(not set)"); client.println("'>");
+
+    client.println("<h3>Home Assistant REST (being replaced by MQTT)</h3>");
     client.print("Server IP / Host: <input type='text' name='hahost' value='"); client.print(config.haHost); client.println("' placeholder='e.g., 192.168.10.85' maxlength='63'>");
     client.print("Server API Port: <input type='text' name='haport' value='"); client.print(config.haPort); client.println("' placeholder='e.g., 8123' maxlength='10'>");
-    client.print("Outbound Entity ID: <input type='text' name='nodeid' value='"); client.print(config.nodeID); client.println("' placeholder='e.g., fan_controller_01' maxlength='63'>");
     client.print("Inbound Sensor ID: <input type='text' name='hasensor' value='"); client.print(config.haSensor); client.println("' placeholder='e.g., rack_temperature' maxlength='63'>");
     client.print("Min Threshold input_number Entity: <input type='text' name='hatminentity' value='"); client.print(config.haTMinEntity); client.println("' placeholder='e.g., input_number.fan_ctrl_01_tmin' maxlength='63'>");
     client.print("Max Threshold input_number Entity: <input type='text' name='hatmaxentity' value='"); client.print(config.haTMaxEntity); client.println("' placeholder='e.g., input_number.fan_ctrl_01_tmax' maxlength='63'>");

@@ -6,6 +6,15 @@
 #include <ArduinoJson.h>
 #include <math.h>
 
+// HA entity IDs are lower case only; nodeID may have capitals
+// ("fanController_02") since it also names the MQTT device.
+static String haEntityNode() {
+    String s(config.nodeID);
+    s.toLowerCase();
+    s.replace('-', '_');
+    return s;
+}
+
 void sendHomeAssistantVoiceAlert(const String &alertMessage) {
     EthernetClient client;
     if (!client.connect(config.haHost, config.haPort)) return;
@@ -108,7 +117,7 @@ void fetchHomeAssistantTemperature() {
     String jsonPayload;
     serializeJson(outboundDoc, jsonPayload);
 
-    String postRoute = "POST /api/states/sensor." + String(config.nodeID) + " HTTP/1.1";
+    String postRoute = "POST /api/states/sensor." + haEntityNode() + " HTTP/1.1";
     client.println(postRoute);
     client.print("Host: "); client.println(config.haHost);
     client.print("Authorization: "); client.println(config.haToken);
@@ -398,7 +407,7 @@ void pushDailyRollupToHA(const String &date,
     String jsonPayload;
     serializeJson(doc, jsonPayload);
 
-    String route = "POST /api/states/sensor." + String(config.nodeID) + "_daily_summary HTTP/1.1";
+    String route = "POST /api/states/sensor." + haEntityNode() + "_daily_summary HTTP/1.1";
     client.println(route);
     client.print("Host: "); client.println(config.haHost);
     client.print("Authorization: "); client.println(config.haToken);

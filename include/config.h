@@ -7,7 +7,11 @@
 // Bump this whenever the SystemConfig struct's fields/layout change.
 // loadSettings() checks this and falls back to defaults on a mismatch,
 // so a firmware update never reads a stale/misaligned raw-byte blob.
-#define CONFIG_STRUCT_VERSION 4
+#define CONFIG_STRUCT_VERSION 5
+
+// Factory nodeID. MQTT stays off until the user changes it on the web page,
+// so two unconfigured boards can't share one name on the broker / in HA.
+#define DEFAULT_NODE_ID "fanController_xx"
 
 struct SystemConfig {
     uint32_t configVersion;
@@ -37,6 +41,13 @@ struct SystemConfig {
     // NOTE: only the *entity IDs* live here. manualOverrideActive/DutyCycle
     // themselves (in sensors.h) are never persisted - override always boots
     // back to auto per the locked-in boot-behavior rule.
+
+    // MQTT (version 5). Appended after the version 4 fields on purpose:
+    // loadSettings() upgrades a version 4 file by reading it as a prefix.
+    char mqttBroker[64];   // IP or host name; empty = MQTT off
+    int mqttPort;
+    char mqttUser[32];     // empty = no login
+    char mqttPass[64];     // never sent to the web page
 };
 
 extern SystemConfig config;

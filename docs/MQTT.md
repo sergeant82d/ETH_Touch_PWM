@@ -8,6 +8,20 @@ Wifi_Fan_Knob's `src/mqtt.cpp`.
 
 Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
 
+## Firmware status
+
+- **Phase 1 (2026-09-27, untested on the board):** `src/mqtt.cpp`. Web page section "MQTT (Home
+  Assistant)": node ID, broker, port, user, password (never sent back to the page; blank =
+  keep) and a status line. Publishes the read-only entities: temperatures, probe faults, fan
+  speed/duty/fault (fans up to Active Fan Channels; others removed from HA), IP, uptime. REST
+  still runs alongside. Saving the form reconnects; a changed node ID removes the old device
+  from HA. Runs in `loop()` (the Ethernet library isn't thread-safe); a connect attempt every
+  15 s can block up to ~1 s (unreachable) or 5 s (no broker reply).
+- State cadence: temperatures, faults, duty on change (checked every second); fan RPM on a
+  60 RPM change, to/from stopped, or after 30 s; IP and uptime every 60 s.
+- Settings: version 5 adds the MQTT fields; a version 4 file (864 bytes) is upgraded in place,
+  so IP, node ID and thresholds are kept.
+
 ## Device
 
 - `nodeID` (web page setting, default `fanController_xx`) is the device name, MQTT client ID,
@@ -72,6 +86,21 @@ actions:
         "unit": "{{ state_attr('sensor.living_room_probe_02_temperature', 'unit_of_measurement') }}"}
 mode: queued
 ```
+
+## HA cleanup after the switch (Phase 4)
+
+What the REST link needed in HA (from `archive/web_changes.md` section 19). Remove only once
+every controller runs the MQTT firmware:
+
+- `rest_command: fan_ctrl_02_set_override` (configuration.yaml)
+- Automations "Fan Ctrl 02 - Push Override Switch to Device" and "... Push Override Speed to
+  Device" (automations.yaml)
+- Helpers `input_boolean.fan_ctrl_02_override`, `input_number.fan_ctrl_02_override_speed`,
+  `input_number.fan_ctrl_02_tmin`, `input_number.fan_ctrl_02_tmax`
+- Template `binary_sensor`s reading the `fan1_fault` / `fan2_fault` attributes, if made
+- The REST-posted `sensor.fan_controller_02` and `sensor.fan_controller_02_daily_summary`
+  (gone after an HA restart once nothing posts them)
+- The long-lived access token used by the controller (revoke it in the HA user profile)
 
 ## Simulator test checklist
 

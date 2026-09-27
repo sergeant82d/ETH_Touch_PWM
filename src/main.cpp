@@ -29,6 +29,7 @@
 #include "network.h"
 #include "display.h"
 #include "home_assistant.h"
+#include "mqtt.h"
 #include "web_server.h"
 #include "touch.h"
 #include "sd_logger.h"
@@ -76,6 +77,7 @@ void setup() {
     // came back 0 (no W5500 detected at all) and the IP stuck at
     // 255.255.255.255, even though the wiring/hardware was fine.
     networkInit();
+    mqttInit();
     displayInit();
     sensorsInit();
 #if TOUCH_ENABLED
@@ -142,6 +144,10 @@ void loop() {
     if (client) {
         handleNativeWebTraffic(client);
     }
+
+    // --- MQTT / Home Assistant discovery (every pass; rate-limited inside) ---
+    // Runs alongside the REST sync below until that is removed (docs/MQTT.md).
+    mqttLoop();
 
     // --- Home Assistant sync (every 2s) ---
     static unsigned long lastHAUpdate = 0;

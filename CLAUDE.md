@@ -7,7 +7,8 @@ https://github.com/sergeant82d/ESP32S3-Ethernet-Fan-Controller (commit `c23de85`
 is the touch-enabled version of the `.ino`). That repo stays as the Arduino reference.
 
 **Read `docs/PROJECT_HISTORY.md` first:** origin, build settings and why, Windows build
-gotchas, size baseline, current status.
+gotchas, size baseline, current status. Open items: `docs/TODO.md`. Home Assistant is moving
+from REST to MQTT: `docs/MQTT.md` (topics, phases, HA cleanup list).
 
 ## Working principles
 

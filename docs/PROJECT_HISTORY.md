@@ -46,6 +46,11 @@ Taken from the Arduino IDE Tools menu used for the working board:
 - Build from PowerShell. pioarduino's tool installer refuses Git Bash ("MSys/Mingw is not
   supported") and the build then fails with `xtensa-esp32s3-elf-g++ not recognized`.
 - "Firmware metrics can not be shown": console codepage; `chcp 65001` shows them.
+- `HTTPClientError` installing a library (PubSubClient, 2026-09-27) while curl downloads the
+  same URL fine: download the archive, check its sha256 against the registry API, `pio pkg
+  install --no-save -l file://<archive>`, then set its `.piopm` spec to the registry owner/id
+  (e.g. `{"owner": "knolleary", "id": 89, "name": "PubSubClient", ...}`), or `pio run` tries
+  to download it again.
 - The board profile header reads "8 MB, No PSRAM"; that is the generic devkit description.
   The `platformio.ini` overrides apply.
 
@@ -78,4 +83,12 @@ The +17 KB is unexplained (likely build option differences); accepted as close.
   lives in `calculateFanCurve()`. First deliberate change from the Arduino source; the Arduino
   repo still has the bug.
 - 2026-09-27: MQTT replacement for the HA REST link designed (`docs/MQTT.md`); HA side
-  verified with the simulator `tools/mqtt_sim.py`. Firmware not started.
+  verified with the simulator `tools/mqtt_sim.py`.
+- 2026-09-27: MQTT Phase 1 (**untested on the board**): settings version 5 (v4 files upgraded,
+  settings kept), default node ID `fanController_xx` (MQTT off until changed), web page MQTT
+  section, read-only sensors. NTP back to `pool.ntp.org`. Build: 582,995 B flash, 27,596 B
+  RAM (+16 KB / +0.6 KB over `be88824`, mostly PubSubClient and the MQTT code).
+- 2026-09-27: The Claude web handoff (`archive/web_changes.md`) turned out to be already in
+  `c23de85`; its open questions are in `docs/TODO.md`.
+
+Open items: `docs/TODO.md`.

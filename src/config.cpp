@@ -19,7 +19,7 @@ SystemConfig config = {
     -5,
     true,
     2,
-    "fan_controller_02",
+    DEFAULT_NODE_ID,
     "",   // haToken - set via web UI
     "living_room_probe_02_temperature",
     "192.168.10.85",
@@ -29,8 +29,21 @@ SystemConfig config = {
     "input_number.fan_ctrl_02_tmin",
     "input_number.fan_ctrl_02_tmax",
     "input_boolean.fan_ctrl_02_override",
-    "input_number.fan_ctrl_02_override_speed"
+    "input_number.fan_ctrl_02_override_speed",
+    "192.168.10.85", // mqttBroker - Mosquitto add-on on the HA box
+    1883,
+    "",   // mqttUser - set via web UI
+    ""    // mqttPass - set via web UI
 };
+
+// Version 4 settings = this struct without the MQTT fields at the end
+// (offsetof, rounded up to the struct's 4-byte alignment) = 864 bytes;
+// checked against the old struct when this was written (2026-09-27).
+// offsetof warns because IPAddress has virtual functions; GCC supports it.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+static const size_t V4_FILE_SIZE = (offsetof(SystemConfig, mqttBroker) + 3) & ~(size_t)3;
+#pragma GCC diagnostic pop
 
 // LittleFS.begin()'s formatOnFail reliably reformats a *missing* filesystem,
 // but doesn't always catch genuine on-disk *corruption* (e.g. littlefs
@@ -82,18 +95,37 @@ void loadSettings() {
     File f = LittleFS.open("/settings.cfg", "r");
     if (!f) return;
 
-    SystemConfig loaded;
-    bool readOk = (f.available() >= (int)sizeof(loaded)) &&
-                  (f.read((uint8_t*)&loaded, sizeof(loaded)) == (int)sizeof(loaded));
+    // Start from the compiled-in defaults: a version 4 file is shorter and
+    // leaves the MQTT fields at their defaults.
+    SystemConfig loaded = config;
+    size_t fileSize = f.size();
+    bool readOk = false;
+    bool upgraded = false;
+    if (fileSize == sizeof(loaded)) {
+        readOk = (f.read((uint8_t*)&loaded, sizeof(loaded)) == sizeof(loaded)) &&
+                 loaded.configVersion == CONFIG_STRUCT_VERSION;
+    } else if (fileSize == V4_FILE_SIZE) {
+        readOk = (f.read((uint8_t*)&loaded, fileSize) == fileSize) && loaded.configVersion == 4;
+        if (readOk) {
+            // The file's tail padding may have landed on the first MQTT bytes
+            memcpy(loaded.mqttBroker, config.mqttBroker, sizeof(loaded.mqttBroker));
+            loaded.configVersion = CONFIG_STRUCT_VERSION;
+            upgraded = true;
+        }
+    }
     f.close();
 
-    if (!readOk || loaded.configVersion != CONFIG_STRUCT_VERSION) {
+    if (!readOk) {
         Serial.println("Settings file missing/version mismatch - using defaults.");
         saveSettings(); // persist current defaults so the next boot reads a valid file
         return;
     }
 
     config = loaded;
+    if (upgraded) {
+        Serial.println("Settings upgraded from version 4 (MQTT settings added, defaults).");
+        saveSettings();
+    }
 
     if (config.fanCount < 2 || config.fanCount > 4) {
         config.fanCount = 2;

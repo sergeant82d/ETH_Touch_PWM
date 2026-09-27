@@ -318,15 +318,16 @@ static void drawManualControlButton(int x, int y, int w, int h) {
     }
 }
 
-// Converts a snake_case node ID (e.g. "fan_controller_01") into Title Case
-// with spaces (e.g. "Fan Controller 01") for display in the title bar.
+// Converts a node ID (e.g. "fan_controller_01", "fanController_02") into
+// words for the title bar ("Fan Controller 01", "FanController 02"): first
+// letter of each word upper case, the rest kept as typed.
 static String titleCaseFromNodeId(const char* nodeId) {
     String s(nodeId);
     s.replace('_', ' ');
     bool startOfWord = true;
     for (size_t i = 0; i < s.length(); i++) {
         if (s[i] == ' ') { startOfWord = true; continue; }
-        s[i] = startOfWord ? toupper(s[i]) : tolower(s[i]);
+        if (startOfWord) s[i] = toupper(s[i]);
         startOfWord = false;
     }
     return s;
