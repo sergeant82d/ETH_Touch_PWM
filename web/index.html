@@ -66,6 +66,9 @@ body { font-family: var(--font); color: var(--text); background: linear-gradient
 .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
 .dot.bad { background: var(--error); box-shadow: 0 0 6px var(--error); }
 .dot.warn { background: var(--warn); }
+.net-detail { font-family: var(--mono); font-size: .75rem; color: var(--text); margin: -4px 0 2px 17px; }
+.who { font-size: .85rem; color: var(--muted); }
+.who b { color: var(--text); font-weight: 600; }
 
 /* --- Content --- */
 .main { flex: 1; min-width: 0; padding: 24px 32px 40px; }
@@ -137,6 +140,10 @@ dialog::backdrop { background: rgba(0, 0, 0, .55); }
 dialog h2 { font-size: 1.1rem; margin-bottom: 14px; }
 dialog .field { margin-bottom: 12px; }
 progress { width: 100%; height: 10px; accent-color: var(--accent); }
+.drop { display: block; border: 2px dashed var(--border); border-radius: var(--radius); padding: 16px; text-align: center;
+  color: var(--muted); cursor: pointer; font-size: .9rem; }
+.drop:hover, .drop.over { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.drop.has-file { border-style: solid; border-color: var(--accent); color: var(--text); }
 .demo { position: fixed; right: 12px; bottom: 12px; z-index: 20; background: var(--warn); color: #000; padding: 5px 12px;
   border-radius: 14px; font-size: .8rem; font-weight: 600; }
 
@@ -179,7 +186,8 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         System</button>
     </nav>
     <div class="lights">
-      <div class="light"><span class="dot" id="dot-eth"></span>Ethernet</div>
+      <div class="light"><span class="dot" id="dot-eth"></span><span>Network: <span id="net-name">Ethernet</span></span></div>
+      <div class="net-detail" id="net-detail">--</div>
       <div class="light"><span class="dot" id="dot-mqtt"></span>MQTT</div>
       <div class="light"><span class="dot" id="dot-sd"></span>SD card</div>
     </div>
@@ -190,6 +198,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       <h1 class="page-title" id="page-title">Dashboard</h1>
       <div class="top-right">
         <span class="clock" id="clock">--:--</span>
+        <span class="who" id="who">Not logged in</span>
         <button class="btn ghost" id="btn-login">Log in</button>
       </div>
     </header>
@@ -280,7 +289,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
 
       <div class="panel">
         <h2>Firmware update (OTA)</h2>
-        <input type="file" id="ota-file" accept=".bin">
+        <label class="drop" id="ota-drop"><input type="file" id="ota-file" accept=".bin" hidden><span id="ota-drop-text">Drop firmware.bin here, or click to choose</span></label>
         <div class="hint">Use <code>.pio/build/&lt;board&gt;/firmware.bin</code>. The controller refuses firmware built for the other board, then restarts with the new one (about 30 s). Settings are kept.</div>
         <progress id="ota-progress" value="0" max="100" hidden></progress>
         <div class="actions"><button class="btn" id="ota-btn" disabled>Upload and install</button><span class="msg" id="ota-msg"></span></div>
@@ -389,7 +398,11 @@ function askLogin() {
     };
   });
 }
-function updateLoginButton() { $("#btn-login").textContent = auth ? "Log out" : "Log in"; }
+function loggedInUser() { try { return auth ? atob(auth).split(":")[0] : ""; } catch (_) { return ""; } }
+function updateLoginButton() {
+  $("#btn-login").textContent = auth ? "Log out" : "Log in";
+  $("#who").innerHTML = auth ? "Logged in as <b>" + esc(loggedInUser()) + "</b>" : "Not logged in";
+}
 $("#btn-login").onclick = () => { if (auth) { auth = ""; sessionStorage.removeItem("auth"); updateLoginButton(); } else askLogin(); };
 
 // ---------- Tabs (the URL #hash keeps the tab over a reload / bookmark) ----------
@@ -418,7 +431,8 @@ function setTemp(id, t, failNote) {
 function renderStatus() {
   const s = status;
   $("#brand-node").textContent = s.node;
-  $("#brand-board").textContent = s.board + " · " + s.ip;
+  $("#brand-board").textContent = s.board;
+  $("#net-detail").textContent = s.eth ? s.ip : "link down";
   setTemp("#t-local", s.local, "Probe failed");
   setTemp("#t-network", s.network, "No value from HA");
   setTemp("#t-blended", s.blended, "Both probes failed: fans at 100%");
@@ -565,9 +579,24 @@ $("#theme-save").onclick = async () => {
 };
 
 // ---------- OTA ----------
-$("#ota-file").onchange = (e) => { $("#ota-btn").disabled = !e.target.files.length; $("#ota-msg").textContent = ""; };
+let otaFile = null;
+function pickOta(file) {
+  otaFile = file || null;
+  $("#ota-btn").disabled = !otaFile;
+  $("#ota-msg").textContent = "";
+  $("#ota-drop").classList.toggle("has-file", !!otaFile);
+  $("#ota-drop-text").textContent = otaFile ? `${otaFile.name} (${Math.round(otaFile.size / 1024)} KB): click to change` : "Drop firmware.bin here, or click to choose";
+}
+$("#ota-file").onchange = (e) => pickOta(e.target.files[0]);
+const drop = $("#ota-drop");
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); pickOta(e.dataTransfer.files[0]); });
+// A file dropped anywhere else must not make the browser leave the page
+window.addEventListener("dragover", (e) => e.preventDefault());
+window.addEventListener("drop", (e) => e.preventDefault());
 $("#ota-btn").onclick = async () => {
-  const file = $("#ota-file").files[0];
+  const file = otaFile;
   if (!file) return;
   if (!auth && !(await askLogin())) return;
   const msg = $("#ota-msg"), bar = $("#ota-progress");
