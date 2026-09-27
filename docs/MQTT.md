@@ -1,20 +1,20 @@
 # MQTT / Home Assistant
 
-Planned replacement for the HA REST link (`home_assistant.cpp`, token, `input_number` /
-`input_boolean` helpers, `rest_command`, configuration.yaml). **Status 2026-09-27: design
-verified in HA by the user with the simulator `tools/mqtt_sim.py` and the automation below; no
-firmware yet.** Modeled on
-Wifi_Fan_Knob's `src/mqtt.cpp`.
+The only link to Home Assistant since Phase 3 (2026-09-27). It replaced the REST link
+(`home_assistant.cpp`, HA token, `input_number` / `input_boolean` helpers, `rest_command`,
+configuration.yaml). Design first verified in HA with the simulator `tools/mqtt_sim.py`.
+Modeled on Wifi_Fan_Knob's `src/mqtt.cpp`. **HA needs two automations** (below): the network
+temperature (required for blending) and fault notifications (optional).
 
 Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
 
 ## Firmware status
 
-- **Phase 1 (2026-09-27, untested on the board):** `src/mqtt.cpp`. Web page section "MQTT (Home
+- **Phase 1 (2026-09-27, tested on the ESP32-S3-ETH):** `src/mqtt.cpp`. Web page section "MQTT (Home
   Assistant)": node ID, broker, port, user, password (never sent back to the page; blank =
   keep) and a status line. Publishes the read-only entities: temperatures, probe faults, fan
   speed/duty/fault (fans up to Active Fan Channels; others removed from HA), IP, uptime. REST
-  still runs alongside. Saving the form reconnects; a changed node ID removes the old device
+  ran alongside until Phase 3. Saving the form reconnects; a changed node ID removes the old device
   from HA. Runs in `loop()` (the Ethernet library isn't thread-safe); a connect attempt every
   15 s can block up to ~1 s (unreachable) or 5 s (no broker reply).
 - **Phase 2 (2026-09-27):** thresholds and manual override from HA (`t_min`, `t_max`,
@@ -22,10 +22,20 @@ Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
   `source=HA`, like web/LCD changes; the device republishes its state after every command.
   Removed: the `input_number`/`input_boolean` helper sync (60 s and 5 min polls, pushes from
   the web page and LCD) and the helper entity fields on the web page. `/override_set` stays
-  (the web page uses it). The helper IDs stay in the settings struct, unused, until Phase 3.
+  (the web page uses it).
   Tested on the ESP32-S3-ETH over MQTT (commands as HA sends them): thresholds set/saved/
   range-checked, override on/speed/off with fan duty following, speed ignored while off,
   web page override changes reach MQTT within 1 s, command echo 0.15-0.7 s.
+- **Phase 3 (2026-09-27):** REST removed (`home_assistant.cpp`, token, host/port/sensor fields,
+  the 2 s telemetry POST and network-temperature GET, persistent notifications). Network
+  temperature arrives on `network_temp/set` (HA automation); failed after 5 minutes without
+  one. Daily summary is the "Summary of the day" sensor (re-sent on the next connect if MQTT
+  was down at the day change). Settings layout unchanged (version 5): the REST-era fields are
+  kept as `unused...` and emptied on load, which wiped the stored HA token (boot log: "Old
+  REST-era HA settings (incl. token) cleared."). Tested on the ESP32-S3-ETH: token wipe, NTP,
+  SD, MQTT connect, network temperature in °F/°C, `unavailable` and bad JSON = failed,
+  recovery, blending, marked failed 5 minutes after the last value. Not yet seen: a real day
+  change (daily summary).
 - State cadence: temperatures, faults, duty on change (checked every second); fan RPM on a
   60 RPM change, to/from stopped, or after 30 s; IP and uptime every 60 s.
 - Settings: version 5 adds the MQTT fields; a version 4 file (864 bytes) is upgraded in place,
@@ -61,7 +71,7 @@ them in its own unit system. `None` = unknown (probe failed).
 | `t_min`, `t_max` | number, °C, 0-100, step 0.1 | `26.7` | `input_number` tmin/tmax helpers |
 | `override` | switch | `ON` / `OFF` | `input_boolean` override helper |
 | `override_speed` | number, 0-100 % | `100` | `input_number` override speed (0-255) |
-| `daily_summary` | sensor, attributes in `daily_summary/attributes` | `2026-09-26` | `sensor.<nodeID>_daily_summary` |
+| `daily_summary` | sensor "Summary of the day", attributes in `daily_summary/attributes` (min/max per temperature and fan, `null` = no samples) | `2026-09-26` | `sensor.<nodeID>_daily_summary` |
 | `ip`, `uptime` | sensor, diagnostic | `192.168.10.54`, seconds | (new) |
 
 HA to device (not retained): `t_min/set`, `t_max/set`, `override/set`, `override_speed/set`,
@@ -76,12 +86,13 @@ Rules:
   that doesn't parse (e.g. `"value": "unavailable"`) marks the network probe failed, as does
   no message for 5 minutes.
 
-## HA automation: network temperature
+## HA automation: network temperature (required)
 
-`living_room_probe_02` is a Bluetooth sensor in HA, so HA sends it to the device. Create it in
-Settings > Automations > Create > (three dots) Edit in YAML, paste, save. Set `topic` to the
-device's nodeID (`fanController_sim` for the simulator). For several controllers, add one
-`mqtt.publish` action per controller.
+`living_room_probe_02` is a Bluetooth sensor in HA, so HA sends it to the device. Without this
+automation the device runs on its local probe only and reports "Fault network probe". Create
+it in Settings > Automations > Create > (three dots) Edit in YAML, paste, save. `topic` is the
+device's nodeID + `/network_temp/set` (`fanController_sim` for the simulator). For several
+controllers, add one `mqtt.publish` action per controller.
 
 ```yaml
 alias: Fan controller - network temperature
@@ -94,10 +105,43 @@ triggers:
 actions:
   - action: mqtt.publish
     data:
-      topic: fanController_sim/network_temp/set
+      topic: fanController_01/network_temp/set
       payload: >-
         {"value": "{{ states('sensor.living_room_probe_02_temperature') }}",
         "unit": "{{ state_attr('sensor.living_room_probe_02_temperature', 'unit_of_measurement') }}"}
+mode: queued
+```
+
+## HA automation: fault notifications (optional)
+
+Replaces the persistent notifications the REST firmware created. One notification per fault,
+dismissed when it clears. The entity IDs are the ones HA created for `fanController_01` in
+Phase 1 (check them on the device page; they keep their first names even after renaming).
+
+```yaml
+alias: Fan controller - fault notifications
+description: Notification while a fan controller reports a fault
+triggers:
+  - trigger: state
+    entity_id:
+      - binary_sensor.fancontroller_01_fan_1_fault
+      - binary_sensor.fancontroller_01_fan_2_fault
+      - binary_sensor.fancontroller_01_local_probe_fault
+      - binary_sensor.fancontroller_01_network_probe_fault
+    to: ["on", "off"]
+actions:
+  - choose:
+      - conditions: "{{ trigger.to_state.state == 'on' }}"
+        sequence:
+          - action: persistent_notification.create
+            data:
+              notification_id: "{{ trigger.entity_id }}"
+              title: Fan controller fault
+              message: "{{ trigger.to_state.name }} since {{ now().strftime('%H:%M') }}."
+    default:
+      - action: persistent_notification.dismiss
+        data:
+          notification_id: "{{ trigger.entity_id }}"
 mode: queued
 ```
 
@@ -114,7 +158,9 @@ every controller runs the MQTT firmware:
 - Template `binary_sensor`s reading the `fan1_fault` / `fan2_fault` attributes, if made
 - The REST-posted `sensor.fan_controller_02` and `sensor.fan_controller_02_daily_summary`
   (gone after an HA restart once nothing posts them)
-- The long-lived access token used by the controller (revoke it in the HA user profile)
+- The long-lived access token used by the controllers (revoke it in the HA user profile;
+  the MQTT firmware wipes its stored copy)
+- `sensor.fan_controller_01` (posted by the old Arduino build on the ESP32-S3-ETH)
 
 ## Simulator test checklist
 

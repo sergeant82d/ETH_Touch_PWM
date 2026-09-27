@@ -6,14 +6,15 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 ## MQTT (replaces the HA REST link)
 
 - [x] HA side designed and verified with `tools/mqtt_sim.py` (2026-09-27, `c19398c`)
-- [ ] Phase 1: MQTT settings, node ID, read-only sensors, alongside REST. Code done
-      2026-09-27. Working on the ESP32-S3-ETH (fan_controller_01, `docs/BOARDS.md`) at first
-      look, 2026-09-27; not yet on the Touch-LCD-2 (settings upgrade from version 4 untested)
-- [ ] Phase 2: thresholds and manual override from HA; remove the helper polls and pushes.
-      Code done and tested on the ESP32-S3-ETH 2026-09-27 (MQTT side; user check in HA
-      pending). LCD override path untested (Touch-LCD-2)
-- [ ] Phase 3: network temperature and daily summary over MQTT; remove the REST code, token
-      and entity fields
+- [x] Phase 1: MQTT settings, node ID, read-only sensors (2026-09-27, `64a6771`; tested on the
+      ESP32-S3-ETH). Touch-LCD-2: settings upgrade from version 4 untested
+- [x] Phase 2: thresholds and manual override from HA (2026-09-27, `47d448c`; tested on the
+      ESP32-S3-ETH). LCD override path untested (Touch-LCD-2)
+- [ ] Phase 3: network temperature and daily summary over MQTT; REST code, token and fields
+      removed. Code done and tested on the ESP32-S3-ETH 2026-09-27; daily summary waits for a
+      real day change
+- [ ] In HA: network temperature automation for `fanController_01` (docs/MQTT.md), optional
+      fault notification automation
 - [ ] Phase 4 (in HA): remove the old helpers, rest_command and automations (list in
       `docs/MQTT.md`), rebuild fault notifications on the MQTT problem sensors
 - [ ] Phase 5: update docs and success criteria (no longer "same as the Arduino build")

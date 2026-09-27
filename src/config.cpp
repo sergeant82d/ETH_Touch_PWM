@@ -3,11 +3,8 @@
 #include <FS.h>
 #include <LittleFS.h>
 
-// NOTE: The original source had a live Home Assistant long-lived bearer token
-// hardcoded here. That has been removed — hardcoding secrets in source you
-// might share, commit, or lose track of is a real credential-leak risk.
-// Set the token once via the web config form; it will persist in
-// /settings.cfg on LittleFS from then on.
+// No secrets in the source: the MQTT login is set on the web page and kept in
+// /settings.cfg on LittleFS. (An old HA token once lived here; revoked.)
 SystemConfig config = {
     CONFIG_STRUCT_VERSION,
     IPAddress(192, 168, 10, DEFAULT_IP_LAST_OCTET), // per board, pins.h
@@ -21,16 +18,10 @@ SystemConfig config = {
     true,
     2,
     DEFAULT_NODE_ID,
-    "",   // haToken - set via web UI
-    "living_room_probe_02_temperature",
-    "192.168.10.85",
-    8123,
+    "", "", "", 0, // unused REST-era HA token/sensor/host/port
     300, 2200,   // fan RPM gauge display range
     60.0, 110.0, // temperature gauge display range, in F
-    "input_number.fan_ctrl_02_tmin",
-    "input_number.fan_ctrl_02_tmax",
-    "input_boolean.fan_ctrl_02_override",
-    "input_number.fan_ctrl_02_override_speed",
+    "", "", "", "", // unused HA helper entity IDs
     "192.168.10.85", // mqttBroker - Mosquitto add-on on the HA box
     1883,
     "",   // mqttUser - set via web UI
@@ -90,6 +81,23 @@ void saveSettings() {
     }
 }
 
+// Empties the REST-era fields (config.h). Returns true if any held data,
+// e.g. an HA token from an older firmware, so the caller saves the wipe.
+static bool clearUnusedFields() {
+    bool had = config.unusedHaToken[0] || config.unusedHaSensor[0] || config.unusedHaHost[0] ||
+               config.unusedHaPort != 0 || config.unusedHaTMinEntity[0] || config.unusedHaTMaxEntity[0] ||
+               config.unusedHaOverrideSwitchEntity[0] || config.unusedHaOverrideSpeedEntity[0];
+    memset(config.unusedHaToken, 0, sizeof(config.unusedHaToken));
+    memset(config.unusedHaSensor, 0, sizeof(config.unusedHaSensor));
+    memset(config.unusedHaHost, 0, sizeof(config.unusedHaHost));
+    config.unusedHaPort = 0;
+    memset(config.unusedHaTMinEntity, 0, sizeof(config.unusedHaTMinEntity));
+    memset(config.unusedHaTMaxEntity, 0, sizeof(config.unusedHaTMaxEntity));
+    memset(config.unusedHaOverrideSwitchEntity, 0, sizeof(config.unusedHaOverrideSwitchEntity));
+    memset(config.unusedHaOverrideSpeedEntity, 0, sizeof(config.unusedHaOverrideSpeedEntity));
+    return had;
+}
+
 void loadSettings() {
     if (!LittleFS.exists("/settings.cfg")) return;
 
@@ -123,6 +131,10 @@ void loadSettings() {
     }
 
     config = loaded;
+    if (clearUnusedFields() && !upgraded) {
+        Serial.println("Old REST-era HA settings (incl. token) cleared.");
+        saveSettings();
+    }
     if (upgraded) {
         Serial.println("Settings upgraded from version 4 (MQTT settings added, defaults).");
         saveSettings();

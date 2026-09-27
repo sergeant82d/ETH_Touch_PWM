@@ -5,7 +5,7 @@
 #if HAS_LCD
 #include "display.h"
 #endif
-#include "home_assistant.h"
+#include "mqtt.h"
 #include <SD.h>
 #include <LittleFS.h>
 #include <TimeLib.h>
@@ -363,15 +363,14 @@ static void finalizeDailyRollup() {
     updateAllTimeRecord(today);
     purgeOldDailyRows();
 
-    // Once-a-day push of just the hi/lo summary to HA - separate from the
-    // continuous 2s live telemetry push, and NOT the full raw log (that
+    // Once-a-day hi/lo summary to HA over MQTT - NOT the full raw log (that
     // stays local to the SD card per the original spec).
-    pushDailyRollupToHA(rollupDate,
-                        today.localMin, today.localMax,
-                        today.netMin, today.netMax,
-                        today.blendMin, today.blendMax,
-                        today.fan1Min, today.fan1Max,
-                        today.fan2Min, today.fan2Max);
+    mqttPublishDailySummary(rollupDate,
+                            today.localMin, today.localMax,
+                            today.netMin, today.netMax,
+                            today.blendMin, today.blendMax,
+                            today.fan1Min, today.fan1Max,
+                            today.fan2Min, today.fan2Max);
 }
 
 // SD bus: shares the LCD's SPI bus on the Touch-LCD-2 (begun, with MISO, in

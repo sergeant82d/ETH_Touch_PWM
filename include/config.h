@@ -26,24 +26,23 @@ struct SystemConfig {
     bool is24Hour;
     int fanCount;
     char nodeID[64];
-    char haToken[256];
-    char haSensor[64];
-    char haHost[64];
-    int haPort;
+    // REST-era Home Assistant fields, UNUSED since MQTT Phase 3 (HA talks MQTT
+    // only). Kept so the layout, and every saved settings file, stays valid;
+    // loadSettings() empties them, which wipes a stored HA token.
+    char unusedHaToken[256];
+    char unusedHaSensor[64];
+    char unusedHaHost[64];
+    int unusedHaPort;
     long fanRpmGaugeMin;   // LCD/web gauge display scale, not the fan curve itself
     long fanRpmGaugeMax;
     float tempGaugeMinF;   // always stored in F, converted for display as needed
     float tempGaugeMaxF;
-    // UNUSED since MQTT Phase 2 (thresholds/override come over MQTT). The four
-    // helper entity IDs stay in the struct until the Phase 3 settings version,
-    // so a version 4/5 file still loads.
-    char haTMinEntity[64]; // HA input_number entity ID, e.g. "input_number.fan_ctrl_01_tmin"
-    char haTMaxEntity[64]; // stores/polls in Celsius, matching tMin/tMax's internal units
-    char haOverrideSwitchEntity[64]; // input_boolean entity - on/off mirrors manualOverrideActive
-    char haOverrideSpeedEntity[64];  // input_number entity (0-255) - mirrors manualOverrideDutyCycle
-    // NOTE: only the *entity IDs* live here. manualOverrideActive/DutyCycle
-    // themselves (in sensors.h) are never persisted - override always boots
-    // back to auto per the locked-in boot-behavior rule.
+    // Old HA helper entity IDs, UNUSED since MQTT Phase 2; emptied like the above.
+    // (The override state itself was never stored: it always boots to auto.)
+    char unusedHaTMinEntity[64];
+    char unusedHaTMaxEntity[64];
+    char unusedHaOverrideSwitchEntity[64];
+    char unusedHaOverrideSpeedEntity[64];
 
     // MQTT (version 5). Appended after the version 4 fields on purpose:
     // loadSettings() upgrades a version 4 file by reading it as a prefix.

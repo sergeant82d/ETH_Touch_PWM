@@ -98,4 +98,10 @@ The +17 KB is unexplained (likely build option differences); accepted as close.
 - 2026-09-27: The Claude web handoff (`archive/web_changes.md`) turned out to be already in
   `c23de85`; its open questions are in `docs/TODO.md`.
 
+- 2026-09-27: second board, Waveshare ESP32-S3-ETH (fan_controller_01), build
+  `waveshare_s3_eth` (`docs/BOARDS.md`); flashed after a full flash backup. MQTT Phase 2
+  (thresholds, override) and Phase 3 (REST removed, network temperature and daily summary over
+  MQTT, stored HA token wiped) tested on it. Touch-LCD-2 still untested with any of this.
+  Build sizes: Touch-LCD-2 574,839 B, ESP32-S3-ETH 544,455 B.
+
 Open items: `docs/TODO.md`.

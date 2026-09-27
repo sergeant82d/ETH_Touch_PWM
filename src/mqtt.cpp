@@ -13,6 +13,8 @@
 // Discovery: homeassistant/<component>/<nodeID>/<object>/config (retained).
 // Commands: <nodeID>/<object>/set for the thresholds and manual override
 // (docs/MQTT.md); state is published back after every command.
+// Network temperature: HA sends it to <nodeID>/network_temp/set (an HA
+// automation, docs/MQTT.md); older than 5 minutes = network probe failed.
 
 static EthernetClient net;
 static PubSubClient mqtt(net);
@@ -64,7 +66,7 @@ static const char* DEG_C = "\xC2\xB0" "C"; // "°C"
 
 // HA lists a device's entities alphabetically by name within each card, so
 // the names group them. Sensors: "Air temperature ...", "Fan duty N",
-// "Fan speed N", "Fault ...". Controls: "Fan curve start/top" (tMin/tMax),
+// "Fan speed N", "Fault ...", "Summary of the day". Controls: "Fan curve start/top" (tMin/tMax),
 // "Manual override", "Manual override speed".
 // Every entity the device can have (all NUM_FANS fans), so the ones no
 // longer wanted can be removed from HA as well as the wanted ones added.
@@ -77,6 +79,7 @@ static int buildEntities(EntityDef *out) {
     out[n++] = {"binary_sensor", "network_probe_fault", "Fault network probe", "problem", nullptr, nullptr, false, false};
     out[n++] = {"sensor", "ip", "IP address", nullptr, nullptr, "mdi:ip-network", false, true};
     out[n++] = {"sensor", "uptime", "Uptime", "duration", "s", nullptr, false, true};
+    out[n++] = {"sensor", "daily_summary", "Summary of the day", nullptr, nullptr, "mdi:calendar-today", false, false};
     out[n++] = {"number", "t_min", "Fan curve start", "temperature", DEG_C, "mdi:thermometer-low", false, false, 0, 100, 0.1, "box"};
     out[n++] = {"number", "t_max", "Fan curve top", "temperature", DEG_C, "mdi:thermometer-high", false, false, 0, 100, 0.1, "box"};
     out[n++] = {"switch", "override", "Manual override", nullptr, nullptr, "mdi:hand-back-right", false, false};
@@ -90,7 +93,7 @@ static int buildEntities(EntityDef *out) {
     return n;
 }
 
-static const int MAX_ENTITIES = 11 + 3 * 4;
+static const int MAX_ENTITIES = 12 + 3 * 4;
 
 // Fan entities beyond config.fanCount are unwanted
 static bool entityWanted(const EntityDef &e) {
@@ -124,6 +127,7 @@ static void publishEntityConfig(const String &node, const EntityDef &e, bool wan
     if (strcmp(e.component, "number") == 0 || strcmp(e.component, "switch") == 0) {
         doc["command_topic"] = node + "/" + e.object + "/set";
     }
+    if (e.object == "daily_summary") doc["json_attributes_topic"] = node + "/daily_summary/attributes";
     if (e.numMode) {
         doc["min"] = e.numMin;
         doc["max"] = e.numMax;
@@ -165,6 +169,8 @@ static String lastSent[SLOT_COUNT];
 static long lastRpm[4] = {-1, -1, -1, -1};
 static unsigned long lastRpmMs[4] = {0, 0, 0, 0};
 static unsigned long lastDiagMs = 0;
+static String summaryDate;  // last daily summary, re-sent on connect
+static String summaryAttrs;
 
 static void publishIfChanged(int slot, const String &object, const String &payload, bool force) {
     if (!force && lastSent[slot] == payload) return;
@@ -208,6 +214,11 @@ static void publishState(bool force) {
     publishIfChanged(SLOT_OVERRIDE, "override", manualOverrideActive ? "ON" : "OFF", force);
     publishIfChanged(SLOT_OVERRIDE_SPEED, "override_speed", String((manualOverrideDutyCycle * 100 + 127) / 255), force);
 
+    if (force && summaryDate.length()) {
+        mqtt.publish(topic("daily_summary").c_str(), summaryDate.c_str(), true);
+        mqtt.publish(topic("daily_summary/attributes").c_str(), summaryAttrs.c_str(), true);
+    }
+
     if (force || millis() - lastDiagMs >= 60000) {
         lastDiagMs = millis();
         mqtt.publish(topic("ip").c_str(), Ethernet.localIP().toString().c_str(), true);
@@ -236,6 +247,49 @@ static void setThreshold(float &field, const char* name, const String &msg) {
     saveSettings();
 }
 
+// ============================================================================
+// NETWORK TEMPERATURE FROM HOME ASSISTANT
+// ============================================================================
+// Payload {"value": "24.1", "unit": "°F"} from the HA automation (every
+// change + every minute). Anything that isn't a number ("unavailable",
+// "unknown", bad JSON) = network probe failed, as does 5 minutes of silence.
+
+static const unsigned long NETWORK_STALE_MS = 300000;
+static unsigned long lastNetworkMs = 0;
+
+static void setNetworkHealthy(bool healthy, const char* why) {
+    if (healthy != networkSensorHealthy) {
+        Serial.print("Network temperature: "); Serial.println(why);
+    }
+    networkSensorHealthy = healthy;
+}
+
+static void onNetworkTemp(const String &msg) {
+    JsonDocument doc;
+    if (deserializeJson(doc, msg)) {
+        setNetworkHealthy(false, "bad message from HA, marked failed");
+        return;
+    }
+    String value = doc["value"].as<String>();
+    String unit = doc["unit"].as<String>();
+    char *end = nullptr;
+    float v = strtof(value.c_str(), &end);
+    if (value.length() == 0 || end == value.c_str() || *end != ' ' || isnan(v)) {
+        setNetworkHealthy(false, "HA reports it unavailable, marked failed");
+        return;
+    }
+    networkTempC = (unit.indexOf('F') != -1) ? (v - 32.0) * 5.0 / 9.0 : v;
+    lastNetworkMs = millis();
+    setNetworkHealthy(true, "receiving from HA");
+}
+
+// Called every loop() pass, connected or not
+static void checkNetworkStale() {
+    if (networkSensorHealthy && millis() - lastNetworkMs > NETWORK_STALE_MS) {
+        setNetworkHealthy(false, "no update from HA for 5 minutes, marked failed");
+    }
+}
+
 static void onMessage(char *t, byte *payload, unsigned int len) {
     // Copy out first: publishing below reuses the client's buffer
     String tp(t);
@@ -248,6 +302,10 @@ static void onMessage(char *t, byte *payload, unsigned int len) {
     if (!tp.startsWith(prefix) || !tp.endsWith("/set")) return;
     String object = tp.substring(prefix.length(), tp.length() - 4);
 
+    if (object == "network_temp") {
+        onNetworkTemp(msg); // regular data, not a control: no state echo
+        return;
+    }
     if (object == "t_min") {
         setThreshold(config.tMin, "tMin", msg);
     } else if (object == "t_max") {
@@ -326,6 +384,8 @@ void mqttInit() {
 }
 
 void mqttLoop() {
+    checkNetworkStale();
+
     if (reconfigureRequested) {
         reconfigureRequested = false;
         // nodeID changed (or MQTT turned off): take the old device out of HA
@@ -353,6 +413,44 @@ void mqttLoop() {
     if (millis() - lastStateMs >= 1000) { // sensors update once a second
         lastStateMs = millis();
         publishState(false);
+    }
+}
+
+// Range as [min, max] in the attributes; null when no samples that day
+static void addRange(JsonDocument &doc, const char* minKey, const char* maxKey, float lo, float hi, bool asInt) {
+    if (lo > hi) {
+        doc[minKey] = nullptr;
+        doc[maxKey] = nullptr;
+    } else if (asInt) {
+        doc[minKey] = (long)lo;
+        doc[maxKey] = (long)hi;
+    } else {
+        doc[minKey] = serialized(String(lo, 1));
+        doc[maxKey] = serialized(String(hi, 1));
+    }
+}
+
+void mqttPublishDailySummary(const String &date,
+                             float localMinC, float localMaxC,
+                             float netMinC, float netMaxC,
+                             float blendMinC, float blendMaxC,
+                             long fan1MinRpm, long fan1MaxRpm,
+                             long fan2MinRpm, long fan2MaxRpm) {
+    JsonDocument doc;
+    addRange(doc, "local_min_c", "local_max_c", localMinC, localMaxC, false);
+    addRange(doc, "net_min_c", "net_max_c", netMinC, netMaxC, false);
+    addRange(doc, "blend_min_c", "blend_max_c", blendMinC, blendMaxC, false);
+    addRange(doc, "fan1_min_rpm", "fan1_max_rpm", fan1MinRpm, fan1MaxRpm, true);
+    addRange(doc, "fan2_min_rpm", "fan2_max_rpm", fan2MinRpm, fan2MaxRpm, true);
+    summaryAttrs = "";
+    serializeJson(doc, summaryAttrs);
+    summaryDate = date;
+    if (mqtt.connected()) {
+        mqtt.publish(topic("daily_summary").c_str(), summaryDate.c_str(), true);
+        mqtt.publish(topic("daily_summary/attributes").c_str(), summaryAttrs.c_str(), true);
+        Serial.println("Daily summary published to MQTT.");
+    } else {
+        Serial.println("Daily summary kept; MQTT not connected, sent on reconnect.");
     }
 }
 

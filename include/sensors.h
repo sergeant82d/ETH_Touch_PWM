@@ -21,9 +21,6 @@ extern float networkTempC;
 extern float blendedAverageC;
 extern bool localSensorHealthy;
 extern bool networkSensorHealthy;
-extern bool localAlertSent;
-extern bool networkAlertSent;
-extern bool totalAlertSent;
 
 // Manual fan-speed override (bookmarked feature: touch UI framework).
 // Per the boot-behavior rule, this always starts false - override never

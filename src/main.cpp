@@ -18,7 +18,7 @@
     sensors.h/.cpp    - DS18B20, fan PWM curve, tach ISRs/RPM calc
     network.h/.cpp    - W5500 bring-up, NTP time sync
     display.h/.cpp    - LCD dashboard rendering
-    home_assistant.h/.cpp - HA push/pull + alert notifications
+    mqtt.h/.cpp       - Home Assistant over MQTT (discovery, state, commands)
     web_server.h/.cpp - HTTP config page + AJAX telemetry endpoint
 */
 
@@ -31,7 +31,6 @@
 #include "display.h"
 #include "touch.h"
 #endif
-#include "home_assistant.h"
 #include "mqtt.h"
 #include "web_server.h"
 #include "sd_logger.h"
@@ -157,17 +156,9 @@ void loop() {
         handleNativeWebTraffic(client);
     }
 
-    // --- MQTT / Home Assistant discovery (every pass; rate-limited inside) ---
-    // Thresholds and manual override come from HA over MQTT (mqtt.cpp); the
-    // REST sync below still pushes telemetry and pulls the network temperature.
+    // --- Home Assistant over MQTT (every pass; rate-limited inside) ---
+    // State out, thresholds/override/network temperature in (mqtt.cpp).
     mqttLoop();
-
-    // --- Home Assistant sync (every 2s) ---
-    static unsigned long lastHAUpdate = 0;
-    if (millis() - lastHAUpdate >= REFRESH_PERIOD_MS) {
-        lastHAUpdate = millis();
-        fetchHomeAssistantTemperature();
-    }
 
     // --- Touch input (every 30ms) ---
     // Fast enough to feel responsive for slider dragging, without hammering

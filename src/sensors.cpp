@@ -17,9 +17,6 @@ float networkTempC = 0.0;
 float blendedAverageC = 0.0;
 bool localSensorHealthy = false;
 bool networkSensorHealthy = false;
-bool localAlertSent = false;
-bool networkAlertSent = false;
-bool totalAlertSent = false;
 
 bool manualOverrideActive = false;
 int manualOverrideDutyCycle = 255; // defaults to full speed per spec, when engaged
@@ -113,7 +110,6 @@ void calculateRPMs(unsigned long timeElapsedMs) {
 void evaluateSensorFailsafes() {
     if (localSensorHealthy && networkSensorHealthy) {
         blendedAverageC = (localTempC + networkTempC) / 2.0;
-        totalAlertSent = false;
     } else if (localSensorHealthy) {
         blendedAverageC = localTempC;
     } else if (networkSensorHealthy) {

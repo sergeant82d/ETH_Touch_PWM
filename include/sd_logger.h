@@ -30,8 +30,8 @@ void sdLoggerUpdateSnapshot();
 // /events.csv. This is the hook point for the manual-override and
 // config-change history logging described in the SD-logging spec; wire
 // calls to this in wherever those events actually occur (display.cpp's
-// touch handler, web_server.cpp's form handler, home_assistant.cpp's
-// override/threshold sync) as a fast follow-up - the logging mechanism
+// touch handler, web_server.cpp's form handler, mqtt.cpp's HA commands)
+// as a fast follow-up - the logging mechanism
 // itself (including SD-absent spillover) is already handled here.
 void sdLogEvent(const String &category, const String &description);
 

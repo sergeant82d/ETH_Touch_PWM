@@ -40,8 +40,10 @@ from REST to MQTT: `docs/MQTT.md` (topics, phases, HA cleanup list).
 
 ## Rules
 
-- Secrets (HA tokens, passwords) never go in the source. The HA token is entered on the web
-  page; anything else goes in git-ignored `secrets.h`.
+- Secrets (tokens, passwords) never go in the source. The MQTT password is entered on the web
+  page (never sent back to it); the simulator's login is in git-ignored
+  `tools/mqtt_secrets.json`; anything else goes in git-ignored `secrets.h`. The firmware needs
+  no HA token since MQTT Phase 3.
 - Mark anything not tested on the board as untested, in commit messages and docs.
 - Commit and push when the user confirms a change works on the board.
 

@@ -1,7 +1,6 @@
 #include "web_server.h"
 #include "config.h"
 #include "sensors.h"
-#include "home_assistant.h"
 #include "mqtt.h"
 #include "sd_logger.h"
 #include <TimeLib.h>
@@ -231,32 +230,6 @@ void handleNativeWebTraffic(EthernetClient& client) {
             if (passParam.length() > 0 && passParam.length() < sizeof(config.mqttPass)) {
                 strcpy(config.mqttPass, passParam.c_str());
             }
-        }
-
-        String hostParam = getUrlParam(body, "hahost=");
-        if (hostParam.length() > 0) {
-            hostParam.replace(" ", "");
-            strncpy(config.haHost, hostParam.c_str(), sizeof(config.haHost) - 1);
-            config.haHost[sizeof(config.haHost) - 1] = '\0';
-        }
-
-        String portParam = getUrlParam(body, "haport=");
-        if (portParam.length() > 0) {
-            int checkPort = portParam.toInt();
-            if (checkPort > 0) config.haPort = checkPort;
-        }
-
-        String sensorParam = getUrlParam(body, "hasensor=");
-        if (sensorParam.length() > 0) {
-            sensorParam.replace(" ", "_");
-            strncpy(config.haSensor, sensorParam.c_str(), sizeof(config.haSensor) - 1);
-            config.haSensor[sizeof(config.haSensor) - 1] = '\0';
-        }
-
-        String tokenParam = getUrlParam(body, "hatoken=");
-        if (tokenParam.length() > 0) {
-            strncpy(config.haToken, tokenParam.c_str(), sizeof(config.haToken) - 1);
-            config.haToken[sizeof(config.haToken) - 1] = '\0';
         }
 
         String ipStr = getUrlParam(body, "ip=");
@@ -491,11 +464,7 @@ void handleNativeWebTraffic(EthernetClient& client) {
     client.print("Password: <input type='password' name='mqttpass' value='' maxlength='63' autocomplete='new-password' placeholder='");
     client.print(config.mqttPass[0] ? "(saved - leave blank to keep)" : "(not set)"); client.println("'>");
 
-    client.println("<h3>Home Assistant REST (being replaced by MQTT)</h3>");
-    client.print("Server IP / Host: <input type='text' name='hahost' value='"); client.print(config.haHost); client.println("' placeholder='e.g., 192.168.10.85' maxlength='63'>");
-    client.print("Server API Port: <input type='text' name='haport' value='"); client.print(config.haPort); client.println("' placeholder='e.g., 8123' maxlength='10'>");
-    client.print("Inbound Sensor ID: <input type='text' name='hasensor' value='"); client.print(config.haSensor); client.println("' placeholder='e.g., rack_temperature' maxlength='63'>");
-    client.print("Long-Lived Bearer Token:<br><textarea name='hatoken' rows='4' maxlength='450'>"); client.print(config.haToken); client.println("</textarea>");
+    client.println("<p style='font-size:12px; color:#555;'>Network temperature comes from an HA automation (docs/MQTT.md).</p>");
 
     client.flush();
     delay(5);

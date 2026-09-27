@@ -75,7 +75,7 @@ class Device:
             ("switch", "override", {"name": "Manual override", "icon": "mdi:hand-back-right"}),
             ("number", "override_speed", {"name": "Manual override speed", "min": 0, "max": 100, "step": 1,
                                           "mode": "slider", "unit_of_measurement": "%", "icon": "mdi:fan"}),
-            ("sensor", "daily_summary", {"name": "Daily summary", "icon": "mdi:calendar-today",
+            ("sensor", "daily_summary", {"name": "Summary of the day", "icon": "mdi:calendar-today",
                                          "json_attributes_topic": self.t("daily_summary/attributes")}),
             ("sensor", "ip", {"name": "IP address", "icon": "mdi:ip-network", "entity_category": "diagnostic"}),
             ("sensor", "uptime", {"name": "Uptime", "unit_of_measurement": "s", "device_class": "duration",
