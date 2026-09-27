@@ -25,17 +25,23 @@ SystemConfig config = {
     "192.168.10.85", // mqttBroker - Mosquitto add-on on the HA box
     1883,
     "",   // mqttUser - set via web UI
-    ""    // mqttPass - set via web UI
+    "",   // mqttPass - set via web UI
+    "",   // webUser - set via web UI
+    ""    // webPass - set via web UI
 };
 
-// Version 4 settings = this struct without the MQTT fields at the end
-// (offsetof, rounded up to the struct's 4-byte alignment) = 864 bytes;
-// checked against the old struct when this was written (2026-09-27).
+// Older settings files = this struct cut before the fields added since
+// (offsetof, rounded up to the struct's 4-byte alignment): version 4 ends
+// before the MQTT fields (864 bytes, checked against the old struct
+// 2026-09-27), version 5 before the web login (1028 bytes).
 // offsetof warns because IPAddress has virtual functions; GCC supports it.
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
-static const size_t V4_FILE_SIZE = (offsetof(SystemConfig, mqttBroker) + 3) & ~(size_t)3;
+static const size_t V4_NEW_FROM = offsetof(SystemConfig, mqttBroker);
+static const size_t V5_NEW_FROM = offsetof(SystemConfig, webUser);
 #pragma GCC diagnostic pop
+static const size_t V4_FILE_SIZE = (V4_NEW_FROM + 3) & ~(size_t)3;
+static const size_t V5_FILE_SIZE = (V5_NEW_FROM + 3) & ~(size_t)3;
 
 // LittleFS.begin()'s formatOnFail reliably reformats a *missing* filesystem,
 // but doesn't always catch genuine on-disk *corruption* (e.g. littlefs
@@ -104,23 +110,23 @@ void loadSettings() {
     File f = LittleFS.open("/settings.cfg", "r");
     if (!f) return;
 
-    // Start from the compiled-in defaults: a version 4 file is shorter and
-    // leaves the MQTT fields at their defaults.
+    // Start from the compiled-in defaults: an older file is shorter and
+    // leaves the newer fields at their defaults.
     SystemConfig loaded = config;
     size_t fileSize = f.size();
-    bool readOk = false;
+    uint32_t fileVersion = fileSize == sizeof(loaded) ? CONFIG_STRUCT_VERSION
+                         : fileSize == V5_FILE_SIZE ? 5
+                         : fileSize == V4_FILE_SIZE ? 4 : 0;
+    bool readOk = fileVersion != 0 && (f.read((uint8_t*)&loaded, fileSize) == fileSize) &&
+                  loaded.configVersion == fileVersion;
     bool upgraded = false;
-    if (fileSize == sizeof(loaded)) {
-        readOk = (f.read((uint8_t*)&loaded, sizeof(loaded)) == sizeof(loaded)) &&
-                 loaded.configVersion == CONFIG_STRUCT_VERSION;
-    } else if (fileSize == V4_FILE_SIZE) {
-        readOk = (f.read((uint8_t*)&loaded, fileSize) == fileSize) && loaded.configVersion == 4;
-        if (readOk) {
-            // The file's tail padding may have landed on the first MQTT bytes
-            memcpy(loaded.mqttBroker, config.mqttBroker, sizeof(loaded.mqttBroker));
-            loaded.configVersion = CONFIG_STRUCT_VERSION;
-            upgraded = true;
-        }
+    if (readOk && fileVersion != CONFIG_STRUCT_VERSION) {
+        // The file's tail padding may have landed on the first new bytes:
+        // put the defaults of everything newer back (no IPAddress in there)
+        size_t newFrom = fileVersion == 4 ? V4_NEW_FROM : V5_NEW_FROM;
+        memcpy((uint8_t*)&loaded + newFrom, (const uint8_t*)&config + newFrom, sizeof(loaded) - newFrom);
+        loaded.configVersion = CONFIG_STRUCT_VERSION;
+        upgraded = true;
     }
     f.close();
 
@@ -136,11 +142,12 @@ void loadSettings() {
         saveSettings();
     }
     if (upgraded) {
-        Serial.println("Settings upgraded from version 4 (MQTT settings added, defaults).");
+        Serial.print("Settings upgraded from version "); Serial.print(fileVersion);
+        Serial.println(" (newer fields at their defaults).");
         saveSettings();
     }
 
-    if (config.fanCount < 2 || config.fanCount > 4) {
+    if (config.fanCount < 1 || config.fanCount > 2) { // 1 fan is valid (the web page offers it)
         config.fanCount = 2;
         Serial.println("Config fanCount out of range, reset to 2.");
     }

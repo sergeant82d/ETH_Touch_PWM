@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fan Controller</title>
+<!--
+  Fan controller web page: compiled into the firmware (platformio.ini
+  embed_txtfiles). Data comes from /api/* (src/web_server.cpp).
+  Opened from disk (file://) it runs a demo with made-up data.
+
+  THEMES: every colour is a variable. The presets are the [data-theme]
+  blocks below; "custom" starts from the NUT colours and is edited on the
+  System tab (saved on the board, /theme.json). To change a preset, edit
+  its block only.
+-->
+<style>
+:root, [data-theme="nut"] {            /* default: ESP32-NUT dark / cyan */
+  --bg: #06090e; --bg2: #0b1320; --panel: #0e141f; --border: #2d3c5a;
+  --text: #e0e6ed; --muted: #8a9bb3;
+  --accent: #00f0ff; --on-accent: #06090e;
+  --ok: #00ff9d; --warn: #ffb800; --error: #ff3366;
+}
+[data-theme="classic-dark"] {          /* Wifi_Fan_Knob gold on navy */
+  --bg: #1a1a2e; --bg2: #16213e; --panel: #222339; --border: #3a3b5c;
+  --text: #e0e0e0; --muted: #a0a0a0;
+  --accent: #ffd700; --on-accent: #1a1a2e;
+  --ok: #4caf50; --warn: #ff9800; --error: #f44336;
+}
+[data-theme="classic-light"] {
+  --bg: #f4f6f8; --bg2: #e6ebf1; --panel: #ffffff; --border: #d0d7de;
+  --text: #1f2328; --muted: #59636e;
+  --accent: #0969da; --on-accent: #ffffff;
+  --ok: #1a7f37; --warn: #9a6700; --error: #cf222e;
+}
+/* Derived from the theme colours; no need to change */
+:root {
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 35%, transparent);
+  --radius: 6px;
+  --sidebar: 240px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+body { font-family: var(--font); color: var(--text); background: linear-gradient(135deg, var(--bg), var(--bg2)) fixed; min-height: 100vh; }
+.app { display: flex; min-height: 100vh; }
+
+/* --- Sidebar --- */
+.sidebar { width: var(--sidebar); flex: none; background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 20px 0; position: sticky; top: 0; height: 100vh; }
+.brand { padding: 0 20px 22px; }
+.brand-name { font-size: 1.15rem; font-weight: 700; color: var(--accent); word-break: break-all; }
+.brand-sub { font-size: .75rem; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+.tabs { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.tab { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 20px; background: none; border: none;
+  border-left: 3px solid transparent; color: var(--muted); font: inherit; font-size: .95rem; cursor: pointer; text-align: left; }
+.tab svg { width: 20px; height: 20px; flex: none; }
+.tab:hover { color: var(--text); background: var(--accent-soft); }
+.tab.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-soft); }
+.lights { padding: 16px 20px 0; border-top: 1px solid var(--border); display: grid; gap: 8px; font-size: .8rem; color: var(--muted); }
+.light { display: flex; align-items: center; gap: 8px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.dot.bad { background: var(--error); box-shadow: 0 0 6px var(--error); }
+.dot.warn { background: var(--warn); }
+
+/* --- Content --- */
+.main { flex: 1; min-width: 0; padding: 24px 32px 40px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px;
+  padding-bottom: 14px; border-bottom: 1px solid var(--accent-line); flex-wrap: wrap; }
+.page-title { font-size: 1.5rem; font-weight: 700; }
+.top-right { display: flex; align-items: center; gap: 14px; }
+.clock { font-family: var(--mono); font-size: 1.1rem; color: var(--accent); }
+.page { display: none; }
+.page.active { display: block; }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 16px; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+.panel h2 { font-size: 1rem; margin-bottom: 14px; color: var(--text); }
+.stat-label { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.stat-value { font-size: 2rem; font-weight: 700; font-family: var(--mono); margin-top: 6px; }
+.stat-value small { font-size: 1rem; color: var(--muted); }
+.stat-note { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+.panel.fault { border-color: var(--error); }
+.panel.fault .stat-note { color: var(--error); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .75rem; font-weight: 600; }
+.badge.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.badge.bad { background: color-mix(in srgb, var(--error) 18%, transparent); color: var(--error); }
+.muted { color: var(--muted); }
+.hint { font-size: .8rem; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; font-size: .9rem; }
+.kv dt { color: var(--muted); }
+.kv dd { font-family: var(--mono); word-break: break-all; }
+
+/* --- Forms --- */
+.form { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label, .field .label { font-size: .85rem; color: var(--muted); }
+input[type=text], input[type=password], input[type=number], select {
+  width: 100%; padding: 9px 11px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); font: inherit; }
+input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+input:user-invalid { border-color: var(--error); }
+.radios { display: flex; gap: 18px; padding: 8px 0; }
+.radios label { display: flex; align-items: center; gap: 6px; color: var(--text); font-size: .95rem; cursor: pointer; }
+input[type=radio], input[type=range] { accent-color: var(--accent); }
+input[type=range] { width: 100%; }
+.actions { display: flex; align-items: center; gap: 14px; margin-top: 16px; flex-wrap: wrap; }
+.btn { padding: 10px 20px; border-radius: var(--radius); border: 1px solid var(--accent); background: var(--accent);
+  color: var(--on-accent); font: inherit; font-weight: 600; cursor: pointer; }
+.btn:hover { filter: brightness(1.1); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.danger { background: var(--error); border-color: var(--error); color: #fff; }
+.btn:disabled { opacity: .5; cursor: default; }
+.msg { font-size: .9rem; }
+.msg.ok { color: var(--ok); }
+.msg.bad { color: var(--error); }
+
+/* --- Override --- */
+.override-btn { width: 100%; padding: 14px; font-size: 1rem; }
+.override-btn.on { background: var(--error); border-color: var(--error); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .65; } }
+.slider-row { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+.slider-row span { font-family: var(--mono); min-width: 3.5em; text-align: right; }
+
+/* --- Theme editor --- */
+.swatches { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin-top: 12px; }
+.swatch { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
+.swatch input { width: 38px; height: 30px; border: 1px solid var(--border); border-radius: 4px; background: none; padding: 0; cursor: pointer; }
+
+/* --- Login dialog --- */
+dialog { margin: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); color: var(--text);
+  padding: 22px; width: min(360px, 92vw); }
+dialog::backdrop { background: rgba(0, 0, 0, .55); }
+dialog h2 { font-size: 1.1rem; margin-bottom: 14px; }
+dialog .field { margin-bottom: 12px; }
+progress { width: 100%; height: 10px; accent-color: var(--accent); }
+.demo { position: fixed; right: 12px; bottom: 12px; z-index: 20; background: var(--warn); color: #000; padding: 5px 12px;
+  border-radius: 14px; font-size: .8rem; font-weight: 600; }
+
+/* --- Phones: sidebar becomes a top strip --- */
+@media (max-width: 760px) {
+  .app { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: static; padding: 12px 0 0; border-right: none; border-bottom: 1px solid var(--border); }
+  .brand { padding: 0 16px 10px; }
+  .tabs { flex-direction: row; overflow-x: auto; }
+  .tab { width: auto; flex: none; padding: 10px 14px; border-left: none; border-bottom: 3px solid transparent; }
+  .tab.active { border-bottom-color: var(--accent); }
+  .lights { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 16px; }
+  .main { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<div id="demo-banner" class="demo" hidden>Demo: opened from disk, showing made-up data</div>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name" id="brand-node">Fan Controller</div>
+      <div class="brand-sub" id="brand-board">--</div>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-page="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+        Dashboard</button>
+      <button class="tab" data-page="fans">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7 2 0 3 2 2 4s-4 3-6 3zM14 12c4 0 7 1 7 4 0 2-2 3-4 2s-3-4-3-6zM12 14c0 4-1 7-4 7-2 0-3-2-2-4s4-3 6-3zM10 12c-4 0-7-1-7-4 0-2 2-3 4-2s3 4 3 6z"/></svg>
+        Fan Control</button>
+      <button class="tab" data-page="ha">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+        Home Assistant</button>
+      <button class="tab" data-page="network">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="6"/><rect x="2" y="16" width="6" height="6"/><rect x="16" y="16" width="6" height="6"/><path d="M12 8v4M5 16v-4h14v4"/></svg>
+        Network</button>
+      <button class="tab" data-page="system">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+        System</button>
+    </nav>
+    <div class="lights">
+      <div class="light"><span class="dot" id="dot-eth"></span>Ethernet</div>
+      <div class="light"><span class="dot" id="dot-mqtt"></span>MQTT</div>
+      <div class="light"><span class="dot" id="dot-sd"></span>SD card</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <h1 class="page-title" id="page-title">Dashboard</h1>
+      <div class="top-right">
+        <span class="clock" id="clock">--:--</span>
+        <button class="btn ghost" id="btn-login">Log in</button>
+      </div>
+    </header>
+
+    <!-- ===== Dashboard ===== -->
+    <section class="page active" id="page-dashboard">
+      <div class="grid">
+        <div class="panel" id="t-local"><div class="stat-label">Local probe</div><div class="stat-value">--</div><div class="stat-note">&nbsp;</div></div>
+        <div class="panel" id="t-network"><div class="stat-label">Network (HA)</div><div class="stat-value">--</div><div class="stat-note">&nbsp;</div></div>
+        <div class="panel" id="t-blended"><div class="stat-label">Blended</div><div class="stat-value">--</div><div class="stat-note">Drives the fan curve</div></div>
+      </div>
+      <div class="grid" id="fan-cards"></div>
+      <div class="panel">
+        <h2>Manual override</h2>
+        <button class="btn override-btn" id="ovr-btn">Manual override: off (tap to turn on)</button>
+        <div class="slider-row" id="ovr-row" hidden>
+          <input type="range" id="ovr-slider" min="0" max="100" step="1">
+          <span id="ovr-pct">100%</span>
+        </div>
+        <div class="hint">On: both fans at the set speed instead of the curve (starts at 100%). Never kept over a restart.</div>
+        <div class="msg" id="ovr-msg"></div>
+      </div>
+    </section>
+
+    <!-- ===== Fan Control ===== -->
+    <section class="page" id="page-fans">
+      <form class="panel" id="form-fans">
+        <h2>Fan curve</h2>
+        <div class="form">
+          <div class="field"><span class="label">Fans connected</span>
+            <div class="radios"><label><input type="radio" name="fanCount" value="1"> 1 fan</label><label><input type="radio" name="fanCount" value="2"> 2 fans</label></div></div>
+          <div class="field"><span class="label">Temperature unit (web page and LCD)</span>
+            <div class="radios"><label><input type="radio" name="unit" value="C"> Celsius</label><label><input type="radio" name="unit" value="F"> Fahrenheit</label></div></div>
+          <div class="field"><label for="tMin">Fan curve start (<span class="u"></span>)</label><input type="number" id="tMin" step="0.1" required></div>
+          <div class="field"><label for="tMax">Fan curve top (<span class="u"></span>)</label><input type="number" id="tMax" step="0.1" required></div>
+        </div>
+        <div class="hint">Below the start the fans are off; from the start they run at 20%, rising to 100% at the top. Uses the blended temperature. Also settable from Home Assistant.</div>
+        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
+      </form>
+    </section>
+
+    <!-- ===== Home Assistant ===== -->
+    <section class="page" id="page-ha">
+      <div class="panel"><h2>Status</h2><div id="mqtt-status" class="muted">--</div></div>
+      <form class="panel" id="form-ha">
+        <h2>MQTT</h2>
+        <div class="form">
+          <div class="field"><label for="nodeId">Node ID (device name in HA, MQTT topics)</label>
+            <input type="text" id="nodeId" maxlength="63" pattern="[A-Za-z0-9_\-]+" title="Letters, digits, _ and - only" required></div>
+          <div class="field"><label for="mqttBroker">Broker IP / host (blank = MQTT off)</label><input type="text" id="mqttBroker" maxlength="63"></div>
+          <div class="field"><label for="mqttPort">Broker port</label><input type="number" id="mqttPort" min="1" max="65535" required></div>
+          <div class="field"><label for="mqttUser">User name</label><input type="text" id="mqttUser" maxlength="31" autocomplete="off"></div>
+          <div class="field"><label for="mqttPass">Password</label><input type="password" id="mqttPass" maxlength="63" autocomplete="new-password"></div>
+        </div>
+        <div class="hint">MQTT stays off while the node ID is the factory default. The password is never shown; leave it blank to keep the saved one. The network temperature comes from an HA automation (docs/MQTT.md).</div>
+        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
+      </form>
+    </section>
+
+    <!-- ===== Network ===== -->
+    <section class="page" id="page-network">
+      <form class="panel" id="form-net">
+        <h2>Static address</h2>
+        <div class="form">
+          <div class="field"><label for="ip">IP address</label><input type="text" id="ip" required></div>
+          <div class="field"><label for="subnet">Subnet mask</label><input type="text" id="subnet" required></div>
+          <div class="field"><label for="gateway">Gateway</label><input type="text" id="gateway" required></div>
+          <div class="field"><label for="dns">DNS server</label><input type="text" id="dns" required></div>
+        </div>
+        <div class="hint">Changing these restarts the controller; the page moves to the new address.</div>
+        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
+      </form>
+      <form class="panel" id="form-time">
+        <h2>Time</h2>
+        <div class="form">
+          <div class="field"><label for="tzOffset">Time zone offset (hours from UTC)</label><input type="number" id="tzOffset" min="-12" max="14" required></div>
+          <div class="field"><span class="label">Clock</span>
+            <div class="radios"><label><input type="radio" name="clock" value="12"> 12-hour</label><label><input type="radio" name="clock" value="24"> 24-hour</label></div></div>
+        </div>
+        <div class="hint">Time comes from pool.ntp.org. The offset is fixed (no daylight saving switch).</div>
+        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
+      </form>
+    </section>
+
+    <!-- ===== System ===== -->
+    <section class="page" id="page-system">
+      <div class="panel"><h2>Firmware</h2><dl class="kv" id="sys-info"></dl></div>
+
+      <div class="panel">
+        <h2>Firmware update (OTA)</h2>
+        <input type="file" id="ota-file" accept=".bin">
+        <div class="hint">Use <code>.pio/build/&lt;board&gt;/firmware.bin</code>. The controller refuses firmware built for the other board, then restarts with the new one (about 30 s). Settings are kept.</div>
+        <progress id="ota-progress" value="0" max="100" hidden></progress>
+        <div class="actions"><button class="btn" id="ota-btn" disabled>Upload and install</button><span class="msg" id="ota-msg"></span></div>
+      </div>
+
+      <div class="panel">
+        <h2>Appearance</h2>
+        <div class="form">
+          <div class="field"><label for="theme">Theme (for every browser)</label>
+            <select id="theme">
+              <option value="nut">NUT (dark / cyan)</option>
+              <option value="classic-dark">Classic dark (gold)</option>
+              <option value="classic-light">Classic light</option>
+              <option value="custom">Custom</option>
+            </select></div>
+        </div>
+        <div id="custom-colors" hidden>
+          <div class="swatches" id="swatches"></div>
+          <div class="hint">Custom starts from the NUT colours. Changes show at once; Save keeps them.</div>
+        </div>
+        <div class="actions"><button class="btn" id="theme-save">Save</button><span class="msg" id="theme-msg"></span></div>
+      </div>
+
+      <form class="panel" id="form-login">
+        <h2>Web login</h2>
+        <div class="hint" id="login-state" style="margin-bottom: 12px"></div>
+        <div class="form">
+          <div class="field"><label for="newUser">User name</label><input type="text" id="newUser" maxlength="31" pattern="[A-Za-z0-9._\-]+" required autocomplete="username"></div>
+          <div class="field"><label for="newPass">Password (8-63 characters)</label><input type="password" id="newPass" minlength="8" maxlength="63" required autocomplete="new-password"></div>
+          <div class="field"><label for="newPass2">Repeat password</label><input type="password" id="newPass2" minlength="8" maxlength="63" required autocomplete="new-password"></div>
+        </div>
+        <div class="hint">Every change on this page needs the login; viewing doesn't. Forgotten: the settings have to be erased over USB (docs/BOARDS.md).</div>
+        <div class="actions"><button class="btn" type="submit">Save login</button><span class="msg"></span></div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<dialog id="login-dialog">
+  <form method="dialog" id="login-form">
+    <h2>Log in</h2>
+    <div class="field"><label for="loginUser">User name</label><input type="text" id="loginUser" autocomplete="username" required></div>
+    <div class="field"><label for="loginPass">Password</label><input type="password" id="loginPass" autocomplete="current-password" required></div>
+    <div class="msg bad" id="login-msg"></div>
+    <div class="actions"><button class="btn" type="submit">Log in</button><button class="btn ghost" type="button" id="login-cancel">Cancel</button></div>
+  </form>
+</dialog>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const DEMO = location.protocol === "file:";
+const THEME_KEYS = [["bg", "Background"], ["bg2", "Background 2"], ["panel", "Panels"], ["border", "Borders"], ["text", "Text"],
+  ["muted", "Muted text"], ["accent", "Accent"], ["onAccent", "Text on accent"], ["ok", "OK"], ["warn", "Warning"], ["error", "Error"]];
+const CSS_VAR = { onAccent: "--on-accent" };
+const cssVar = (k) => CSS_VAR[k] || "--" + k;
+let status = null, config = null, theme = { preset: "nut", custom: {} };
+let auth = sessionStorage.getItem("auth") || "";
+let sliderBusy = false, timeBase = null;
+
+// ---------- API ----------
+async function api(path, body, raw) {
+  if (DEMO) return demoApi(path, body);
+  const opts = body === undefined ? {} : { method: "POST", body: raw ? body : JSON.stringify(body),
+    headers: raw ? {} : { "Content-Type": "application/json" } };
+  if (auth) opts.headers = Object.assign(opts.headers || {}, { Authorization: "Basic " + auth });
+  let r = await fetch(path, opts);
+  if (r.status === 401 && body !== undefined) {           // log in, then try once more
+    if (!(await askLogin())) throw new Error("Login required.");
+    opts.headers.Authorization = "Basic " + auth;
+    r = await fetch(path, opts);
+  }
+  const data = await r.json().catch(() => ({ ok: false, error: "No answer from the controller." }));
+  if (!r.ok || data.ok === false) throw new Error(data.error || "Error " + r.status);
+  return data;
+}
+
+function showMsg(el, text, ok) { el.textContent = text; el.className = "msg " + (ok ? "ok" : "bad"); if (ok) setTimeout(() => { if (el.textContent === text) el.textContent = ""; }, 4000); }
+
+async function save(form, body, after) {
+  const msg = form.querySelector(".msg");
+  try {
+    const r = await api("/api/config", body);
+    if (r.restart) { showMsg(msg, "Saved. Restarting at the new address...", true); setTimeout(() => location.href = "http://" + body.ip + "/", 8000); return; }
+    showMsg(msg, "Saved.", true);
+    await loadConfig();
+    if (after) after();
+  } catch (e) { showMsg(msg, e.message, false); }
+}
+
+// ---------- Login ----------
+function askLogin() {
+  return new Promise((resolve) => {
+    const d = $("#login-dialog");
+    $("#login-msg").textContent = "";
+    $("#loginPass").value = "";
+    d.showModal();
+    $("#login-cancel").onclick = () => { d.close(); resolve(false); };
+    $("#login-form").onsubmit = async (ev) => {
+      ev.preventDefault();
+      const candidate = btoa($("#loginUser").value + ":" + $("#loginPass").value);
+      const r = DEMO ? { status: 200 } : await fetch("/api/auth", { headers: { Authorization: "Basic " + candidate } });
+      if (r.status === 200) { auth = candidate; sessionStorage.setItem("auth", auth); d.close(); updateLoginButton(); resolve(true); }
+      else if (r.status === 403) { $("#login-msg").textContent = "No login set yet: set one on the System tab."; }
+      else $("#login-msg").textContent = "Wrong user name or password.";
+    };
+  });
+}
+function updateLoginButton() { $("#btn-login").textContent = auth ? "Log out" : "Log in"; }
+$("#btn-login").onclick = () => { if (auth) { auth = ""; sessionStorage.removeItem("auth"); updateLoginButton(); } else askLogin(); };
+
+// ---------- Tabs (the URL #hash keeps the tab over a reload / bookmark) ----------
+function showTab(name) {
+  const t = document.querySelector(`.tab[data-page="${name}"]`) || document.querySelector(".tab");
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === t));
+  document.querySelectorAll(".page").forEach((p) => p.classList.toggle("active", p.id === "page-" + t.dataset.page));
+  $("#page-title").textContent = t.textContent.trim();
+}
+document.querySelectorAll(".tab").forEach((t) => t.onclick = () => { history.replaceState(null, "", "#" + t.dataset.page); showTab(t.dataset.page); });
+showTab(location.hash.slice(1));
+
+// ---------- Status (every 2 s) ----------
+const unit = () => (status && status.fahrenheit) ? "F" : "C";
+const fromC = (c) => (status && status.fahrenheit) ? c * 9 / 5 + 32 : c;
+const toC = (v, f) => f ? (v - 32) * 5 / 9 : v;
+const fmtTemp = (t) => t.ok ? `${fromC(t.c).toFixed(1)}<small> &deg;${unit()}</small>` : "--";
+
+function setTemp(id, t, failNote) {
+  const el = $(id);
+  el.querySelector(".stat-value").innerHTML = fmtTemp(t);
+  el.classList.toggle("fault", !t.ok);
+  if (failNote !== undefined) el.querySelector(".stat-note").innerHTML = t.ok ? "&nbsp;" : failNote;
+}
+
+function renderStatus() {
+  const s = status;
+  $("#brand-node").textContent = s.node;
+  $("#brand-board").textContent = s.board + " · " + s.ip;
+  setTemp("#t-local", s.local, "Probe failed");
+  setTemp("#t-network", s.network, "No value from HA");
+  setTemp("#t-blended", s.blended, "Both probes failed: fans at 100%");
+
+  const cards = $("#fan-cards");
+  if (cards.children.length !== s.fans.length) {
+    cards.innerHTML = s.fans.map((_, i) => `<div class="panel"><div class="stat-label">Fan ${i + 1}</div><div class="stat-value">--</div><div class="stat-note"></div></div>`).join("");
+  }
+  s.fans.forEach((f, i) => {
+    const c = cards.children[i];
+    c.querySelector(".stat-value").innerHTML = `${f.rpm}<small> RPM</small>`;
+    c.querySelector(".stat-note").innerHTML = `Duty ${f.duty}% ` + (f.fault ? `<span class="badge bad">No RPM</span>` : `<span class="badge ok">OK</span>`);
+    c.classList.toggle("fault", f.fault);
+  });
+
+  const b = $("#ovr-btn");
+  b.classList.toggle("on", s.override);
+  b.textContent = s.override ? "Manual override: ON (tap to turn off)" : "Manual override: off (tap to turn on)";
+  $("#ovr-row").hidden = !s.override;
+  if (!sliderBusy) { $("#ovr-slider").value = s.overridePct; $("#ovr-pct").textContent = s.overridePct + "%"; }
+
+  $("#dot-eth").className = "dot " + (s.eth ? "ok" : "bad");
+  $("#dot-mqtt").className = "dot " + (s.mqttOk ? "ok" : "warn");
+  $("#dot-sd").className = "dot " + (s.sd ? "ok" : "bad");
+  $("#mqtt-status").textContent = s.mqtt;
+
+  $("#sys-info").innerHTML = [["Board", s.board], ["Build", s.build], ["Source", s.sketch], ["IP address", s.ip],
+    ["Uptime", fmtUptime(s.uptime)], ["Free memory", Math.round(s.heap / 1024) + " KB"]]
+    .map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+  $("#login-state").textContent = s.loginSet ? "A login is set. To change it, log in with the current one first." : "No login set: all changes are refused until you set one here.";
+  document.querySelectorAll(".u").forEach((e) => e.textContent = "°" + unit());
+  timeBase = s.timeSet ? { t: s.time, at: Date.now() } : null;
+  tickClock();
+}
+
+async function pollStatus() {
+  try { status = await api("/api/status"); renderStatus(); }
+  catch (e) { $("#dot-eth").className = "dot bad"; }
+}
+
+function tickClock() {
+  if (!timeBase || !status) { $("#clock").textContent = "--:--"; return; }
+  const d = new Date((timeBase.t * 1000) + (Date.now() - timeBase.at));
+  let h = d.getUTCHours(), m = d.getUTCMinutes(), sfx = "";
+  if (!status.clock24) { sfx = h >= 12 ? " PM" : " AM"; h = h % 12 || 12; }
+  $("#clock").textContent = (status.clock24 ? String(h).padStart(2, "0") : h) + ":" + String(m).padStart(2, "0") + sfx;
+}
+const fmtUptime = (s) => { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + "d " : "") + h + "h " + m + "m"; };
+const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- Override ----------
+$("#ovr-btn").onclick = async () => {
+  try { await api("/api/override", { active: !status.override }); await pollStatus(); }
+  catch (e) { showMsg($("#ovr-msg"), e.message, false); }
+};
+$("#ovr-slider").oninput = (e) => { sliderBusy = true; $("#ovr-pct").textContent = e.target.value + "%"; };
+$("#ovr-slider").onchange = async (e) => {
+  try { await api("/api/override", { pct: +e.target.value }); await pollStatus(); }
+  catch (err) { showMsg($("#ovr-msg"), err.message, false); }
+  sliderBusy = false;
+};
+
+// ---------- Config forms ----------
+const radio = (form, name) => form.querySelector(`input[name=${name}]:checked`).value;
+const setRadio = (form, name, v) => form.querySelectorAll(`input[name=${name}]`).forEach((r) => r.checked = r.value === String(v));
+
+async function loadConfig() {
+  config = await api("/api/config");
+  const c = config, f = c.fahrenheit;
+  setRadio($("#form-fans"), "fanCount", c.fanCount);
+  setRadio($("#form-fans"), "unit", f ? "F" : "C");
+  const show = (v) => (f ? v * 9 / 5 + 32 : +v).toFixed(1);
+  $("#tMin").value = show(c.tMinC); $("#tMax").value = show(c.tMaxC);
+  ["nodeId", "mqttBroker", "mqttPort", "mqttUser", "ip", "subnet", "gateway", "dns", "tzOffset"].forEach((k) => $("#" + k).value = c[k]);
+  $("#mqttPass").value = "";
+  $("#mqttPass").placeholder = c.mqttPassSet ? "(saved - leave blank to keep)" : "(not set)";
+  setRadio($("#form-time"), "clock", c.clock24 ? 24 : 12);
+  $("#newUser").value = c.webUser || "";
+}
+
+// Unit switch converts the shown thresholds so the numbers keep their meaning
+$("#form-fans").querySelectorAll("input[name=unit]").forEach((r) => r.onchange = () => {
+  const toF = r.value === "F";
+  ["#tMin", "#tMax"].forEach((id) => { const v = +$(id).value; $(id).value = (toF ? v * 9 / 5 + 32 : (v - 32) * 5 / 9).toFixed(1); });
+});
+
+$("#form-fans").onsubmit = (e) => { e.preventDefault(); const f = e.target, F = radio(f, "unit") === "F";
+  save(f, { fanCount: +radio(f, "fanCount"), fahrenheit: F, tMinC: +toC(+$("#tMin").value, F).toFixed(2), tMaxC: +toC(+$("#tMax").value, F).toFixed(2) }, pollStatus); };
+$("#form-ha").onsubmit = (e) => { e.preventDefault();
+  const body = { nodeId: $("#nodeId").value.trim(), mqttBroker: $("#mqttBroker").value.trim(), mqttPort: +$("#mqttPort").value, mqttUser: $("#mqttUser").value };
+  if ($("#mqttPass").value) body.mqttPass = $("#mqttPass").value;
+  save(e.target, body, pollStatus); };
+$("#form-net").onsubmit = (e) => { e.preventDefault();
+  save(e.target, { ip: $("#ip").value.trim(), subnet: $("#subnet").value.trim(), gateway: $("#gateway").value.trim(), dns: $("#dns").value.trim() }); };
+$("#form-time").onsubmit = (e) => { e.preventDefault(); save(e.target, { tzOffset: +$("#tzOffset").value, clock24: radio(e.target, "clock") === "24" }, pollStatus); };
+
+$("#form-login").onsubmit = async (e) => {
+  e.preventDefault();
+  const msg = e.target.querySelector(".msg");
+  if ($("#newPass").value !== $("#newPass2").value) { showMsg(msg, "The passwords don't match.", false); return; }
+  try {
+    await api("/api/login", { user: $("#newUser").value, pass: $("#newPass").value });
+    auth = btoa($("#newUser").value + ":" + $("#newPass").value); sessionStorage.setItem("auth", auth); updateLoginButton();
+    $("#newPass").value = $("#newPass2").value = "";
+    showMsg(msg, "Login saved. You're logged in.", true);
+    pollStatus();
+  } catch (err) { showMsg(msg, err.message, false); }
+};
+
+// ---------- Theme ----------
+function applyTheme() {
+  const root = document.documentElement;
+  root.dataset.theme = theme.preset === "custom" ? "nut" : theme.preset;
+  THEME_KEYS.forEach(([k]) => root.style.removeProperty(cssVar(k)));
+  if (theme.preset === "custom") Object.entries(theme.custom || {}).forEach(([k, v]) => root.style.setProperty(cssVar(k), v));
+  $("#theme").value = theme.preset;
+  $("#custom-colors").hidden = theme.preset !== "custom";
+}
+function buildSwatches() {
+  const cs = getComputedStyle(document.documentElement);
+  $("#swatches").innerHTML = THEME_KEYS.map(([k, label]) => {
+    const v = (theme.custom && theme.custom[k]) || cs.getPropertyValue(cssVar(k)).trim();
+    return `<label class="swatch"><input type="color" data-key="${k}" value="${v}">${label}</label>`;
+  }).join("");
+  $("#swatches").querySelectorAll("input").forEach((inp) => inp.oninput = () => {
+    theme.custom = theme.custom || {};
+    theme.custom[inp.dataset.key] = inp.value;
+    document.documentElement.style.setProperty(cssVar(inp.dataset.key), inp.value);
+  });
+}
+$("#theme").onchange = (e) => {
+  theme.preset = e.target.value;
+  if (theme.preset === "custom" && !Object.keys(theme.custom || {}).length) {
+    document.documentElement.dataset.theme = "nut";           // custom starts from NUT
+    const cs = getComputedStyle(document.documentElement);
+    theme.custom = Object.fromEntries(THEME_KEYS.map(([k]) => [k, cs.getPropertyValue(cssVar(k)).trim()]));
+  }
+  applyTheme();
+  if (theme.preset === "custom") buildSwatches();
+};
+$("#theme-save").onclick = async () => {
+  try { await api("/api/theme", theme); showMsg($("#theme-msg"), "Theme saved.", true); }
+  catch (e) { showMsg($("#theme-msg"), e.message, false); }
+};
+
+// ---------- OTA ----------
+$("#ota-file").onchange = (e) => { $("#ota-btn").disabled = !e.target.files.length; $("#ota-msg").textContent = ""; };
+$("#ota-btn").onclick = async () => {
+  const file = $("#ota-file").files[0];
+  if (!file) return;
+  if (!auth && !(await askLogin())) return;
+  const msg = $("#ota-msg"), bar = $("#ota-progress");
+  if (DEMO) { showMsg(msg, "Demo: no upload.", false); return; }
+  $("#ota-btn").disabled = true; bar.hidden = false; bar.value = 0;
+  msg.className = "msg"; msg.textContent = "Uploading...";
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/ota");
+  xhr.setRequestHeader("Authorization", "Basic " + auth);
+  xhr.setRequestHeader("Content-Type", "application/octet-stream");
+  xhr.upload.onprogress = (p) => { if (p.lengthComputable) bar.value = p.loaded * 100 / p.total; };
+  xhr.onload = () => {
+    let r = {}; try { r = JSON.parse(xhr.responseText); } catch (_) {}
+    if (xhr.status === 200 && r.ok) {
+      showMsg(msg, "Installed. Restarting; this page reloads in 30 s.", true);
+      setTimeout(() => location.reload(), 30000);
+    } else {
+      showMsg(msg, r.error || ("Failed (" + xhr.status + ")"), false);
+      if (xhr.status === 401) { auth = ""; sessionStorage.removeItem("auth"); updateLoginButton(); }
+      $("#ota-btn").disabled = false;
+    }
+  };
+  xhr.onerror = () => { showMsg(msg, "Upload failed (connection).", false); $("#ota-btn").disabled = false; };
+  xhr.send(file);
+};
+
+// ---------- Demo (file://) ----------
+function demoApi(path, body) {
+  if (path === "/api/status") {
+    const t = Date.now() / 1000;
+    return { node: "fanController_01", board: "ESP32-S3-ETH", sketch: "ETH_Touch_PWM (PlatformIO, ESP32-S3-ETH)", build: "Sep 27 2026 18:00:00",
+      ip: "192.168.10.53", uptime: 3725, heap: 301000, timeSet: true, time: Math.floor(t - new Date().getTimezoneOffset() * 60),
+      fahrenheit: true, clock24: false,
+      local: { ok: true, c: 31.8 + Math.sin(t / 30) / 2 }, network: { ok: true, c: 27.8 }, blended: { ok: true, c: 29.8 + Math.sin(t / 30) / 4 },
+      fans: [{ rpm: 690, duty: 38, fault: false }, { rpm: 0, duty: 38, fault: true }], override: false, overridePct: 100,
+      sd: true, eth: true, mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true };
+  }
+  if (path === "/api/config") return { fanCount: 2, maxFans: 2, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, tzOffset: -5, clock24: false,
+    ip: "192.168.10.53", subnet: "255.255.255.0", gateway: "192.168.10.1", dns: "192.168.10.11", nodeId: "fanController_01",
+    defaultNodeId: "fanController_xx", mqttBroker: "192.168.10.85", mqttPort: 1883, mqttUser: "Brad", mqttPassSet: true, loginSet: true, webUser: "admin" };
+  if (path === "/api/theme") return theme;
+  return { ok: true };
+}
+
+// ---------- Start ----------
+(async () => {
+  $("#demo-banner").hidden = !DEMO;
+  updateLoginButton();
+  try { theme = await api("/api/theme"); theme.custom = theme.custom || {}; } catch (_) {}
+  applyTheme();
+  if (theme.preset === "custom") buildSwatches();
+  await pollStatus();
+  try { await loadConfig(); } catch (_) {}
+  setInterval(pollStatus, 2000);
+  setInterval(tickClock, 1000);
+})();
+</script>
+</body>
+</html>

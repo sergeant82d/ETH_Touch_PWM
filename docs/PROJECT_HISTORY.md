@@ -104,4 +104,11 @@ The +17 KB is unexplained (likely build option differences); accepted as close.
   MQTT, stored HA token wiped) tested on it. Touch-LCD-2 still untested with any of this.
   Build sizes: Touch-LCD-2 574,839 B, ESP32-S3-ETH 544,455 B.
 
+- 2026-09-27: web page rebuilt: `web/index.html` (layout from esp32-nut, left tabs, themes as
+  CSS variables) compiled in, JSON API under `/api`, web login (settings version 6, v4/v5
+  files upgraded), OTA with a board-name check. The `client.print` page is gone. Tested on the
+  ESP32-S3-ETH, including two OTA installs (607 KB in ~2.5 s, back in ~9 s). Screenshots:
+  headless Edge (`msedge --headless=new --screenshot=... --window-size=W,H URL`; its minimum
+  width is ~500 px, narrower shots are cropped, not reflowed).
+
 Open items: `docs/TODO.md`.

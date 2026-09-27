@@ -19,6 +19,22 @@ One firmware, two boards, picked by the PlatformIO environment. Pins: `include/p
 Both: 16 MB flash, `app3M_fat9M_16MB` partitions, OPI PSRAM, USB CDC on boot, 25 kHz PWM.
 Both still use the same MAC `DE:AD:BE:EF:FE:ED` (`network.cpp`); see `docs/TODO.md`.
 
+## Web page, login, OTA (both boards)
+
+- Page: `web/index.html` (compiled in), API under `/api` (`src/web_server.cpp`). Tabs:
+  Dashboard, Fan Control, Home Assistant, Network, System (firmware info, OTA, theme, login).
+  Opened from disk it shows a demo with made-up data. Tabs follow the URL (`/#system`).
+- Login: viewing is open; every change needs it. Until one is set, changes are refused
+  (setting the first one needs none). **Forgotten login:** erase the settings partition over
+  USB; everything goes back to the defaults (IP .53 / .54, node ID `fanController_xx`, MQTT
+  login, theme), SD logs are kept:
+  `python ~/.platformio/packages/tool-esptoolpy/esptool.py --chip esp32s3 --port COM10 erase_region 0x610000 0x9E0000`
+- OTA: System tab, `.pio/build/<env>/firmware.bin`. The image's board name
+  (`@@BOARD=<BOARD_NAME>@@`, `web_server.cpp`) must match the running board, so the other
+  board's build is refused. From a PC: `curl -u user:pass -H "Content-Type:
+  application/octet-stream" --data-binary @firmware.bin http://<ip>/api/ota`. A USB flash
+  afterwards resets the boot slot to app0 (PlatformIO writes boot_app0.bin).
+
 ## ESP32-S3-ETH source
 
 Pins come from its Arduino sketch `ESP32_S3_ETH_PWM_Fans_VER_1_0_1_WORKING_NO_LCD.ino`

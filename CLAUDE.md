@@ -28,6 +28,15 @@ from REST to MQTT: `docs/MQTT.md` (topics, phases, HA cleanup list).
 - LCD and SD share one SPI bus. W5500 has its own.
 - Power: the board locks up on PC USB power with LCD + Ethernet + SD running. Use external power.
 
+## Web page
+
+- `web/index.html` (HTML + CSS + JS in one file) is compiled into the firmware; `src/web_server.cpp`
+  serves it and the JSON API. Don't build HTML with `client.print` again.
+- Colours are CSS variables; the four themes are the `[data-theme]` blocks at the top.
+- After editing the script, check it: extract the `<script>` block and run `node --check`.
+- Open the file from disk to see it with demo data; headless Edge can screenshot it.
+- Every change needs the web login; OTA refuses the other board's firmware (`docs/BOARDS.md`).
+
 ## Build
 
 - `~/.platformio/penv/Scripts/pio.exe run` (add `-t upload` to flash). Run it from PowerShell:

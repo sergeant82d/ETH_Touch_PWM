@@ -7,7 +7,7 @@
 // Bump this whenever the SystemConfig struct's fields/layout change.
 // loadSettings() checks this and falls back to defaults on a mismatch,
 // so a firmware update never reads a stale/misaligned raw-byte blob.
-#define CONFIG_STRUCT_VERSION 5
+#define CONFIG_STRUCT_VERSION 6
 
 // Factory nodeID. MQTT stays off until the user changes it on the web page,
 // so two unconfigured boards can't share one name on the broker / in HA.
@@ -50,6 +50,11 @@ struct SystemConfig {
     int mqttPort;
     char mqttUser[32];     // empty = no login
     char mqttPass[64];     // never sent to the web page
+
+    // Web login (version 6), appended like the MQTT fields. Empty password =
+    // no login set: the web page refuses all changes until one is set.
+    char webUser[32];
+    char webPass[64];      // never sent to the web page
 };
 
 extern SystemConfig config;

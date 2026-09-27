@@ -3,14 +3,14 @@
 		{
 			"path": "."
 		}
-	]
-},
-  "settings": {
-    "files.exclude": {
-      "**/.pio": true,
-      "**/.vscode": true,
-      "**/.git": true,
-      "**/include/README": true,
-      "**/lib/README": true
-    }
-  }
+	],
+	"settings": {
+		"files.exclude": {
+			"**/.pio": true,
+			"**/.vscode": true,
+			"**/.git": true,
+			"**/include/README": true,
+			"**/lib/README": true
+		}
+	}
+}

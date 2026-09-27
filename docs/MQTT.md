@@ -21,8 +21,8 @@ Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
   `override`, `override_speed` + `/set`). Changes are saved (thresholds) and logged to SD with
   `source=HA`, like web/LCD changes; the device republishes its state after every command.
   Removed: the `input_number`/`input_boolean` helper sync (60 s and 5 min polls, pushes from
-  the web page and LCD) and the helper entity fields on the web page. `/override_set` stays
-  (the web page uses it).
+  the web page and LCD) and the helper entity fields on the web page. (`/override_set` was
+  kept then; the new web page replaced it with `/api/override`, login required.)
   Tested on the ESP32-S3-ETH over MQTT (commands as HA sends them): thresholds set/saved/
   range-checked, override on/speed/off with fan duty following, speed ignored while off,
   web page override changes reach MQTT within 1 s, command echo 0.15-0.7 s.

@@ -19,6 +19,15 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
       `docs/MQTT.md`), rebuild fault notifications on the MQTT problem sensors
 - [ ] Phase 5: update docs and success criteria (no longer "same as the Arduino build")
 
+## Web page
+
+- [ ] New web page (`web/index.html` + `/api`, left tabs, themes NUT / classic dark / classic
+      light / custom, web login, OTA with board check). Code done 2026-09-27, tested on the
+      ESP32-S3-ETH (API, login, validation, override, theme, OTA install and refusals,
+      screenshots). User check in a browser pending; replace the temporary login.
+- [ ] Classic dark theme uses the Wifi_Fan_Knob gold/navy colours: confirm or change
+- [ ] Later from the Claude web plans: Home tab notes, history viewer
+
 ## Needs the board
 
 - [ ] Success criterion 2: flash and compare with the Arduino build
@@ -36,6 +45,7 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 - [ ] `isSpilloverNearFull()` is unused: wire it to the LCD/web SD indicator or an MQTT
       diagnostic, or remove it
 - [ ] Screen flicker: every redraw clears everything. Dirty-checking or an off-screen buffer
+- [x] 1 fan setting reset to 2 at boot (`loadSettings` allowed 2-4): now 1-2 (2026-09-27)
 
 ## Planned, no spec yet
 

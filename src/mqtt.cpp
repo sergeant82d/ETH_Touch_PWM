@@ -274,7 +274,7 @@ static void onNetworkTemp(const String &msg) {
     String unit = doc["unit"].as<String>();
     char *end = nullptr;
     float v = strtof(value.c_str(), &end);
-    if (value.length() == 0 || end == value.c_str() || *end != ' ' || isnan(v)) {
+    if (value.length() == 0 || end == value.c_str() || *end != '\0' || isnan(v)) {
         setNetworkHealthy(false, "HA reports it unavailable, marked failed");
         return;
     }
