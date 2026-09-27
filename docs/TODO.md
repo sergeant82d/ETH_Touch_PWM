@@ -30,9 +30,11 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 - [ ] Time zone picker (Network tab, IANA zones + POSIX rules from Wifi_Fan_Knob, daylight
       saving automatic; settings version 7). Done 2026-09-27; clock checked against the PC.
       Changing the zone on the page not yet tried (needs the user's login)
-- [ ] Network: switch Ethernet to the core's ETH driver (lwIP), then WiFi as a backup when
-      Ethernet is down, plus the setup hotspot; WiFi page like Wifi_Fan_Knob's (user
-      decisions 2026-09-27)
+- [x] Ethernet on the core's ETH driver (lwIP), SNTP (2026-09-27; tested on the ESP32-S3-ETH)
+- [ ] WiFi as a backup when Ethernet is down, plus the setup hotspot; WiFi page like
+      Wifi_Fan_Knob's (user decisions 2026-09-27)
+- [ ] Network: Add block to set Static IP Address
+- [ ] Web page - Fan Control - turn the fan-channels into a table, selectable check boxes, not radio buttons. Defaults to only one, the first one listed in the firmware, and user can select additional fans at run time on the web page, but only in order; i.e., #2 is available at first start up, but #3 is not available until #2 has been selected. Grey-out unavailable fans.
 
 ## Needs the board
 
@@ -46,12 +48,16 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 
 ## Decide
 
-- [ ] Every board uses the same MAC (`DE:AD:BE:EF:FE:ED`, `network.cpp`); two controllers on
-      one LAN would clash. Option: derive it from the ESP32's own MAC
+- [x] Every board used the same MAC (`DE:AD:BE:EF:FE:ED`): fixed by the ETH driver switch,
+      each board has its chip's own MAC (2026-09-27)
 - [ ] `isSpilloverNearFull()` is unused: wire it to the LCD/web SD indicator or an MQTT
       diagnostic, or remove it
 - [ ] Screen flicker: every redraw clears everything. Dirty-checking or an off-screen buffer
 - [x] 1 fan setting reset to 2 at boot (`loadSettings` allowed 2-4): now 1-2 (2026-09-27)
+
+## Use ESP32's MAC
+	- BDH
+
 
 ## Planned, no spec yet
 

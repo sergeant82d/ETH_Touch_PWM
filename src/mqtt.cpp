@@ -1,10 +1,9 @@
 #include "mqtt.h"
 #include "config.h"
 #include "sensors.h"
-#include "network.h"
+#include "fan_network.h"
 #include "sd_logger.h"
 #include <math.h>
-#include <Ethernet.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
@@ -16,7 +15,7 @@
 // Network temperature: HA sends it to <nodeID>/network_temp/set (an HA
 // automation, docs/MQTT.md); older than 5 minutes = network probe failed.
 
-static EthernetClient net;
+static NetworkClient net;
 static PubSubClient mqtt(net);
 static String activeNode;              // nodeID of the current connection
 static bool reconfigureRequested = false;
@@ -140,7 +139,7 @@ static void publishEntityConfig(const String &node, const EntityDef &e, bool wan
     dev["name"] = node;
     dev["manufacturer"] = "DIY";
     dev["model"] = "ETH Touch PWM fan controller";
-    dev["configuration_url"] = "http://" + Ethernet.localIP().toString() + "/";
+    dev["configuration_url"] = "http://" + localIP().toString() + "/";
 
     String payload;
     serializeJson(doc, payload);
@@ -221,7 +220,7 @@ static void publishState(bool force) {
 
     if (force || millis() - lastDiagMs >= 60000) {
         lastDiagMs = millis();
-        mqtt.publish(topic("ip").c_str(), Ethernet.localIP().toString().c_str(), true);
+        mqtt.publish(topic("ip").c_str(), localIP().toString().c_str(), true);
         mqtt.publish(topic("uptime").c_str(), String(millis() / 1000).c_str(), true);
     }
 }
@@ -380,6 +379,7 @@ static void disconnectCleanly(bool removeFromHA) {
 void mqttInit() {
     mqtt.setBufferSize(1024); // discovery payloads exceed the 256-byte default
     mqtt.setSocketTimeout(5); // seconds to wait for the broker's reply
+    net.setConnectionTimeout(2000); // a dead broker blocks loop() at most this long
     mqtt.setCallback(onMessage);
 }
 

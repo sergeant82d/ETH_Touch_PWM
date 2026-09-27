@@ -115,4 +115,13 @@ The +17 KB is unexplained (likely build option differences); accepted as close.
   local time for the rest of the firmware; `getNtpTime()` converts UTC with the POSIX rule
   at each sync, so daylight saving follows within 5 minutes. `tzOffset` is only a fallback.
 
+- 2026-09-27: Ethernet moved from the Arduino Ethernet library (own socket stack) to the
+  core's ETH driver (lwIP): `NetworkServer`/`NetworkClient` for web and MQTT, SNTP instead of
+  the UDP NTP code (and its first-packet retry). Unique MAC per board. Image +246 KB (network
+  stack), still ~28 % of the app slot. Gotchas: our `network.h` shadowed the core's
+  `Network.h` on case-insensitive Windows (renamed `fan_network.h`); `ETH.h` includes
+  "Network.h" in quotes, so the library finder misses it (`-I${PROJECT_PACKAGES_DIR}/...`
+  in build_flags; `${platformio.packages_dir}` there loses its backslashes); SNTP must start
+  after the link is up (started earlier, its first lookup fails and it backs off).
+
 Open items: `docs/TODO.md`.

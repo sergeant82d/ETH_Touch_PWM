@@ -5,8 +5,8 @@
 
 // The only link to Home Assistant (MQTT discovery, state, commands; the
 // REST link is gone since Phase 3) - topics and entities in docs/MQTT.md.
-// Runs from loop(), not its own task: the Arduino Ethernet library isn't
-// thread-safe, and the web server and NTP use the W5500 from loop() too.
+// Runs from loop(): simplest, and loop() also serves the web page and reads
+// the sensors whose values it publishes.
 void mqttInit();
 void mqttLoop();         // call on every loop() pass
 void mqttReconfigure();  // settings saved: drop the connection, reconnect with the new ones

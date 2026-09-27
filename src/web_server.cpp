@@ -2,7 +2,7 @@
 #include "config.h"
 #include "pins.h"
 #include "sensors.h"
-#include "network.h"
+#include "fan_network.h"
 #include "mqtt.h"
 #include "sd_logger.h"
 #include <TimeLib.h>
@@ -38,7 +38,7 @@ struct Request {
     size_t contentLength = 0;
 };
 
-static bool readRequest(EthernetClient &client, Request &req) {
+static bool readRequest(NetworkClient &client, Request &req) {
     client.setTimeout(2000);
     String line = client.readStringUntil('\n');
     line.trim();
@@ -66,7 +66,7 @@ static bool readRequest(EthernetClient &client, Request &req) {
     return true;
 }
 
-static String readBody(EthernetClient &client, size_t len) {
+static String readBody(NetworkClient &client, size_t len) {
     String body;
     if (len > MAX_BODY) return body;
     body.reserve(len);
@@ -77,7 +77,7 @@ static String readBody(EthernetClient &client, size_t len) {
     return body;
 }
 
-static void sendHead(EthernetClient &client, int code, const char* type, size_t len) {
+static void sendHead(NetworkClient &client, int code, const char* type, size_t len) {
     const char* text = code == 200 ? "OK" : code == 400 ? "Bad Request" : code == 401 ? "Unauthorized" :
                        code == 403 ? "Forbidden" : code == 404 ? "Not Found" : "Error";
     client.print("HTTP/1.1 "); client.print(code); client.print(' '); client.println(text);
@@ -88,7 +88,7 @@ static void sendHead(EthernetClient &client, int code, const char* type, size_t 
     client.println();
 }
 
-static void sendJson(EthernetClient &client, int code, JsonDocument &doc) {
+static void sendJson(NetworkClient &client, int code, JsonDocument &doc) {
     String out;
     serializeJson(doc, out);
     sendHead(client, code, "application/json", out.length());
@@ -96,14 +96,14 @@ static void sendJson(EthernetClient &client, int code, JsonDocument &doc) {
 }
 
 // {"ok":false,"error":"..."} or {"ok":true}
-static void sendResult(EthernetClient &client, int code, const char* error = nullptr) {
+static void sendResult(NetworkClient &client, int code, const char* error = nullptr) {
     JsonDocument doc;
     doc["ok"] = error == nullptr;
     if (error) doc["error"] = error;
     sendJson(client, code, doc);
 }
 
-static void sendPage(EthernetClient &client) {
+static void sendPage(NetworkClient &client) {
     size_t len = index_html_end - index_html_start - 1; // embed_txtfiles adds a trailing NUL
     sendHead(client, 200, "text/html; charset=utf-8", len);
     for (size_t sent = 0; sent < len; ) {
@@ -127,7 +127,7 @@ static bool authorized(const Request &req) {
 }
 
 // Every change goes through here. Sends the refusal itself.
-static bool requireLogin(EthernetClient &client, const Request &req) {
+static bool requireLogin(NetworkClient &client, const Request &req) {
     if (!loginSet()) {
         sendResult(client, 403, "Set a web login first (System tab).");
         return false;
@@ -173,13 +173,13 @@ static bool parseIp(const String &s, IPAddress &out) {
 // /api/status, /api/config
 // ============================================================================
 
-static void handleStatus(EthernetClient &client) {
+static void handleStatus(NetworkClient &client) {
     JsonDocument doc;
     doc["node"] = config.nodeID;
     doc["board"] = BOARD_NAME;
     doc["sketch"] = SKETCH_FILENAME;
     doc["build"] = __DATE__ " " __TIME__;
-    doc["ip"] = Ethernet.localIP().toString();
+    doc["ip"] = localIP().toString();
     doc["uptime"] = millis() / 1000;
     doc["heap"] = ESP.getFreeHeap();
     doc["timeSet"] = timeStatus() != timeNotSet;
@@ -207,7 +207,7 @@ static void handleStatus(EthernetClient &client) {
     sendJson(client, 200, doc);
 }
 
-static void handleGetConfig(EthernetClient &client) {
+static void handleGetConfig(NetworkClient &client) {
     JsonDocument doc;
     doc["fanCount"] = config.fanCount;
     doc["maxFans"] = 2; // pins exist for 2 fans on both boards (pins.h)
@@ -238,7 +238,7 @@ static void logThreshold(const char* name, float oldC, float newC) {
 }
 
 // Applies only the keys present (each tab saves its own fields)
-static void handlePostConfig(EthernetClient &client, const Request &req) {
+static void handlePostConfig(NetworkClient &client, const Request &req) {
     JsonDocument in;
     if (deserializeJson(in, readBody(client, req.contentLength))) {
         sendResult(client, 400, "Bad JSON.");
@@ -349,7 +349,7 @@ static void handlePostConfig(EthernetClient &client, const Request &req) {
 // ============================================================================
 // A live action, never saved: override always boots to off.
 
-static void handleOverride(EthernetClient &client, const Request &req) {
+static void handleOverride(NetworkClient &client, const Request &req) {
     JsonDocument in;
     if (deserializeJson(in, readBody(client, req.contentLength))) {
         sendResult(client, 400, "Bad JSON.");
@@ -390,7 +390,7 @@ static bool isHexColor(const String &s) {
     return true;
 }
 
-static void handleGetTheme(EthernetClient &client) {
+static void handleGetTheme(NetworkClient &client) {
     JsonDocument doc;
     if (isLittleFsMounted() && LittleFS.exists(THEME_PATH)) {
         File f = LittleFS.open(THEME_PATH, "r");
@@ -403,7 +403,7 @@ static void handleGetTheme(EthernetClient &client) {
     sendJson(client, 200, doc);
 }
 
-static void handlePostTheme(EthernetClient &client, const Request &req) {
+static void handlePostTheme(NetworkClient &client, const Request &req) {
     JsonDocument in;
     if (deserializeJson(in, readBody(client, req.contentLength))) {
         sendResult(client, 400, "Bad JSON.");
@@ -438,7 +438,7 @@ static void handlePostTheme(EthernetClient &client, const Request &req) {
 // The first login needs no authorization; changing it needs the current one.
 // Forgotten: erase the settings over USB (docs/BOARDS.md).
 
-static void handleSetLogin(EthernetClient &client, const Request &req) {
+static void handleSetLogin(NetworkClient &client, const Request &req) {
     if (loginSet() && !authorized(req)) {
         sendResult(client, 401, "Login required.");
         return;
@@ -464,7 +464,7 @@ static void handleSetLogin(EthernetClient &client, const Request &req) {
 // /api/ota  raw firmware.bin body
 // ============================================================================
 
-static void handleOta(EthernetClient &client, const Request &req) {
+static void handleOta(NetworkClient &client, const Request &req) {
     // A real read, so the linker keeps OTA_BOARD_MARKER in this image too
     if (*(volatile const char*)OTA_BOARD_MARKER != '@') return;
     if (req.contentLength < 4096) { sendResult(client, 400, "No firmware file."); return; }
@@ -541,7 +541,7 @@ static void handleOta(EthernetClient &client, const Request &req) {
 // ROUTER
 // ============================================================================
 
-void handleNativeWebTraffic(EthernetClient &client) {
+void handleNativeWebTraffic(NetworkClient &client) {
     Request req;
     if (!readRequest(client, req)) {
         client.stop();

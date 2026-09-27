@@ -1,7 +1,7 @@
 /*
   Name:    ESP32_S3_FanController_2inch.ino
   Board:   Waveshare ESP32-S3-Touch-LCD-2 (240x320 landscape, ST7789T3 + CST816D)
-  Ethernet: external W5500 module on GPIO 9-14 (see pins.h)
+  Ethernet: W5500 on GPIO 9-14 (see pins.h), ESP32 core ETH driver
 
   2-channel PWM fan controller with:
     - DS18B20 local temperature probe (OneWire)
@@ -16,7 +16,7 @@
     pins.h            - all board/peripheral pin definitions
     config.h/.cpp     - persistent settings struct (LittleFS load/save)
     sensors.h/.cpp    - DS18B20, fan PWM curve, tach ISRs/RPM calc
-    network.h/.cpp    - W5500 bring-up, NTP time sync
+    fan_network.h/.cpp - W5500 (core ETH driver), SNTP time, HTTP server
     display.h/.cpp    - LCD dashboard rendering
     mqtt.h/.cpp       - Home Assistant over MQTT (discovery, state, commands)
     web_server.h/.cpp - HTTP config page + AJAX telemetry endpoint
@@ -26,7 +26,7 @@
 #include "pins.h"
 #include "config.h"
 #include "sensors.h"
-#include "network.h"
+#include "fan_network.h"
 #if HAS_LCD
 #include "display.h"
 #include "touch.h"
@@ -152,7 +152,7 @@ void loop() {
 #endif
 
     // --- Web traffic handling ---
-    EthernetClient client = server.available();
+    NetworkClient client = server.accept();
     if (client) {
         handleNativeWebTraffic(client);
     }

@@ -17,7 +17,9 @@ One firmware, two boards, picked by the PlatformIO environment. Pins: `include/p
 | Web page "Source File" | ETH_Touch_PWM (PlatformIO, ESP32-S3-Touch-LCD-2) | ETH_Touch_PWM (PlatformIO, ESP32-S3-ETH) |
 
 Both: 16 MB flash, `app3M_fat9M_16MB` partitions, OPI PSRAM, USB CDC on boot, 25 kHz PWM.
-Both still use the same MAC `DE:AD:BE:EF:FE:ED` (`network.cpp`); see `docs/TODO.md`.
+Ethernet runs on the ESP32 core's ETH driver (`src/fan_network.cpp`) since 2026-09-27; each
+board uses its chip's own MAC (the ESP32-S3-ETH: `2E:84:85:53:86:65`), no longer the shared
+`DE:AD:BE:EF:FE:ED`.
 
 ## Web page, login, OTA (both boards)
 

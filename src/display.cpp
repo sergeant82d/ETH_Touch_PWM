@@ -4,11 +4,10 @@
 #include "sensors.h"
 #include "touch.h"
 #include "sd_logger.h"
-#include "network.h"
+#include "fan_network.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
 #include <SPI.h>
-#include <Ethernet.h>
 #include <TimeLib.h> // same clock source as web_server.cpp - see note in updateMainDashboardUI()
 #include <math.h>
 #include <Fonts/FreeSansBold24pt7b.h> // bundled with Adafruit_GFX - smoother/proportional, used for the big temp number
@@ -506,7 +505,7 @@ void updateMainDashboardUI() {
     // Plain text, no labels, per spec.
     screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
     screenMain.fillRect(LEFT_ZONE_X, FOOTER_Y, LEFT_ZONE_W, 10, ST77XX_BLACK);
-    printCentered(LEFT_ZONE_X, LEFT_ZONE_W, FOOTER_Y, Ethernet.localIP().toString(), 1);
+    printCentered(LEFT_ZONE_X, LEFT_ZONE_W, FOOTER_Y, localIP().toString(), 1);
 
     screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
     screenMain.fillRect(RIGHT_ZONE_X, FOOTER_Y, RIGHT_ZONE_W, 10, ST77XX_BLACK);
