@@ -158,7 +158,8 @@ void loop() {
     }
 
     // --- MQTT / Home Assistant discovery (every pass; rate-limited inside) ---
-    // Runs alongside the REST sync below until that is removed (docs/MQTT.md).
+    // Thresholds and manual override come from HA over MQTT (mqtt.cpp); the
+    // REST sync below still pushes telemetry and pulls the network temperature.
     mqttLoop();
 
     // --- Home Assistant sync (every 2s) ---
@@ -166,33 +167,6 @@ void loop() {
     if (millis() - lastHAUpdate >= REFRESH_PERIOD_MS) {
         lastHAUpdate = millis();
         fetchHomeAssistantTemperature();
-    }
-
-    // --- HA-editable tMin/tMax poll (every 60s) ---
-    // Deliberately slow - these change rarely, and every poll costs 2 more
-    // W5500 socket open/close cycles on top of the 2s telemetry cycle's own
-    // socket usage. A shorter interval here (originally 15s) is suspected
-    // to have reintroduced the same W5500 socket-contention issue that
-    // caused the original HA-outage bug - intermittent failures of the
-    // network-temp GET specifically, plus general loop stutter.
-    static unsigned long lastThresholdPoll = 0;
-    const unsigned long HA_THRESHOLD_POLL_MS = 60000;
-    if (millis() - lastThresholdPoll >= HA_THRESHOLD_POLL_MS) {
-        lastThresholdPoll = millis();
-        fetchThresholdsFromHA();
-    }
-
-    // --- HA manual-override poll (every 5 min - safety-net fallback only) ---
-    // HA now pushes override changes to /override_set immediately via a
-    // rest_command automation (near-zero latency, unlike polling). This
-    // slow poll just catches the rare case where a push got missed (device
-    // briefly offline, network hiccup) - not the primary sync path anymore,
-    // so it can afford to be infrequent and cost almost nothing in sockets.
-    static unsigned long lastOverridePoll = 30000; // starts offset from boot
-    const unsigned long HA_OVERRIDE_POLL_MS = 300000;
-    if (millis() - lastOverridePoll >= HA_OVERRIDE_POLL_MS) {
-        lastOverridePoll = millis();
-        fetchOverrideFromHA();
     }
 
     // --- Touch input (every 30ms) ---

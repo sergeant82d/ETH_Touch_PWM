@@ -46,6 +46,13 @@ Taken from the Arduino IDE Tools menu used for the working board:
 - Build from PowerShell. pioarduino's tool installer refuses Git Bash ("MSys/Mingw is not
   supported") and the build then fails with `xtensa-esp32s3-elf-g++ not recognized`.
 - "Firmware metrics can not be shown": console codepage; `chcp 65001` shows them.
+- **USB serial stalls loop()** (found 2026-09-27): with the USB cable in a PC that isn't
+  reading the port (after a flash, or a closed serial monitor), each `Serial.print` on the
+  native USB-Serial/JTAG retries 20 x 100 ms. A dozen prints dropped the MQTT connection.
+  `Serial.setTxTimeoutMs(0)` in `setup()` fixes it (output is dropped when nobody reads).
+  The Arduino builds still have it. Also: a test that waits for `<node>/status = online`
+  right after a flash sees the retained message of the previous session; wait for a small
+  `uptime` instead.
 - `HTTPClientError` installing a library (PubSubClient, 2026-09-27) while curl downloads the
   same URL fine: download the archive, check its sha256 against the registry API, `pio pkg
   install --no-save -l file://<archive>`, then set its `.piopm` spec to the registry owner/id

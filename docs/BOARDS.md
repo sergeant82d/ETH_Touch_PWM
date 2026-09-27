@@ -37,7 +37,8 @@ Moving it to this firmware:
   content transfer stopped"); `--no-stub` reads them (slowly).
 - The backed-up Arduino build used a 4 MB layout (app0 3 MB, `spiffs` 896 KB at 0x310000).
   Its web server stalls after a PC has opened and closed its USB serial port (heavy Serial
-  output blocking); power-cycle it after using USB.
+  output blocking); power-cycle it after using USB. This firmware has the fix
+  (`Serial.setTxTimeoutMs(0)`, see PROJECT_HISTORY).
 
 Flashed 2026-09-27 (`mqtt-phase1-test` + this board variant). Checked on the board: boots,
 web page at .53 (build label ESP32-S3-ETH, MQTT section), DS18B20 on GPIO 21 reads (88.6 F vs

@@ -3,7 +3,6 @@
 #include "config.h"
 #include "sensors.h"
 #include "touch.h"
-#include "home_assistant.h"
 #include "sd_logger.h"
 #include "network.h"
 #include <Adafruit_GFX.h>
@@ -678,12 +677,10 @@ void handleTouchInput() {
                 if (pointInRect(tx, ty, OVERLAY_CANCEL_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_H)) {
                     manualOverrideActive = false; // revert to auto
                     overlayOpen = false;
-                    pushOverrideSwitchToHA(); // switch-only - see home_assistant.h for why
                     Serial.println("Override DEACTIVATED via LCD (Cancel)");
                     sdLogEvent("OVERRIDE", "source=LCD action=OFF (cancel)");
                 } else if (pointInRect(tx, ty, OVERLAY_KEEPON_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_H)) {
                     overlayOpen = false; // stays active; button keeps flashing (see refreshBarsOnly())
-                    pushOverrideSpeedToHA(); // speed-only - switch state hasn't changed here
                     int pct = (manualOverrideDutyCycle * 100) / 255;
                     Serial.print("Override kept ON via LCD - speed="); Serial.print(pct); Serial.println("%");
                     sdLogEvent("OVERRIDE", "source=LCD action=SPEED (keep-on) speed=" + String(pct) + "%");
@@ -700,12 +697,10 @@ void handleTouchInput() {
                     manualOverrideDutyCycle = 255; // default full speed per spec
                     overlayOpen = true;
                     drawOverrideOverlay();
-                    pushOverrideSwitchToHA(); // switch-only - HA's own automation resets its speed helper to 255
                     Serial.println("Override ACTIVATED via LCD - speed=100%");
                     sdLogEvent("OVERRIDE", "source=LCD action=ON speed=100%");
                 } else {
                     manualOverrideActive = false; // tap while flashing turns override off directly
-                    pushOverrideSwitchToHA(); // switch-only
                     Serial.println("Override DEACTIVATED via LCD (tap while flashing)");
                     sdLogEvent("OVERRIDE", "source=LCD action=OFF (tap-while-flashing)");
                 }

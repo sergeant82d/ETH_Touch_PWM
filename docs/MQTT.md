@@ -17,6 +17,15 @@ Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
   still runs alongside. Saving the form reconnects; a changed node ID removes the old device
   from HA. Runs in `loop()` (the Ethernet library isn't thread-safe); a connect attempt every
   15 s can block up to ~1 s (unreachable) or 5 s (no broker reply).
+- **Phase 2 (2026-09-27):** thresholds and manual override from HA (`t_min`, `t_max`,
+  `override`, `override_speed` + `/set`). Changes are saved (thresholds) and logged to SD with
+  `source=HA`, like web/LCD changes; the device republishes its state after every command.
+  Removed: the `input_number`/`input_boolean` helper sync (60 s and 5 min polls, pushes from
+  the web page and LCD) and the helper entity fields on the web page. `/override_set` stays
+  (the web page uses it). The helper IDs stay in the settings struct, unused, until Phase 3.
+  Tested on the ESP32-S3-ETH over MQTT (commands as HA sends them): thresholds set/saved/
+  range-checked, override on/speed/off with fan duty following, speed ignored while off,
+  web page override changes reach MQTT within 1 s, command echo 0.15-0.7 s.
 - State cadence: temperatures, faults, duty on change (checked every second); fan RPM on a
   60 RPM change, to/from stopped, or after 30 s; IP and uptime every 60 s.
 - Settings: version 5 adds the MQTT fields; a version 4 file (864 bytes) is upgraded in place,
@@ -32,7 +41,8 @@ Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
   created; renaming later changes only the displayed name).
 - Entity names sort into groups on HA's device page (it lists by name): "Air temperature
   blended/local/network", "Fan duty N", "Fan speed N", "Fault fan N / local probe /
-  network probe"; IP address and Uptime under Diagnostic.
+  network probe"; IP address and Uptime under Diagnostic. Controls: "Fan curve start"
+  (tMin), "Fan curve top" (tMax), "Manual override", "Manual override speed".
 - Discovery: `homeassistant/<component>/<nodeID>/<object>/config`, retained.
 - Availability: `<nodeID>/status` = `online` / `offline` (Last Will), retained.
 

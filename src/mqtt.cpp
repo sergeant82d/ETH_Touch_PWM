@@ -2,6 +2,8 @@
 #include "config.h"
 #include "sensors.h"
 #include "network.h"
+#include "sd_logger.h"
+#include <math.h>
 #include <Ethernet.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -9,7 +11,8 @@
 // Topics: <nodeID>/<object>, e.g. fanController_02/local_temp (retained).
 // Availability: <nodeID>/status = online | offline (Last Will, retained).
 // Discovery: homeassistant/<component>/<nodeID>/<object>/config (retained).
-// Phase 1: read-only sensors. Commands come in Phase 2 (docs/MQTT.md).
+// Commands: <nodeID>/<object>/set for the thresholds and manual override
+// (docs/MQTT.md); state is published back after every command.
 
 static EthernetClient net;
 static PubSubClient mqtt(net);
@@ -52,12 +55,17 @@ struct EntityDef {
     const char* icon;
     bool measurement;
     bool diagnostic;
+    // number entities only
+    float numMin = 0, numMax = 0, numStep = 0;
+    const char* numMode = nullptr; // "box" | "slider"
 };
 
 static const char* DEG_C = "\xC2\xB0" "C"; // "°C"
 
-// HA lists a device's entities alphabetically by name, so the names group
-// them: "Air temperature ...", "Fan duty N", "Fan speed N", "Fault ...".
+// HA lists a device's entities alphabetically by name within each card, so
+// the names group them. Sensors: "Air temperature ...", "Fan duty N",
+// "Fan speed N", "Fault ...". Controls: "Fan curve start/top" (tMin/tMax),
+// "Manual override", "Manual override speed".
 // Every entity the device can have (all NUM_FANS fans), so the ones no
 // longer wanted can be removed from HA as well as the wanted ones added.
 static int buildEntities(EntityDef *out) {
@@ -69,6 +77,10 @@ static int buildEntities(EntityDef *out) {
     out[n++] = {"binary_sensor", "network_probe_fault", "Fault network probe", "problem", nullptr, nullptr, false, false};
     out[n++] = {"sensor", "ip", "IP address", nullptr, nullptr, "mdi:ip-network", false, true};
     out[n++] = {"sensor", "uptime", "Uptime", "duration", "s", nullptr, false, true};
+    out[n++] = {"number", "t_min", "Fan curve start", "temperature", DEG_C, "mdi:thermometer-low", false, false, 0, 100, 0.1, "box"};
+    out[n++] = {"number", "t_max", "Fan curve top", "temperature", DEG_C, "mdi:thermometer-high", false, false, 0, 100, 0.1, "box"};
+    out[n++] = {"switch", "override", "Manual override", nullptr, nullptr, "mdi:hand-back-right", false, false};
+    out[n++] = {"number", "override_speed", "Manual override speed", nullptr, "%", "mdi:fan", false, false, 0, 100, 1, "slider"};
     for (int i = 1; i <= NUM_FANS; i++) {
         String f = "fan" + String(i);
         out[n++] = {"sensor", f + "_rpm", "Fan speed " + String(i), nullptr, "RPM", "mdi:fan", true, false};
@@ -78,7 +90,7 @@ static int buildEntities(EntityDef *out) {
     return n;
 }
 
-static const int MAX_ENTITIES = 7 + 3 * 4;
+static const int MAX_ENTITIES = 11 + 3 * 4;
 
 // Fan entities beyond config.fanCount are unwanted
 static bool entityWanted(const EntityDef &e) {
@@ -108,7 +120,16 @@ static void publishEntityConfig(const String &node, const EntityDef &e, bool wan
     if (e.unit) doc["unit_of_measurement"] = e.unit;
     if (e.icon) doc["icon"] = e.icon;
     if (e.measurement) doc["state_class"] = "measurement";
-    if (e.unit == DEG_C) doc["suggested_display_precision"] = 1;
+    if (e.unit == DEG_C && strcmp(e.component, "sensor") == 0) doc["suggested_display_precision"] = 1;
+    if (strcmp(e.component, "number") == 0 || strcmp(e.component, "switch") == 0) {
+        doc["command_topic"] = node + "/" + e.object + "/set";
+    }
+    if (e.numMode) {
+        doc["min"] = e.numMin;
+        doc["max"] = e.numMax;
+        doc["step"] = e.numStep;
+        doc["mode"] = e.numMode;
+    }
     if (e.diagnostic) doc["entity_category"] = "diagnostic";
     JsonObject dev = doc["device"].to<JsonObject>();
     dev["identifiers"].to<JsonArray>().add(node);
@@ -137,7 +158,9 @@ static void publishDiscovery(const String &node, bool removeAll) {
 // STATE (retained; on change, RPM with a dead band, diagnostics every 60 s)
 // ============================================================================
 
-static const int SLOT_COUNT = 5 + 2 * 4; // fixed states + duty/fault per fan
+// Slots: 0-4 fixed sensors, 5-12 duty/fault per fan, 13-16 controls
+static const int SLOT_T_MIN = 13, SLOT_T_MAX = 14, SLOT_OVERRIDE = 15, SLOT_OVERRIDE_SPEED = 16;
+static const int SLOT_COUNT = 17;
 static String lastSent[SLOT_COUNT];
 static long lastRpm[4] = {-1, -1, -1, -1};
 static unsigned long lastRpmMs[4] = {0, 0, 0, 0};
@@ -179,11 +202,82 @@ static void publishState(bool force) {
         }
     }
 
+    // Controls: changed here by HA, or by the web page / LCD
+    publishIfChanged(SLOT_T_MIN, "t_min", String(config.tMin, 1), force);
+    publishIfChanged(SLOT_T_MAX, "t_max", String(config.tMax, 1), force);
+    publishIfChanged(SLOT_OVERRIDE, "override", manualOverrideActive ? "ON" : "OFF", force);
+    publishIfChanged(SLOT_OVERRIDE_SPEED, "override_speed", String((manualOverrideDutyCycle * 100 + 127) / 255), force);
+
     if (force || millis() - lastDiagMs >= 60000) {
         lastDiagMs = millis();
         mqtt.publish(topic("ip").c_str(), Ethernet.localIP().toString().c_str(), true);
         mqtt.publish(topic("uptime").c_str(), String(millis() / 1000).c_str(), true);
     }
+}
+
+// ============================================================================
+// COMMANDS FROM HOME ASSISTANT
+// ============================================================================
+// Called from mqtt.loop(), i.e. from loop(): same thread as the web page and
+// LCD, so the shared settings/override globals need no locking. Logged to
+// Serial and SD like the web page and LCD changes.
+
+static void setThreshold(float &field, const char* name, const String &msg) {
+    float v = msg.toFloat();
+    if (msg.length() == 0 || v < 0 || v > 100) {
+        Serial.print("MQTT: "); Serial.print(name); Serial.print(" ignored, out of range: "); Serial.println(msg);
+        return;
+    }
+    if (fabs(v - field) <= 0.05) return; // same value (float noise): no flash write
+    Serial.print(name); Serial.print(" changed via HA: "); Serial.print(field, 1);
+    Serial.print(" -> "); Serial.println(v, 1);
+    sdLogEvent("CONFIG", String("source=HA field=") + name + " old=" + String(field, 1) + "C new=" + String(v, 1) + "C");
+    field = v;
+    saveSettings();
+}
+
+static void onMessage(char *t, byte *payload, unsigned int len) {
+    // Copy out first: publishing below reuses the client's buffer
+    String tp(t);
+    String msg;
+    msg.reserve(len);
+    for (unsigned int i = 0; i < len; i++) msg += (char)payload[i];
+    msg.trim();
+
+    String prefix = activeNode + "/";
+    if (!tp.startsWith(prefix) || !tp.endsWith("/set")) return;
+    String object = tp.substring(prefix.length(), tp.length() - 4);
+
+    if (object == "t_min") {
+        setThreshold(config.tMin, "tMin", msg);
+    } else if (object == "t_max") {
+        setThreshold(config.tMax, "tMax", msg);
+    } else if (object == "override") {
+        // ON starts at full speed, like the web page and LCD
+        if (msg == "ON" && !manualOverrideActive) {
+            manualOverrideActive = true;
+            manualOverrideDutyCycle = 255;
+            Serial.println("Override ACTIVATED via HA - speed=100%");
+            sdLogEvent("OVERRIDE", "source=HA action=ON speed=100%");
+        } else if (msg == "OFF" && manualOverrideActive) {
+            manualOverrideActive = false;
+            Serial.println("Override DEACTIVATED via HA");
+            sdLogEvent("OVERRIDE", "source=HA action=OFF");
+        }
+    } else if (object == "override_speed") {
+        // Ignored while the override is off (as before); the state
+        // republished below snaps HA's slider back.
+        if (manualOverrideActive) {
+            int pct = constrain((int)lroundf(msg.toFloat()), 0, 100);
+            int duty = (pct * 255 + 50) / 100;
+            if (duty != manualOverrideDutyCycle) {
+                manualOverrideDutyCycle = duty;
+                Serial.print("Override SPEED changed via HA: "); Serial.print(pct); Serial.println("%");
+                sdLogEvent("OVERRIDE", "source=HA action=SPEED speed=" + String(pct) + "%");
+            }
+        }
+    }
+    publishState(true); // confirm the real state, including ignored commands
 }
 
 // ============================================================================
@@ -213,6 +307,7 @@ static void tryConnect() {
 
     mqtt.publish(will.c_str(), "online", true);
     publishDiscovery(activeNode, false);
+    mqtt.subscribe((activeNode + "/+/set").c_str());
     publishState(true);
 }
 
@@ -227,6 +322,7 @@ static void disconnectCleanly(bool removeFromHA) {
 void mqttInit() {
     mqtt.setBufferSize(1024); // discovery payloads exceed the 256-byte default
     mqtt.setSocketTimeout(5); // seconds to wait for the broker's reply
+    mqtt.setCallback(onMessage);
 }
 
 void mqttLoop() {

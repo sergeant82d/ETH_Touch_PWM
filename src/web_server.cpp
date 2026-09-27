@@ -116,12 +116,7 @@ void handleNativeWebTraffic(EthernetClient& client) {
             speedOnlyChanged = true;
         }
 
-        // Switch-only on engage/disengage, speed-only on a genuine slider
-        // move - never both together. See home_assistant.h for why: pushing
-        // both let HA's own automations bounce a stale speed value back on
-        // every switch change, since HA processes the two asynchronously.
-        if (switchChanged) pushOverrideSwitchToHA();
-        else if (speedOnlyChanged) pushOverrideSpeedToHA();
+        // HA sees the change through MQTT (mqtt.cpp publishes state on change)
 
         int pct = (manualOverrideDutyCycle * 100) / 255;
         if (manualOverrideActive != wasActive) {
@@ -187,12 +182,6 @@ void handleNativeWebTraffic(EthernetClient& client) {
             if (fabs(config.tMax - oldTMax) > 0.05) {
                 sdLogEvent("CONFIG", "source=web field=tMax old=" + String(oldTMax, 1) + "C new=" + String(config.tMax, 1) + "C");
             }
-
-            // Push immediately so HA's own stored value matches - otherwise
-            // the next periodic poll (home_assistant.cpp: fetchThresholdsFromHA(),
-            // every 15s) would see HA's stale value and silently revert
-            // this change right back.
-            pushThresholdsToHA();
         }
 
         config.isFahrenheit = submittedAsFahrenheit;
@@ -262,18 +251,6 @@ void handleNativeWebTraffic(EthernetClient& client) {
             sensorParam.replace(" ", "_");
             strncpy(config.haSensor, sensorParam.c_str(), sizeof(config.haSensor) - 1);
             config.haSensor[sizeof(config.haSensor) - 1] = '\0';
-        }
-
-        String tMinEntityParam = getUrlParam(body, "hatminentity=");
-        if (tMinEntityParam.length() > 0) {
-            strncpy(config.haTMinEntity, tMinEntityParam.c_str(), sizeof(config.haTMinEntity) - 1);
-            config.haTMinEntity[sizeof(config.haTMinEntity) - 1] = '\0';
-        }
-
-        String tMaxEntityParam = getUrlParam(body, "hatmaxentity=");
-        if (tMaxEntityParam.length() > 0) {
-            strncpy(config.haTMaxEntity, tMaxEntityParam.c_str(), sizeof(config.haTMaxEntity) - 1);
-            config.haTMaxEntity[sizeof(config.haTMaxEntity) - 1] = '\0';
         }
 
         String tokenParam = getUrlParam(body, "hatoken=");
@@ -377,9 +354,8 @@ void handleNativeWebTraffic(EthernetClient& client) {
     client.println("  }).catch(err => console.error(\"Data drop:\", err));");
     client.println("}");
 
-    // Manual override controls - mirrors the LCD touch UI / HA switch;
-    // whichever surface changes it, the firmware's granular push functions
-    // (pushOverrideSwitchToHA/pushOverrideSpeedToHA) keep the others in sync.
+    // Manual override controls - mirrors the LCD touch UI / HA switch; the
+    // page polls /ajax_data, HA gets MQTT state, so all three stay in sync.
     client.println("let overrideDragging = false;");
 
     client.println("function updateOverrideUI(active, speed) {");
@@ -519,8 +495,6 @@ void handleNativeWebTraffic(EthernetClient& client) {
     client.print("Server IP / Host: <input type='text' name='hahost' value='"); client.print(config.haHost); client.println("' placeholder='e.g., 192.168.10.85' maxlength='63'>");
     client.print("Server API Port: <input type='text' name='haport' value='"); client.print(config.haPort); client.println("' placeholder='e.g., 8123' maxlength='10'>");
     client.print("Inbound Sensor ID: <input type='text' name='hasensor' value='"); client.print(config.haSensor); client.println("' placeholder='e.g., rack_temperature' maxlength='63'>");
-    client.print("Min Threshold input_number Entity: <input type='text' name='hatminentity' value='"); client.print(config.haTMinEntity); client.println("' placeholder='e.g., input_number.fan_ctrl_01_tmin' maxlength='63'>");
-    client.print("Max Threshold input_number Entity: <input type='text' name='hatmaxentity' value='"); client.print(config.haTMaxEntity); client.println("' placeholder='e.g., input_number.fan_ctrl_01_tmax' maxlength='63'>");
     client.print("Long-Lived Bearer Token:<br><textarea name='hatoken' rows='4' maxlength='450'>"); client.print(config.haToken); client.println("</textarea>");
 
     client.flush();

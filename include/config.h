@@ -34,6 +34,9 @@ struct SystemConfig {
     long fanRpmGaugeMax;
     float tempGaugeMinF;   // always stored in F, converted for display as needed
     float tempGaugeMaxF;
+    // UNUSED since MQTT Phase 2 (thresholds/override come over MQTT). The four
+    // helper entity IDs stay in the struct until the Phase 3 settings version,
+    // so a version 4/5 file still loads.
     char haTMinEntity[64]; // HA input_number entity ID, e.g. "input_number.fan_ctrl_01_tmin"
     char haTMaxEntity[64]; // stores/polls in Celsius, matching tMin/tMax's internal units
     char haOverrideSwitchEntity[64]; // input_boolean entity - on/off mirrors manualOverrideActive
