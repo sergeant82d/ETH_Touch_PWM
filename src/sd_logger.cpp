@@ -2,7 +2,9 @@
 #include "pins.h"
 #include "config.h"
 #include "sensors.h"
+#if HAS_LCD
 #include "display.h"
+#endif
 #include "home_assistant.h"
 #include <SD.h>
 #include <LittleFS.h>
@@ -372,6 +374,22 @@ static void finalizeDailyRollup() {
                         today.fan2Min, today.fan2Max);
 }
 
+// SD bus: shares the LCD's SPI bus on the Touch-LCD-2 (begun, with MISO, in
+// displayInit()); has its own SPI bus on the ESP32-S3-ETH.
+#if HAS_LCD
+static SPIClass& sdSPI() { return getDisplaySPI(); }
+#else
+static SPIClass& sdSPI() {
+    static SPIClass sdBus(HSPI); // FSPI (the default SPI) is the W5500's
+    static bool begun = false;
+    if (!begun) {
+        sdBus.begin(PIN_SD_SCLK, PIN_SD_MISO, PIN_SD_MOSI, -1);
+        begun = true;
+    }
+    return sdBus;
+}
+#endif
+
 // ============================================================
 // Public API
 // ============================================================
@@ -380,7 +398,7 @@ void sdLoggerInit() {
     pinMode(PIN_SD_CS, OUTPUT);
     digitalWrite(PIN_SD_CS, HIGH); // deselect SD before the LCD uses the shared bus
 
-    sdPresent = SD.begin(PIN_SD_CS, getDisplaySPI(), 4000000);
+    sdPresent = SD.begin(PIN_SD_CS, sdSPI(), 4000000);
     if (sdPresent) {
         SD.mkdir("/logs");
         SD.mkdir("/rollups");
@@ -450,7 +468,7 @@ void sdLoggerLoop() {
     const unsigned long SD_RETRY_PERIOD_MS = 60000;
     if (!sdPresent && millis() - lastSdRetryMs >= SD_RETRY_PERIOD_MS) {
         lastSdRetryMs = millis();
-        if (SD.begin(PIN_SD_CS, getDisplaySPI(), 4000000)) {
+        if (SD.begin(PIN_SD_CS, sdSPI(), 4000000)) {
             sdPresent = true;
             SD.mkdir("/logs");
             SD.mkdir("/rollups");

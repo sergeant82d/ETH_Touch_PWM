@@ -21,7 +21,10 @@ from REST to MQTT: `docs/MQTT.md` (topics, phases, HA cleanup list).
 
 - Waveshare ESP32-S3-Touch-LCD-2: ST7789T3 240x320 LCD, CST816D touch, microSD,
   16 MB flash, OPI PSRAM, native USB (USB CDC on boot).
-- External W5500 Ethernet on GPIO 9-14. All pins are in `src/pins.h`; keep them there.
+- External W5500 Ethernet on GPIO 9-14. All pins are in `include/pins.h`; keep them there.
+- Second board, Waveshare ESP32-S3-ETH (onboard W5500, no LCD; COM10): environment
+  `waveshare_s3_eth`. Differences: `docs/BOARDS.md`. `pio run` alone builds only the
+  Touch-LCD-2; always pass `-e` when uploading to the other board.
 - LCD and SD share one SPI bus. W5500 has its own.
 - Power: the board locks up on PC USB power with LCD + Ethernet + SD running. Use external power.
 

@@ -27,11 +27,13 @@
 #include "config.h"
 #include "sensors.h"
 #include "network.h"
+#if HAS_LCD
 #include "display.h"
+#include "touch.h"
+#endif
 #include "home_assistant.h"
 #include "mqtt.h"
 #include "web_server.h"
-#include "touch.h"
 #include "sd_logger.h"
 
 #include <LittleFS.h>
@@ -44,14 +46,14 @@
 // power. Touch re-enabled; the diagnostic heap logging further down in
 // this file is left in place as ongoing health telemetry rather than
 // removed, since it's cheap and still useful.
-#define TOUCH_ENABLED 1
+#define TOUCH_ENABLED HAS_LCD // the ESP32-S3-ETH build has no LCD/touch
 
 // __FILE__ only reports each module's own filename when used inside a .cpp
 // file - it can't see the main sketch's name from web_server.cpp or anywhere
 // else. Defined once, here, at the actual source of truth; web_server.cpp
 // displays this instead of trying to derive it via __FILE__.
 // Update this string if the sketch is ever renamed.
-const char* SKETCH_FILENAME = "ETH_Touch_PWM (PlatformIO)";
+const char* SKETCH_FILENAME = "ETH_Touch_PWM (PlatformIO, " BOARD_NAME ")";
 
 void setup() {
     Serial.begin(115200);
@@ -78,7 +80,9 @@ void setup() {
     // 255.255.255.255, even though the wiring/hardware was fine.
     networkInit();
     mqttInit();
+#if HAS_LCD
     displayInit();
+#endif
     sensorsInit();
 #if TOUCH_ENABLED
     touchInit();
@@ -121,6 +125,7 @@ void loop() {
         calculateRPMs(timeElapsed);
     }
 
+#if HAS_LCD
     // --- Display refresh (full dashboard, every 2s) ---
     static unsigned long lastDisplayUpdate = 0;
     if (millis() - lastDisplayUpdate >= REFRESH_PERIOD_MS) {
@@ -138,6 +143,7 @@ void loop() {
         lastBarRefresh = millis();
         refreshBarsOnly();
     }
+#endif
 
     // --- Web traffic handling ---
     EthernetClient client = server.available();

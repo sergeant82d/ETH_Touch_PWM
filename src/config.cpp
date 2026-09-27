@@ -1,4 +1,5 @@
 #include "config.h"
+#include "pins.h"
 #include <FS.h>
 #include <LittleFS.h>
 
@@ -9,7 +10,7 @@
 // /settings.cfg on LittleFS from then on.
 SystemConfig config = {
     CONFIG_STRUCT_VERSION,
-    IPAddress(192, 168, 10, 54),
+    IPAddress(192, 168, 10, DEFAULT_IP_LAST_OCTET), // per board, pins.h
     IPAddress(255, 255, 255, 0),
     IPAddress(192, 168, 10, 1),
     IPAddress(192, 168, 10, 11),

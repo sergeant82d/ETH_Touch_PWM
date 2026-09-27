@@ -7,7 +7,8 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 
 - [x] HA side designed and verified with `tools/mqtt_sim.py` (2026-09-27, `c19398c`)
 - [ ] Phase 1: MQTT settings, node ID, read-only sensors, alongside REST. Code done
-      2026-09-27, **untested on the board**
+      2026-09-27. Working on the ESP32-S3-ETH (fan_controller_01, `docs/BOARDS.md`) at first
+      look, 2026-09-27; not yet on the Touch-LCD-2 (settings upgrade from version 4 untested)
 - [ ] Phase 2: thresholds and manual override from HA; remove the helper polls and pushes
 - [ ] Phase 3: network temperature and daily summary over MQTT; remove the REST code, token
       and entity fields
