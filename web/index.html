@@ -144,6 +144,12 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
   color: var(--muted); cursor: pointer; font-size: .9rem; }
 .drop:hover, .drop.over { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
 .drop.has-file { border-style: solid; border-color: var(--accent); color: var(--text); }
+.scan-list { display: grid; gap: 6px; margin-top: 14px; }
+.scan-item { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+.scan-item:hover { border-color: var(--accent); background: var(--accent-soft); }
+.scan-item span:last-child { color: var(--muted); font-family: var(--mono); font-size: .85rem; white-space: nowrap; }
+.btn.ghost.danger { background: transparent; color: var(--error); border-color: var(--error); }
 .demo { position: fixed; right: 12px; bottom: 12px; z-index: 20; background: var(--warn); color: #000; padding: 5px 12px;
   border-radius: 14px; font-size: .8rem; font-weight: 600; }
 
@@ -181,12 +187,15 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       <button class="tab" data-page="network">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="6"/><rect x="2" y="16" width="6" height="6"/><rect x="16" y="16" width="6" height="6"/><path d="M12 8v4M5 16v-4h14v4"/></svg>
         Network</button>
+      <button class="tab" data-page="wifi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>
+        WiFi</button>
       <button class="tab" data-page="system">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
         System</button>
     </nav>
     <div class="lights">
-      <div class="light"><span class="dot" id="dot-eth"></span><span>Network: <span id="net-name">Ethernet</span></span></div>
+      <div class="light"><span class="dot" id="dot-eth"></span><span>Network: <span id="net-name">--</span></span></div>
       <div class="net-detail" id="net-detail">--</div>
       <div class="light"><span class="dot" id="dot-mqtt"></span>MQTT</div>
       <div class="light"><span class="dot" id="dot-sd"></span>SD card</div>
@@ -282,6 +291,64 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
             <div class="radios"><label><input type="radio" name="clock" value="12"> 12-hour</label><label><input type="radio" name="clock" value="24"> 24-hour</label></div></div>
         </div>
         <div class="hint">Time comes from pool.ntp.org. Daylight saving switches automatically (checked at every 5-minute time sync).</div>
+        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
+      </form>
+    </section>
+
+    <!-- ===== WiFi ===== -->
+    <section class="page" id="page-wifi">
+      <div class="panel">
+        <h2>Networks</h2>
+        <dl class="kv" id="wifi-status"></dl>
+        <div class="hint">WiFi is a backup: joined when the Ethernet link has been down for 30 s, left 60 s after Ethernet is back. While on WiFi the page is at the WiFi address (or the device name below).</div>
+      </div>
+
+      <form class="panel" id="form-wifi">
+        <h2>Backup WiFi network</h2>
+        <div class="form">
+          <div class="field"><label for="wifiSsid">SSID</label><input type="text" id="wifiSsid" maxlength="32" required></div>
+          <div class="field"><label for="wifiPass">Password</label><input type="password" id="wifiPass" maxlength="63" autocomplete="new-password"></div>
+        </div>
+        <div class="hint">The password is never shown; leave it blank to keep the saved one.</div>
+        <div class="actions">
+          <button class="btn" type="submit">Save</button>
+          <button class="btn ghost" type="button" id="wifi-scan">Scan networks</button>
+          <button class="btn ghost danger" type="button" id="wifi-forget">Forget network</button>
+          <span class="msg"></span>
+        </div>
+        <div class="scan-list" id="scan-list"></div>
+      </form>
+
+      <form class="panel" id="form-wifi-addr">
+        <h2>WiFi address</h2>
+        <div class="radios"><label><input type="radio" name="wifiMode" value="dhcp"> Automatic (DHCP)</label><label><input type="radio" name="wifiMode" value="static"> Static</label></div>
+        <div class="form" id="wifi-static" hidden>
+          <div class="field"><label for="wifiIp">IP address</label><input type="text" id="wifiIp"></div>
+          <div class="field"><label for="wifiSubnet">Subnet mask</label><input type="text" id="wifiSubnet" placeholder="255.255.255.0"></div>
+          <div class="field"><label for="wifiGateway">Gateway</label><input type="text" id="wifiGateway"></div>
+          <div class="field"><label for="wifiDns">DNS server (optional)</label><input type="text" id="wifiDns"></div>
+        </div>
+        <div class="hint">Use a different address from the Ethernet one (both are on your network).</div>
+        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
+      </form>
+
+      <form class="panel" id="form-hostname">
+        <h2>Device name</h2>
+        <div class="form">
+          <div class="field"><label for="hostname">Name (letters, digits, hyphens)</label>
+            <input type="text" id="hostname" maxlength="31" pattern="[A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?"></div>
+        </div>
+        <div class="hint">Open the page at <b>http://<span id="hostname-shown">--</span>.local</b> on Ethernet or WiFi (most computers and iPhones; some Android phones don't support .local names). Empty = made from the node ID.</div>
+        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
+      </form>
+
+      <form class="panel" id="form-hotspot">
+        <h2>Setup hotspot</h2>
+        <div class="hint" id="hotspot-state" style="margin-bottom: 12px"></div>
+        <div class="form">
+          <div class="field"><label for="apPass">New hotspot password (8-63 characters)</label><input type="password" id="apPass" minlength="8" maxlength="63" required autocomplete="new-password"></div>
+        </div>
+        <div class="hint">Starts when no network has worked for 60 s: join it and open http://192.168.4.1. Turns off once Ethernet or WiFi has worked for 30 s. Default password 12345678: change it.</div>
         <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
       </form>
     </section>
@@ -435,7 +502,7 @@ function renderStatus() {
   const s = status;
   $("#brand-node").textContent = s.node;
   $("#brand-board").textContent = s.board;
-  $("#net-detail").textContent = s.eth ? s.ip : "link down";
+  $("#net-detail").textContent = s.net === "None" ? "no network" : s.ip;
   setTemp("#t-local", s.local, "Probe failed");
   setTemp("#t-network", s.network, "No value from HA");
   setTemp("#t-blended", s.blended, "Both probes failed: fans at 100%");
@@ -457,7 +524,8 @@ function renderStatus() {
   $("#ovr-row").hidden = !s.override;
   if (!sliderBusy) { $("#ovr-slider").value = s.overridePct; $("#ovr-pct").textContent = s.overridePct + "%"; }
 
-  $("#dot-eth").className = "dot " + (s.eth ? "ok" : "bad");
+  $("#net-name").textContent = s.net;
+  $("#dot-eth").className = "dot " + (s.net === "Ethernet" || s.net === "WiFi" ? "ok" : s.net === "Hotspot" ? "warn" : "bad");
   $("#dot-mqtt").className = "dot " + (s.mqttOk ? "ok" : "warn");
   $("#dot-sd").className = "dot " + (s.sd ? "ok" : "bad");
   $("#mqtt-status").textContent = s.mqtt;
@@ -574,6 +642,77 @@ $("#form-login").onsubmit = async (e) => {
   } catch (err) { showMsg(msg, err.message, false); }
 };
 
+// ---------- WiFi ----------
+let wifi = null;
+const wifiTabShown = () => $("#page-wifi").classList.contains("active");
+
+function renderWifiStatus() {
+  const st = wifi.status, e = st.ethernet, w = st.wifi, h = st.hotspot;
+  const wifiText = !w.configured ? "not set up"
+    : w.connected ? `connected to ${esc(w.ssid)} \u00b7 ${w.ip} \u00b7 ${w.rssi} dBm`
+    : w.active ? `joining ${esc(w.ssid)}...` : `standby (${esc(w.ssid)}), Ethernet in use`;
+  $("#wifi-status").innerHTML = [
+    ["In use", `<b>${st.active}</b> \u00b7 ${st.ip}`],
+    ["Ethernet", `${e.link ? "link up" : "link down"} \u00b7 ${e.ip} \u00b7 ${e.mac}`],
+    ["WiFi", `${wifiText} \u00b7 ${w.mac}`],
+    ["Hotspot", h.active ? `<b>on</b>: ${esc(h.ssid)} \u00b7 ${h.ip}` : `off (${esc(h.ssid)})`],
+  ].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("");
+  $("#hostname-shown").textContent = st.hostname;
+  $("#hotspot-state").textContent = h.active ? `Hotspot is ON: ${h.ssid} at http://${h.ip}` : `Hotspot is off. Name: ${h.ssid}`;
+}
+
+async function loadWifi(fillForms) {
+  try { wifi = await api("/api/wifi"); } catch (_) { return; }
+  renderWifiStatus();
+  if (!fillForms) return;
+  $("#wifiSsid").value = wifi.ssid;
+  $("#wifiPass").value = "";
+  $("#wifiPass").placeholder = wifi.passSet ? "(saved - leave blank to keep)" : "(none)";
+  setRadio($("#form-wifi-addr"), "wifiMode", wifi.static ? "static" : "dhcp");
+  $("#wifi-static").hidden = !wifi.static;
+  $("#wifiIp").value = wifi.ip; $("#wifiSubnet").value = wifi.subnet; $("#wifiGateway").value = wifi.gateway; $("#wifiDns").value = wifi.dns;
+  $("#hostname").value = wifi.hostname;
+  $("#hostname").placeholder = wifi.hostnameShown;
+}
+
+async function postWifi(form, path, body) {
+  const msg = form.querySelector(".msg");
+  try { await api(path, body); showMsg(msg, "Saved.", true); await loadWifi(true); }
+  catch (e) { showMsg(msg, e.message, false); }
+}
+
+$("#form-wifi-addr").querySelectorAll("input[name=wifiMode]").forEach((r) => r.onchange = () => $("#wifi-static").hidden = r.value !== "static");
+$("#form-wifi").onsubmit = (e) => { e.preventDefault();
+  const body = { ssid: $("#wifiSsid").value };
+  if ($("#wifiPass").value) body.pass = $("#wifiPass").value;
+  postWifi(e.target, "/api/wifi", body); };
+$("#form-wifi-addr").onsubmit = (e) => { e.preventDefault();
+  postWifi(e.target, "/api/wifi", { static: radio(e.target, "wifiMode") === "static",
+    ip: $("#wifiIp").value.trim(), subnet: $("#wifiSubnet").value.trim(), gateway: $("#wifiGateway").value.trim(), dns: $("#wifiDns").value.trim() }); };
+$("#form-hostname").onsubmit = (e) => { e.preventDefault(); postWifi(e.target, "/api/wifi", { hostname: $("#hostname").value.trim() }); };
+$("#form-hotspot").onsubmit = (e) => { e.preventDefault();
+  postWifi(e.target, "/api/hotspot", { pass: $("#apPass").value }).then(() => $("#apPass").value = ""); };
+$("#wifi-forget").onclick = () => {
+  if (!confirm("Forget the saved WiFi network? The WiFi backup stops.")) return;
+  postWifi($("#form-wifi"), "/api/wifi/forget", {});
+};
+$("#wifi-scan").onclick = async () => {
+  const list = $("#scan-list"), btn = $("#wifi-scan");
+  btn.disabled = true; list.innerHTML = `<div class="hint">Scanning (a few seconds)...</div>`;
+  try {
+    let r = await api("/api/wifi/scan");
+    for (let i = 0; i < 20 && !r.networks; i++) { await new Promise((ok) => setTimeout(ok, 1000)); r = await api("/api/wifi/scan"); }
+    const best = {};
+    (r.networks || []).forEach((n) => { if (!best[n.ssid] || n.rssi > best[n.ssid].rssi) best[n.ssid] = n; });
+    const nets = Object.values(best).sort((a, b) => b.rssi - a.rssi);
+    list.innerHTML = nets.length ? nets.map((n) => `<button type="button" class="scan-item" data-ssid="${esc(n.ssid)}"><span>${n.secure ? "&#128274; " : ""}${esc(n.ssid)}</span><span>${n.rssi} dBm</span></button>`).join("")
+      : `<div class="hint">No networks found.</div>`;
+    list.querySelectorAll(".scan-item").forEach((b) => b.onclick = () => { $("#wifiSsid").value = b.dataset.ssid; $("#wifiPass").value = ""; $("#wifiPass").focus(); });
+  } catch (e) { list.innerHTML = `<div class="msg bad">${esc(e.message)}</div>`; }
+  btn.disabled = false;
+};
+setInterval(() => { if (wifiTabShown()) loadWifi(false); }, 3000);
+
 // ---------- Theme ----------
 function applyTheme() {
   const root = document.documentElement;
@@ -664,12 +803,18 @@ function demoApi(path, body) {
       fahrenheit: true, clock24: false, tz: "America/Chicago",
       local: { ok: true, c: 31.8 + Math.sin(t / 30) / 2 }, network: { ok: true, c: 27.8 }, blended: { ok: true, c: 29.8 + Math.sin(t / 30) / 4 },
       fans: [{ rpm: 690, duty: 38, fault: false }, { rpm: 0, duty: 38, fault: true }], override: false, overridePct: 100,
-      sd: true, eth: true, mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true };
+      sd: true, eth: true, net: "Ethernet", mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true };
   }
   if (path === "/api/config") return { fanCount: 2, maxFans: 2, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, tzName: "America/Chicago", clock24: false,
     ip: "192.168.10.53", subnet: "255.255.255.0", gateway: "192.168.10.1", dns: "192.168.10.11", nodeId: "fanController_01",
     defaultNodeId: "fanController_xx", mqttBroker: "192.168.10.85", mqttPort: 1883, mqttUser: "Brad", mqttPassSet: true, loginSet: true, webUser: "admin" };
   if (path === "/api/theme") return theme;
+  if (path === "/api/wifi") return { ssid: "HomeNet", passSet: true, static: false, ip: "", gateway: "", subnet: "", dns: "", hostname: "", hostnameShown: "fancontroller-01",
+    status: { active: "Ethernet", ip: "192.168.10.53", hostname: "fancontroller-01",
+      ethernet: { link: true, ip: "192.168.10.53", mac: "2E:84:85:53:86:65" },
+      wifi: { configured: true, active: false, connected: false, ssid: "HomeNet", mac: "28:84:85:53:86:64" },
+      hotspot: { active: false, ssid: "FanController-5386", ip: "192.168.4.1" } } };
+  if (path === "/api/wifi/scan") return { networks: [{ ssid: "HomeNet", rssi: -52, secure: true }, { ssid: "Guest", rssi: -71, secure: false }] };
   return { ok: true };
 }
 
@@ -682,6 +827,7 @@ function demoApi(path, body) {
   if (theme.preset === "custom") buildSwatches();
   await pollStatus();
   try { await loadConfig(); } catch (_) {}
+  loadWifi(true);
   setInterval(pollStatus, 2000);
   setInterval(tickClock, 1000);
 })();

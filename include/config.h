@@ -7,7 +7,7 @@
 // Bump this whenever the SystemConfig struct's fields/layout change.
 // loadSettings() checks this and falls back to defaults on a mismatch,
 // so a firmware update never reads a stale/misaligned raw-byte blob.
-#define CONFIG_STRUCT_VERSION 7
+#define CONFIG_STRUCT_VERSION 8
 
 // Factory nodeID. MQTT stays off until the user changes it on the web page,
 // so two unconfigured boards can't share one name on the broker / in HA.
@@ -61,6 +61,16 @@ struct SystemConfig {
     // "CST6CDT,M3.2.0,M11.1.0". Rules: posix_tz_db, in web/index.html.
     char tzName[48];
     char tzPosix[64];
+
+    // WiFi backup + setup hotspot (version 8). WiFi is used only while the
+    // Ethernet link is down (fan_network.cpp). Addresses as uint32_t (not
+    // IPAddress) so an older file's upgrade can copy these defaults as bytes.
+    char wifiSsid[33];     // empty = no WiFi backup
+    char wifiPass[64];     // never sent to the web page
+    bool wifiStatic;       // false = DHCP
+    uint32_t wifiIp, wifiGateway, wifiSubnet, wifiDns;
+    char hostname[32];     // name.local and in the router; empty = from the node ID
+    char apPass[64];       // setup hotspot password, 8-63 characters
 };
 
 extern SystemConfig config;

@@ -5,11 +5,19 @@
 #include <TimeLib.h>
 #include <time.h>
 #include <esp_sntp.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <esp_mac.h>
+#include "mqtt.h"
 
 // The W5500 runs on the core's ETH driver (lwIP) rather than the Arduino
 // Ethernet library (its own socket stack, 8 sockets), so web server, MQTT
-// and SNTP share one TCP/IP stack with WiFi later. The MAC address is the
-// chip's own (unique per board), not the old fixed DE:AD:BE:EF:FE:ED.
+// and SNTP share one TCP/IP stack with WiFi. The MAC address is the chip's
+// own (unique per board), not the old fixed DE:AD:BE:EF:FE:ED.
+//
+// WiFi is only a backup for Ethernet (user decision 2026-09-27): joined when
+// the Ethernet link has been down for 30 s, left 60 s after it is back. The
+// setup hotspot starts when no network has worked for 60 s.
 
 NetworkServer server(80);
 
@@ -83,8 +91,221 @@ static void onNetworkEvent(arduino_event_id_t event, arduino_event_info_t info) 
             Serial.print(", DNS "); Serial.println(ETH.dnsIP());
             startSntp();
             break;
+        case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+            Serial.print("WiFi: joined "); Serial.print(WiFi.SSID()); Serial.print(", address ");
+            Serial.print(WiFi.localIP()); Serial.print(", signal "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
+            startSntp();
+            break;
+        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: Serial.println("WiFi: disconnected"); break;
         default: break;
     }
+}
+
+// ============================================================================
+// DEVICE NAME (hostname, mDNS)
+// ============================================================================
+
+String deviceHostname() {
+    if (config.hostname[0]) return config.hostname;
+    // From the node ID: lower case, letters/digits/hyphens ("fanController_01" -> "fancontroller-01")
+    String h;
+    for (const char *c = config.nodeID; *c && h.length() < 31; c++) {
+        if (isalnum((unsigned char)*c)) h += (char)tolower(*c);
+        else if (h.length() && h[h.length() - 1] != '-') h += '-';
+    }
+    while (h.endsWith("-")) h.remove(h.length() - 1);
+    return h.length() ? h : String("fancontroller");
+}
+
+static void applyHostname() {
+    String name = deviceHostname();
+    ETH.setHostname(name.c_str());
+    WiFi.setHostname(name.c_str());
+    MDNS.end();
+    if (MDNS.begin(name.c_str())) {
+        MDNS.addService("http", "tcp", 80);
+        Serial.print("Device name: http://"); Serial.print(name); Serial.println(".local");
+    }
+}
+
+// ============================================================================
+// WIFI BACKUP + HOTSPOT
+// ============================================================================
+
+static bool staActive = false;     // backup WiFi wanted (joining or joined)
+static bool apActive = false;      // setup hotspot on
+static bool scanning = false;
+static unsigned long ethDownSince = 0;  // boot counts as "down" until the link comes up
+static unsigned long ethUpSince = 0;
+static unsigned long lastAnyUpMs = 0;   // last moment Ethernet or WiFi worked
+static unsigned long anyUpSince = 0;    // start of the current stretch with a network
+static bool lastEthUp = false;
+static bool lastAnyUp = false;
+static const char* lastActive = "";
+
+static const unsigned long WIFI_AFTER_ETH_DOWN_MS = 30000;
+static const unsigned long WIFI_OFF_AFTER_ETH_UP_MS = 60000;
+static const unsigned long HOTSPOT_AFTER_MS = 60000;
+static const unsigned long HOTSPOT_OFF_AFTER_MS = 30000;
+
+static String hotspotSsid() {
+    uint64_t mac = ESP.getEfuseMac();
+    char buf[24];
+    snprintf(buf, sizeof(buf), "FanController-%02X%02X", (uint8_t)(mac >> 32), (uint8_t)(mac >> 40));
+    return buf;
+}
+
+// Radio mode from what is wanted right now
+static void applyWifiMode() {
+    bool sta = staActive || scanning;
+    wifi_mode_t mode = sta ? (apActive ? WIFI_AP_STA : WIFI_STA) : (apActive ? WIFI_AP : WIFI_OFF);
+    if (WiFi.getMode() != mode) WiFi.mode(mode);
+}
+
+static void startSta() {
+    staActive = true;
+    applyWifiMode();
+    if (config.wifiStatic) {
+        WiFi.config(IPAddress(config.wifiIp), IPAddress(config.wifiGateway), IPAddress(config.wifiSubnet), IPAddress(config.wifiDns));
+    } else {
+        WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE); // DHCP
+    }
+    WiFi.begin(config.wifiSsid, config.wifiPass);
+    Serial.print("WiFi: joining "); Serial.println(config.wifiSsid);
+}
+
+static void stopSta(const char* why) {
+    WiFi.disconnect();
+    staActive = false;
+    applyWifiMode();
+    Serial.print("WiFi: backup off ("); Serial.print(why); Serial.println(")");
+}
+
+static void startAp() {
+    apActive = true;
+    applyWifiMode();
+    WiFi.softAP(hotspotSsid().c_str(), config.apPass);
+    Serial.print("Hotspot: "); Serial.print(hotspotSsid()); Serial.print(" on, page at http://"); Serial.println(WiFi.softAPIP());
+}
+
+static void stopAp() {
+    WiFi.softAPdisconnect(false);
+    apActive = false;
+    applyWifiMode();
+    Serial.println("Hotspot: off (a network is back)");
+}
+
+bool isEthernetConnected() { return ETH.linkUp(); }
+bool isWifiConnected() { return staActive && WiFi.status() == WL_CONNECTED; }
+bool isHotspotActive() { return apActive; }
+bool isNetworkConnected() { return isEthernetConnected() || isWifiConnected(); }
+
+const char* activeNetwork() {
+    if (isEthernetConnected() && ETH.hasIP()) return "Ethernet";
+    if (isWifiConnected()) return "WiFi";
+    if (apActive) return "Hotspot";
+    return "None";
+}
+
+IPAddress localIP() {
+    if (isEthernetConnected() && ETH.hasIP()) return ETH.localIP();
+    if (isWifiConnected()) return WiFi.localIP();
+    if (apActive) return WiFi.softAPIP();
+    return ETH.localIP(); // the static address it will have
+}
+
+void networkLoop() {
+    static unsigned long lastRun = 0;
+    if (millis() - lastRun < 500) return;
+    lastRun = millis();
+    unsigned long now = millis();
+
+    bool ethUp = isEthernetConnected() && ETH.hasIP();
+    if (ethUp && !lastEthUp) ethUpSince = now;
+    if (!ethUp && lastEthUp) ethDownSince = now;
+    lastEthUp = ethUp;
+    bool wifiUp = isWifiConnected();
+    bool anyUp = ethUp || wifiUp;
+    if (anyUp && !lastAnyUp) anyUpSince = now;
+    if (anyUp) lastAnyUpMs = now;
+    lastAnyUp = anyUp;
+
+    // WiFi backup: only while Ethernet is down
+    if (!ethUp && !staActive && config.wifiSsid[0] && now - ethDownSince >= WIFI_AFTER_ETH_DOWN_MS) startSta();
+    if (ethUp && staActive && now - ethUpSince >= WIFI_OFF_AFTER_ETH_UP_MS) stopSta("Ethernet is back");
+
+    // Setup hotspot: after a minute without any network, off once one has held for 30 s
+    if (!apActive && !anyUp && now - lastAnyUpMs >= HOTSPOT_AFTER_MS) startAp();
+    if (apActive && anyUp && now - anyUpSince >= HOTSPOT_OFF_AFTER_MS) stopAp();
+
+    // Switched network: MQTT reconnects at once over the new one
+    const char* active = activeNetwork();
+    if (strcmp(active, lastActive) != 0) {
+        Serial.print("Network in use: "); Serial.println(active);
+        if (lastActive[0]) mqttReconfigure();
+        lastActive = active;
+    }
+}
+
+void wifiReconfigure() {
+    applyHostname();
+    if (staActive) {
+        WiFi.disconnect();
+        staActive = false;
+        applyWifiMode();
+        // networkLoop() joins again (new settings) if Ethernet is still down
+    }
+}
+
+void wifiScanStart() {
+    if (scanning) return;
+    scanning = true;
+    applyWifiMode();
+    WiFi.scanNetworks(true);
+}
+
+bool wifiScanCollect(JsonArray out) {
+    int n = WiFi.scanComplete();
+    if (n == WIFI_SCAN_RUNNING) return false;
+    for (int i = 0; i < n; i++) {
+        if (WiFi.SSID(i).length() == 0) continue; // hidden networks
+        JsonObject o = out.add<JsonObject>();
+        o["ssid"] = WiFi.SSID(i);
+        o["rssi"] = WiFi.RSSI(i);
+        o["secure"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+    }
+    WiFi.scanDelete();
+    scanning = false;
+    applyWifiMode(); // radio off again unless WiFi or the hotspot is in use
+    return true;
+}
+
+void networkStatus(JsonObject out) {
+    out["active"] = activeNetwork();
+    out["ip"] = localIP().toString();
+    out["hostname"] = deviceHostname();
+    JsonObject e = out["ethernet"].to<JsonObject>();
+    e["link"] = isEthernetConnected();
+    e["ip"] = ETH.localIP().toString();
+    e["mac"] = ETH.macAddress();
+    JsonObject w = out["wifi"].to<JsonObject>();
+    w["configured"] = config.wifiSsid[0] != '\0';
+    w["active"] = staActive;
+    w["connected"] = isWifiConnected();
+    w["ssid"] = config.wifiSsid;
+    if (isWifiConnected()) {
+        w["ip"] = WiFi.localIP().toString();
+        w["rssi"] = WiFi.RSSI();
+    }
+    uint8_t m[6];
+    esp_read_mac(m, ESP_MAC_WIFI_STA); // WiFi.macAddress() reads zeros while the radio is off
+    char mac[18];
+    snprintf(mac, sizeof(mac), "%02X:%02X:%02X:%02X:%02X:%02X", m[0], m[1], m[2], m[3], m[4], m[5]);
+    w["mac"] = mac;
+    JsonObject h = out["hotspot"].to<JsonObject>();
+    h["active"] = apActive;
+    h["ssid"] = hotspotSsid();
+    h["ip"] = apActive ? WiFi.softAPIP().toString() : String("192.168.4.1");
 }
 
 void networkInit() {
@@ -96,20 +317,11 @@ void networkInit() {
         Serial.println("ERROR: W5500 not found - check wiring / pins.h.");
     }
     ETH.config(config.ip, config.gateway, config.subnet, config.dns);
+    WiFi.persistent(false);    // WiFi settings live in our config, not the WiFi driver's flash
+    WiFi.mode(WIFI_OFF);       // on only when needed (backup, hotspot, scan)
+    applyHostname();
     server.begin();
 
     Serial.print("Dashboard URL: http://"); Serial.println(ETH.localIP());
     Serial.print("MAC: "); Serial.println(ETH.macAddress());
-}
-
-bool isEthernetConnected() {
-    return ETH.linkUp();
-}
-
-bool isNetworkConnected() {
-    return isEthernetConnected();
-}
-
-IPAddress localIP() {
-    return ETH.localIP();
 }

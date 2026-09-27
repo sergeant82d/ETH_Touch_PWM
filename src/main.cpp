@@ -159,6 +159,7 @@ void loop() {
 
     // --- Home Assistant over MQTT (every pass; rate-limited inside) ---
     // State out, thresholds/override/network temperature in (mqtt.cpp).
+    networkLoop(); // WiFi backup / hotspot (fan_network.cpp)
     mqttLoop();
 
     // --- Touch input (every 30ms) ---

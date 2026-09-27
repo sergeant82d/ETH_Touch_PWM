@@ -394,7 +394,7 @@ void mqttLoop() {
         attemptNow = true;
     }
 
-    if (!mqttWanted() || !isEthernetConnected()) {
+    if (!mqttWanted() || !isNetworkConnected()) {
         disconnectCleanly(false);
         return;
     }
@@ -462,7 +462,7 @@ String mqttStatusText() {
     if (!isValidNodeId(config.nodeID)) return "Off: Node ID may only use letters, digits, _ and -";
     if (strcmp(config.nodeID, DEFAULT_NODE_ID) == 0) return String("Off: change the Node ID from ") + DEFAULT_NODE_ID;
     if (config.mqttBroker[0] == '\0') return "Off: no broker set";
-    if (!isEthernetConnected()) return "Waiting for the Ethernet link";
+    if (!isNetworkConnected()) return "Waiting for a network (Ethernet or WiFi)";
     if (mqtt.connected()) return "Connected as " + activeNode;
     switch (lastConnectState) {
         case MQTT_CONNECT_BAD_CREDENTIALS:

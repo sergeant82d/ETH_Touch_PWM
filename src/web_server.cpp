@@ -78,7 +78,7 @@ static String readBody(NetworkClient &client, size_t len) {
 }
 
 static void sendHead(NetworkClient &client, int code, const char* type, size_t len) {
-    const char* text = code == 200 ? "OK" : code == 400 ? "Bad Request" : code == 401 ? "Unauthorized" :
+    const char* text = code == 200 ? "OK" : code == 202 ? "Accepted" : code == 400 ? "Bad Request" : code == 401 ? "Unauthorized" :
                        code == 403 ? "Forbidden" : code == 404 ? "Not Found" : "Error";
     client.print("HTTP/1.1 "); client.print(code); client.print(' '); client.println(text);
     client.print("Content-Type: "); client.println(type);
@@ -201,6 +201,7 @@ static void handleStatus(NetworkClient &client) {
     doc["overridePct"] = (manualOverrideDutyCycle * 100 + 127) / 255;
     doc["sd"] = isSdCardPresent();
     doc["eth"] = isEthernetConnected();
+    doc["net"] = activeNetwork();
     doc["mqtt"] = mqttStatusText();
     doc["mqttOk"] = mqttStatusText().startsWith("Connected");
     doc["loginSet"] = loginSet();
@@ -537,6 +538,125 @@ static void handleOta(NetworkClient &client, const Request &req) {
     ESP.restart();
 }
 
+
+// ============================================================================
+// /api/wifi, /api/wifi/scan, /api/wifi/forget, /api/hotspot
+// ============================================================================
+// WiFi is a backup for Ethernet (fan_network.cpp). Passwords are never sent.
+
+static void addIp(JsonObject o, const char* key, uint32_t v) {
+    o[key] = v ? IPAddress(v).toString() : String("");
+}
+
+static void handleGetWifi(NetworkClient &client) {
+    JsonDocument doc;
+    JsonObject s = doc["status"].to<JsonObject>();
+    networkStatus(s);
+    doc["ssid"] = config.wifiSsid;
+    doc["passSet"] = config.wifiPass[0] != '\0';
+    doc["static"] = config.wifiStatic;
+    JsonObject o = doc.as<JsonObject>();
+    addIp(o, "ip", config.wifiIp);
+    addIp(o, "gateway", config.wifiGateway);
+    addIp(o, "subnet", config.wifiSubnet);
+    addIp(o, "dns", config.wifiDns);
+    doc["hostname"] = config.hostname;
+    doc["hostnameShown"] = deviceHostname();
+    sendJson(client, 200, doc);
+}
+
+static bool validHostname(const String &h) {
+    if (h.length() == 0) return true; // empty = from the node ID
+    if (h.length() >= sizeof(config.hostname) || h[0] == '-' || h[h.length() - 1] == '-') return false;
+    for (size_t i = 0; i < h.length(); i++) {
+        if (!isalnum((unsigned char)h[i]) && h[i] != '-') return false;
+    }
+    return true;
+}
+
+// Applies only the keys present
+static void handlePostWifi(NetworkClient &client, const Request &req) {
+    JsonDocument in;
+    if (deserializeJson(in, readBody(client, req.contentLength))) { sendResult(client, 400, "Bad JSON."); return; }
+    SystemConfig next = config;
+    if (in["ssid"].is<const char*>()) {
+        String ssid = in["ssid"].as<String>();
+        if (ssid.length() < 1 || ssid.length() > 32) { sendResult(client, 400, "SSID: 1-32 characters."); return; }
+        strlcpy(next.wifiSsid, ssid.c_str(), sizeof(next.wifiSsid));
+    }
+    if (in["pass"].is<const char*>()) { // blank = keep
+        String pass = in["pass"].as<String>();
+        if (pass.length() && (pass.length() < 8 || pass.length() > 63)) { sendResult(client, 400, "WiFi password: 8-63 characters."); return; }
+        if (pass.length()) strlcpy(next.wifiPass, pass.c_str(), sizeof(next.wifiPass));
+    }
+    if (in["static"].is<bool>()) next.wifiStatic = in["static"];
+    const char* keys[] = {"ip", "gateway", "subnet", "dns"};
+    uint32_t* fields[] = {&next.wifiIp, &next.wifiGateway, &next.wifiSubnet, &next.wifiDns};
+    for (int i = 0; i < 4; i++) {
+        if (!in[keys[i]].is<const char*>()) continue;
+        String v = in[keys[i]].as<String>();
+        IPAddress a;
+        if (v.length() == 0) { *fields[i] = 0; continue; }
+        if (!parseIp(v, a)) { sendResult(client, 400, "Invalid IP address."); return; }
+        *fields[i] = (uint32_t)a;
+    }
+    if (next.wifiStatic && (!next.wifiIp || !next.wifiGateway || !next.wifiSubnet)) {
+        sendResult(client, 400, "Static WiFi address needs IP, gateway and subnet.");
+        return;
+    }
+    if (in["hostname"].is<const char*>()) {
+        String h = in["hostname"].as<String>();
+        h.toLowerCase();
+        if (!validHostname(h)) { sendResult(client, 400, "Device name: letters, digits and hyphens."); return; }
+        strlcpy(next.hostname, h.c_str(), sizeof(next.hostname));
+    }
+    config = next;
+    saveSettings();
+    wifiReconfigure();
+    sendResult(client, 200);
+}
+
+static void handleForgetWifi(NetworkClient &client) {
+    memset(config.wifiSsid, 0, sizeof(config.wifiSsid));
+    memset(config.wifiPass, 0, sizeof(config.wifiPass));
+    saveSettings();
+    wifiReconfigure();
+    Serial.println("WiFi: saved network forgotten.");
+    sendResult(client, 200);
+}
+
+// First call starts a scan (202); later calls return the networks (200)
+static void handleScan(NetworkClient &client) {
+    static bool started = false;
+    JsonDocument doc;
+    if (!started) {
+        wifiScanStart();
+        started = true;
+        doc["scanning"] = true;
+        sendJson(client, 202, doc);
+        return;
+    }
+    JsonArray list = doc["networks"].to<JsonArray>();
+    if (!wifiScanCollect(list)) {
+        doc.remove("networks");
+        doc["scanning"] = true;
+        sendJson(client, 202, doc);
+        return;
+    }
+    started = false;
+    sendJson(client, 200, doc);
+}
+
+static void handleHotspot(NetworkClient &client, const Request &req) {
+    JsonDocument in;
+    if (deserializeJson(in, readBody(client, req.contentLength))) { sendResult(client, 400, "Bad JSON."); return; }
+    String pass = in["pass"] | "";
+    if (pass.length() < 8 || pass.length() > 63) { sendResult(client, 400, "Hotspot password: 8-63 characters."); return; }
+    strlcpy(config.apPass, pass.c_str(), sizeof(config.apPass));
+    saveSettings();
+    sendResult(client, 200);
+}
+
 // ============================================================================
 // ROUTER
 // ============================================================================
@@ -554,6 +674,8 @@ void handleNativeWebTraffic(NetworkClient &client) {
     else if (get && req.path == "/api/status") handleStatus(client);
     else if (get && req.path == "/api/config") handleGetConfig(client);
     else if (get && req.path == "/api/theme") handleGetTheme(client);
+    else if (get && req.path == "/api/wifi") handleGetWifi(client);
+    else if (get && req.path == "/api/wifi/scan") handleScan(client);
     else if (get && req.path == "/api/auth") {
         if (!loginSet()) sendResult(client, 403, "No login set.");
         else if (authorized(req)) sendResult(client, 200);
@@ -564,6 +686,9 @@ void handleNativeWebTraffic(NetworkClient &client) {
     else if (post && req.path == "/api/override") { if (requireLogin(client, req)) handleOverride(client, req); }
     else if (post && req.path == "/api/theme") { if (requireLogin(client, req)) handlePostTheme(client, req); }
     else if (post && req.path == "/api/ota") { if (requireLogin(client, req)) handleOta(client, req); }
+    else if (post && req.path == "/api/wifi") { if (requireLogin(client, req)) handlePostWifi(client, req); }
+    else if (post && req.path == "/api/wifi/forget") { if (requireLogin(client, req)) handleForgetWifi(client); }
+    else if (post && req.path == "/api/hotspot") { if (requireLogin(client, req)) handleHotspot(client, req); }
     else sendResult(client, 404, "Not found.");
 
     client.flush();

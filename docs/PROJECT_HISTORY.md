@@ -124,4 +124,8 @@ The +17 KB is unexplained (likely build option differences); accepted as close.
   in build_flags; `${platformio.packages_dir}` there loses its backslashes); SNTP must start
   after the link is up (started earlier, its first lookup fails and it backs off).
 
+- 2026-09-27: WiFi backup + setup hotspot + device name (settings version 8), WiFi tab like
+  Wifi_Fan_Knob's. State machine in `networkLoop()` (fan_network.cpp). Image 1.32 MB (WiFi
+  stack +466 KB), 42 % of the app slot.
+
 Open items: `docs/TODO.md`.

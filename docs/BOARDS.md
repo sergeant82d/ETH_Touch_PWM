@@ -37,6 +37,17 @@ board uses its chip's own MAC (the ESP32-S3-ETH: `2E:84:85:53:86:65`), no longer
   application/octet-stream" --data-binary @firmware.bin http://<ip>/api/ota`. A USB flash
   afterwards resets the boot slot to app0 (PlatformIO writes boot_app0.bin).
 
+## WiFi backup, hotspot, device name (both boards)
+
+- WiFi (WiFi tab) is only a backup: joined when the Ethernet link has been down for 30 s,
+  left 60 s after Ethernet is back; DHCP or a static WiFi address. MQTT reconnects at once
+  when the network in use changes.
+- Setup hotspot `FanController-XXXX` (last MAC bytes), page at http://192.168.4.1: starts
+  after 60 s without Ethernet or WiFi, stops once one has worked for 30 s. Default password
+  `12345678`; change it on the WiFi tab.
+- Device name (mDNS): http://<name>.local on Ethernet and WiFi; default from the node ID
+  (`fancontroller-01`).
+
 ## ESP32-S3-ETH source
 
 Pins come from its Arduino sketch `ESP32_S3_ETH_PWM_Fans_VER_1_0_1_WORKING_NO_LCD.ino`
