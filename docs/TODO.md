@@ -33,8 +33,9 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 - [x] Ethernet on the core's ETH driver (lwIP), SNTP (2026-09-27; tested on the ESP32-S3-ETH)
 - [ ] WiFi as a backup when Ethernet is down, plus the setup hotspot; WiFi tab like
       Wifi_Fan_Knob's (user decisions 2026-09-27). Code done 2026-09-27; tested: settings v7->v8,
-      scan, device name `fancontroller-01.local` over Ethernet, MQTT unaffected. NOT yet tested:
-      failover to WiFi and back (needs the user's WiFi password and an unplugged cable),
+      scan, device name `fancontroller-01.local` over Ethernet. Failover tested 2026-09-27 (cable
+      pulled): joined Lost-Link2 by DHCP (.199, -50 dBm), MQTT and .local over WiFi, no
+      restart; cable back: Ethernet in use at once, WiFi dropped ~60 s later. NOT yet tested:
       hotspot, static WiFi address
 - [ ] Network: Add block to set Static IP Address
 - [ ] Web page - Fan Control - turn the fan-channels into a table, selectable check boxes, not radio buttons. Defaults to only one, the first one listed in the firmware, and user can select additional fans at run time on the web page, but only in order; i.e., #2 is available at first start up, but #3 is not available until #2 has been selected. Grey-out unavailable fans.
