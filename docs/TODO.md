@@ -20,7 +20,7 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
       user 2026-09-27)
 - [x] Phase 5: update docs and success criteria (no longer "same as the Arduino build")
       (2026-09-27: CLAUDE.md criteria, PROJECT_HISTORY status)
-- [ ] Merge `mqtt` into `main` (user's call)
+- [x] Merge `mqtt` into `main` (2026-09-27, fast-forward to `f832628`)
 
 ## Web page
 

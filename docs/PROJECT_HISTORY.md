@@ -5,8 +5,7 @@ work; it saves re-discovering things.
 
 ## Current status (2026-09-27)
 
-- Branch `mqtt` holds all the work below; `main` is still the plain port (`be88824`) plus the
-  header move. Merge when the user decides.
+- All of this is on `main` (the `mqtt` branch was fast-forwarded into it 2026-09-27, `f832628`).
 - **ESP32-S3-ETH (fan_controller_01, COM10):** runs the current firmware. Tested on it: fans,
   probe, network temperature from HA, MQTT/HA (all phases), web page with login and OTA,
   Ethernet static and DHCP, WiFi backup and back, device name, settings upgrades v5 to v9.
