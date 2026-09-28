@@ -14,7 +14,7 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 
 - Website theme selector works both PC and mobile. 
 
-- [ ] DECISION - The variablee isSpilloverNearFull() should be mapped to all the displays - the existing status 'dots', instead of showing green or red, should flash orange when the SD Card is getting full or otherwise unhealthy. Also noted in the SD Card log itself. Discus options and methods. 
+- [ ] DECISION - The variable isSpilloverNearFull() should be mapped to all the displays - the existing status 'dots', instead of showing green or red, should flash orange when the SD Card is getting full or otherwise unhealthy. Also noted in the SD Card log itself. Discus options and methods. 
 
 - [ ] I would like you to condense the TODO.md file at the end of every day when you create the daily STATUS REPORT. Move all open items to the top, with the oldest items at the top. Move the complete items below, with the most recently completed at the top, in descending order. Discuss ideas about keeping the section headers (web page, Needs the board, etc.) or other methods of organizing it. 
 
