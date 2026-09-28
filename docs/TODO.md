@@ -14,9 +14,9 @@ How this list works (agreed 2026-09-28):
 
 - `[Web]` Node ID in the top left corner of the website - Apply the same underscore-removing/space-placing routine as we did for the LCD Display header bar. Use Title Case for it. The board name can stay as is.
 
-- `[Board]` We will need to add another additional board compilation pin file/compiler setting/tag whatever it is we did earlier. When I get the LCD boards, I am going to use a W5500 Lite, rather than the 'original' style module, and I am going to try to set the pin assignments to work better with the hardware I am building.
+- `[Web]` Need to be able to offset the speed of one (or more) fan/s from the other/s. Recommend keeping Fan 1 as the standard speed, and adjusting the selected fan plus or minus ( +/- ) in 10 RPM increments. This should be in the Fan Control tab, Fan Channels table at the top. A LCD page able to do this would be nice, after the web work is done.
 
-- `[Web]` Need to be able to offset the speed of one fan from the other/s. Recommend keeping Fan 1 as the standard speed, and adjusting the selected fan plus or minus ( +/- ) in 10 RPM increments. This should be in the Fan Control tab, Fan Channels table at the top. A LCD page able to do this would be nice, after the web work is done.
+- `[Board]` We will need to add another additional board compilation pin file/compiler setting/tag whatever it is we did earlier. When I get the LCD boards, I am going to use a W5500 Lite, rather than the 'original' style module, and I am going to try to set the pin assignments to work better with the hardware I am building.
 
 - `[HA]` Please write whatever configuration.yaml and Lovelace display card .yaml code is needed to break out the CSV data from the daily report it receives so it can be plotted there. Discuss if there are better alternatives.
 
