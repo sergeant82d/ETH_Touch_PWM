@@ -16,7 +16,6 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 
 - [ ] I would like to mirror the LCD display on the web page. According to the information in these two links, it should be possible. Discuss. 
  https://docs.google.com/document/d/1eiV-0-nFfHzA8a_0D2_Bfcq3fkiPuLYAS52BnAqrvKo/edit?usp=drivesdk
-
 https://docs.google.com/document/d/1QRiNYOYCpe3n6oVMIhkXRHPVwEsFdX8NhLnUuT_J_Yo/edit?usp=drivesdk
 
 - [ ] DECISION - The variable isSpilloverNearFull() should be mapped to all the displays - the existing status 'dots', instead of showing green or red, should flash orange when the SD Card is getting full or otherwise unhealthy. Also noted in the SD Card log itself. Discuss options and methods. 
