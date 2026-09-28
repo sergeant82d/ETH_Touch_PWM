@@ -12,23 +12,15 @@ commit `c23de85`); that repo stays as the Arduino reference and is not changed f
 **Read `docs/PROJECT_HISTORY.md` first:** current status, build settings and why, Windows
 build gotchas, what was learned. Open items: `docs/TODO.md`. Home Assistant (MQTT topics,
 entities, the HA automations it needs): `docs/MQTT.md`. Boards, pins, OTA, login recovery,
-WiFi/hotspot: `docs/BOARDS.md`. End-of-day status reports (written when the user asks):
-`docs/Status_Reports/STATUS_REPORT_NN.md`, next number each session day.
-
-## Working principles
-
-- Don't assume. Don't hide confusion. Surface tradeoffs.
-- Minimum code that solves the problem. Nothing speculative.
-- Touch only what you must. Clean up only your own mess.
-- Define success criteria. Loop until verified.
+WiFi/hotspot: `docs/BOARDS.md`. General rules (working principles, testing, git, TODO and
+status reports, Windows/PlatformIO build) are in the user's global `~/.claude/CLAUDE.md`.
 
 ## Hardware
 
 - Waveshare ESP32-S3-Touch-LCD-2: ST7789T3 240x320 LCD, CST816D touch, microSD,
   16 MB flash, OPI PSRAM, native USB (USB CDC on boot).
-- External W5500 Ethernet on GPIO 9-14, on the core's ETH driver (`src/fan_network.cpp`; don't
-  name a file `network.h`, it shadows the core's `Network.h` on Windows). All pins are in
-  `include/pins.h`; keep them there.
+- External W5500 Ethernet on GPIO 9-14, on the core's ETH driver (`src/fan_network.cpp`).
+  All pins are in `include/pins.h`; keep them there.
 - Second board, Waveshare ESP32-S3-ETH (onboard W5500, no LCD; COM10): environment
   `waveshare_s3_eth`. Differences: `docs/BOARDS.md`. `pio run` alone builds only the
   Touch-LCD-2; always pass `-e` when uploading to the other board.
@@ -46,10 +38,9 @@ WiFi/hotspot: `docs/BOARDS.md`. End-of-day status reports (written when the user
 
 ## Build
 
-- `~/.platformio/penv/Scripts/pio.exe run` (add `-t upload` to flash). Run it from PowerShell:
-  pioarduino's tool installer refuses Git Bash ("MSys/Mingw is not supported").
+- `pio run` builds the Touch-LCD-2 (`default_envs`); `pio run -e waveshare_s3_eth` the other
+  board (add `-t upload --upload-port COM10` to flash it over USB).
 - Platform is pioarduino 55.03.311 = Arduino-ESP32 core 3.3.11, matching the Arduino IDE build.
-  Needs Windows long paths enabled.
 - Partitions `app3M_fat9M_16MB.csv`: LittleFS lives on the `ffat` partition (see `config.cpp`).
   Changing the partition table wipes saved settings.
 - Library versions in `platformio.ini` are pinned (the Arduino IDE ones, plus PubSubClient 2.8
@@ -59,12 +50,9 @@ WiFi/hotspot: `docs/BOARDS.md`. End-of-day status reports (written when the user
 
 ## Rules
 
-- Secrets (tokens, passwords) never go in the source. The MQTT password is entered on the web
-  page (never sent back to it); the simulator's login is in git-ignored
-  `tools/mqtt_secrets.json`; anything else goes in git-ignored `secrets.h`. The firmware needs
-  no HA token since MQTT Phase 3.
-- Mark anything not tested on the board as untested, in commit messages and docs.
-- Commit and push when the user confirms a change works on the board.
+- The MQTT, web and WiFi passwords are entered on the web page (never sent back to it); the
+  simulator's login is in git-ignored `tools/mqtt_secrets.json`; anything else goes in
+  git-ignored `secrets.h`. The firmware needs no HA token since MQTT Phase 3.
 
 ## Success criteria
 

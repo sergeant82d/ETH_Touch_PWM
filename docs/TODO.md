@@ -1,110 +1,93 @@
 # To do
 
-Open items. Tick them (`- [x]`) with the date and commit when done. Sources: the Claude web
-handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`).
+How this list works (agreed 2026-09-28):
+- **Your notes** (top): write anything for Claude here. At the start of a session Claude reads
+  it, answers questions and summarises the open tasks; when the day's status report is written,
+  the notes are turned into items below and this list is condensed.
+- **Open**: oldest first. **Done**: newest first, with date and commit. Done items older than
+  about two weeks move to `docs/TODO_DONE.md`.
+- Tags: `[Board]` needs a board on the bench, `[LCD]` Touch-LCD-2 screen, `[Web]` web page,
+  `[HA]` Home Assistant / MQTT, `[Net]` Ethernet / WiFi, `[SD]` SD card, `[Docs]`,
+  `[Decide]` needs a decision, `[Question]` needs an answer.
 
-## User on 2026-09-28:
+## Your notes
 
-- HA Status Report received with clear data. So Phase 3 should be complete. 
-    - This should allow work on the History tracking to begin (from the web session notes).
+(empty)
 
-- Web page redesign is working well.
+## Open
 
-- Time Zone picker works.
+- [ ] `[Board]` **Pin remap** on the Touch-LCD-2 (PWM2 = GPIO 6, TACH1 = GPIO 4, TACH2 = GPIO 16)
+      was never tested: check the wiring matches before its first flash (2026-09-27)
+- [ ] `[Board]` Touch-LCD-2: first flash of the current firmware and the checks in CLAUDE.md's
+      success criteria, incl. the settings upgrade from version 4, the LCD override path and
+      NTP (works on the ESP32-S3-ETH) (2026-09-27)
+- [ ] `[Board]` Sensor-blackout failsafe fix (`918439d`): both probes down = both fans full
+      speed (2026-09-27)
+- [ ] `[LCD]` Touch coordinate mapping: check small targets, not just the big Manual Control
+      button (2026-09-27)
+- [ ] `[LCD]` Screen flicker: every redraw clears everything; dirty-checking or an off-screen
+      buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
+- [ ] `[Net]` Setup hotspot and a static WiFi address: not yet tried on a board (2026-09-27)
+- [ ] `[Decide]` Classic dark theme uses the Wifi_Fan_Knob gold/navy colours: confirm or change
+      (2026-09-27)
+- [ ] `[Web]` From the Claude web plans: Home tab notes, history viewer. The daily summary now
+      reaches HA, so history tracking can start. Still without a spec: socket health, "shared
+      network backup" (2026-09-27)
+- [ ] `[Web]` LCD view on the web page. Decided 2026-09-28: option (b), a card that redraws the
+      LCD layout from the live data (works on both boards; the Touch-LCD-2's LCD can't be read
+      back). Source: user's two Google Docs (TFT_eSPI / LovyanGFX mirroring; the LovyanGFX one
+      suits the Wifi_Fan_Knob):
+      https://docs.google.com/document/d/1eiV-0-nFfHzA8a_0D2_Bfcq3fkiPuLYAS52BnAqrvKo/edit?usp=drivesdk
+      https://docs.google.com/document/d/1QRiNYOYCpe3n6oVMIhkXRHPVwEsFdX8NhLnUuT_J_Yo/edit?usp=drivesdk
+      (2026-09-28)
+- [ ] `[SD]` SD health on every display. Decided 2026-09-28: one SD state for everything:
+      OK = green; getting full (>= 90 % used), write errors or the internal buffer over 80 % =
+      orange, slow flash; card missing = red, fast flash. LCD dot and web sidebar dot; HA
+      "SD card" sensor (state, free space) and "Fault SD card"; every change logged to the SD
+      event log. Replaces the unused `isSpilloverNearFull()` (2026-09-28)
+- [ ] `[LCD]` QR code page: tap the gear icon to show a QR code of the board's address (IP, as
+      Android often can't open .local) and, while the hotspot is on, one to join it. Needs a
+      small QR library; testable on the Touch-LCD-2 only (2026-09-28)
 
-- Website theme selector works both PC and mobile. 
+## Done
 
-- [ ] I would like to mirror the LCD display on the web page. According to the information in these two links, it should be possible. Discuss. 
- https://docs.google.com/document/d/1eiV-0-nFfHzA8a_0D2_Bfcq3fkiPuLYAS52BnAqrvKo/edit?usp=drivesdk
-https://docs.google.com/document/d/1QRiNYOYCpe3n6oVMIhkXRHPVwEsFdX8NhLnUuT_J_Yo/edit?usp=drivesdk
-
-- [ ] DECISION - The variable isSpilloverNearFull() should be mapped to all the displays - the existing status 'dots', instead of showing green or red, should flash orange when the SD Card is getting full or otherwise unhealthy. Sent to Home Assistant. Also noted in the SD Card log itself. Discuss options and methods. 
-
-- [ ] I would like you to condense the TODO.md file at the end of every day when you create the daily STATUS REPORT. Move all open items to the top, with the oldest items at the top. Move the complete items below, with the most recently completed at the top, in descending order. Discuss ideas about keeping the section headers (web page, Needs the board, etc.) or other methods of organizing it. 
-
-- [ ] When you read this TODO file at the beginning of every session, summarize the list of open tasks for me. 
-
-- [ ] QUESTION: What would enabling BLE bring to the project, other than more complication? If the user had a button on a LCD page to enable it, then connected/paired with it, would it just take them to the website? 
-
-- [ ] One thing that didn't make the list from the web session is adding a new page to the LCD which displays a QR code the user can scan with their phone and be taken to the website. 
-
-
-## MQTT (replaces the HA REST link)
-
-- [x] HA side designed and verified with `tools/mqtt_sim.py` (2026-09-27, `c19398c`)
-- [x] Phase 1: MQTT settings, node ID, read-only sensors (2026-09-27, `64a6771`; tested on the
-      ESP32-S3-ETH). Touch-LCD-2: settings upgrade from version 4 untested
-- [x] Phase 2: thresholds and manual override from HA (2026-09-27, `47d448c`; tested on the
-      ESP32-S3-ETH). LCD override path untested (Touch-LCD-2)
-- [ ] Phase 3: network temperature and daily summary over MQTT; REST code, token and fields
-      removed. Code done and tested on the ESP32-S3-ETH 2026-09-27; daily summary waits for a
-      real day change
-- [x] In HA: network temperature automation for `fanController_01` (docs/MQTT.md), optional
-      fault notification automation (both set up by the user 2026-09-27)
-- [x] Phase 4 (in HA): remove the old helpers, rest_command and automations (list in
-      `docs/MQTT.md`), rebuild fault notifications on the MQTT problem sensors (done by the
-      user 2026-09-27)
-- [x] Phase 5: update docs and success criteria (no longer "same as the Arduino build")
-      (2026-09-27: CLAUDE.md criteria, PROJECT_HISTORY status)
-- [x] Merge `mqtt` into `main` (2026-09-27, fast-forward to `f832628`)
-
-## Web page
-
-- [ ] New web page (`web/index.html` + `/api`, left tabs, themes NUT / classic dark / classic
-      light / custom, web login, OTA with board check). Code done 2026-09-27, tested on the
-      ESP32-S3-ETH (API, login, validation, override, theme, OTA install and refusals,
-      screenshots). User check in a browser pending; replace the temporary login.
-- [ ] Classic dark theme uses the Wifi_Fan_Knob gold/navy colours: confirm or change
-- [ ] Later from the Claude web plans: Home tab notes, history viewer
-- [ ] Time zone picker (Network tab, IANA zones + POSIX rules from Wifi_Fan_Knob, daylight
-      saving automatic; settings version 7). Done 2026-09-27; clock checked against the PC.
-      Changing the zone on the page not yet tried (needs the user's login)
-- [x] Ethernet on the core's ETH driver (lwIP), SNTP (2026-09-27; tested on the ESP32-S3-ETH)
-- [ ] WiFi as a backup when Ethernet is down, plus the setup hotspot; WiFi tab like
-      Wifi_Fan_Knob's (user decisions 2026-09-27). Code done 2026-09-27; tested: settings v7->v8,
-      scan, device name `fancontroller-01.local` over Ethernet. Failover tested 2026-09-27 (cable
-      pulled): joined Lost-Link2 by DHCP (.199, -50 dBm), MQTT and .local over WiFi, no
-      restart; cable back: Ethernet in use at once, WiFi dropped ~60 s later. NOT yet tested:
-      hotspot, static WiFi address
-- [x] Network: Add block to set Static IP Address (it existed; now with the DHCP choice below)
-- [x] Web page - Fan Control - turn the fan-channels into a table, selectable check boxes, not radio buttons. Defaults to only one, the first one listed in the firmware, and user can select additional fans at run time on the web page, but only in order; i.e., #2 is available at first start up, but #3 is not available until #2 has been selected. Grey-out unavailable fans.
-      (2026-09-27: table with pins and live RPM; fan 1 fixed, next wired channel addable, last
-      removable; channels 3-4 "not wired" on both boards; factory default 1 fan. User tested
-      2026-09-27: removing and re-adding fan 2 updated HA quickly)
-- [x] On the Network page, there needs to be the option for DHCP or Static IP, like there is on the WiFi page
-      (2026-09-27, settings version 9: new/reset boards start on DHCP, boards upgraded from an
-      older version keep their static address. User tested DHCP on the ESP32-S3-ETH 2026-09-27: works)
-
-## Needs the board
-
-- [ ] Touch-LCD-2: first flash of the current firmware and the checks in CLAUDE.md's success
-      criteria (replaces "compare with the Arduino build")
-- [ ] **Pin remap** (PWM2 = GPIO 6, TACH1 = GPIO 4, TACH2 = GPIO 16) was never tested. Check the
-      wiring matches before the first flash
-- [ ] Sensor-blackout failsafe fix (`918439d`): both probes down = both fans full speed
-- [ ] Touch coordinate mapping: check small targets, not just the big Manual Control button
-- [ ] SD daily rollup over a real day change
-- [ ] NTP via `pool.ntp.org` (reverted from the Cloudflare IP, 2026-09-27)
-
-## Decide
-
-- [x] Every board used the same MAC (`DE:AD:BE:EF:FE:ED`): fixed by the ETH driver switch,
-      each board has its chip's own MAC (2026-09-27)
-- [ ] `isSpilloverNearFull()` is unused: wire it to the LCD/web SD indicator or an MQTT
-      diagnostic, or remove it
-- [ ] Screen flicker: every redraw clears everything. Dirty-checking or an off-screen buffer
-    - [ ] Move this from the DECIDE block to the "Needs the board" block. 
-- [x] 1 fan setting reset to 2 at boot (`loadSettings` allowed 2-4): now 1-2 (2026-09-27)
-
-## Use ESP32's MAC
-	- BDH
-- [x] Done with the ETH driver switch (2026-09-27, `a43d531`): Ethernet and WiFi use the chip's
-      own MACs (ESP32-S3-ETH: Ethernet 2E:84:85:53:86:65, WiFi 28:84:85:53:86:64; both on the
-      WiFi tab)
-
-
-## Planned, no spec yet
-
-From the Claude web sessions; get the spec before planning any of these: web UI restyle (tabs,
-4 themes, Home tab notes), Wi-Fi/BLE/DHCP default, socket health, OTA, shared network backup,
-history viewer, fan-channel checkboxes on the web page.
+- [x] `[Docs]` TODO.md in the tagged Open/Done layout; open tasks summarised at the start of each
+      session; list condensed with each status report (user decisions, 2026-09-28)
+- [x] `[Docs]` Project CLAUDE.md trimmed: what the global `~/.claude/CLAUDE.md` now covers was
+      removed (2026-09-28)
+- [x] `[Question]` What would BLE bring? Answered 2026-09-28: BLE can't serve the web page, so
+      pairing wouldn't open it; it could only pass the address or set WiFi (Improv). Real gain
+      only if the board read BLE thermometers itself. Cost ~300-500 KB flash, RAM, shared radio.
+      Recommendation: skip BLE unless reading BLE sensors directly is wanted
+- [x] `[SD]` SD daily rollup over a real day change works on the ESP32-S3-ETH (user, 2026-09-28)
+- [x] `[Web]` Time zone picker (IANA zones + POSIX rules, daylight saving automatic; settings
+      version 7): works (user, 2026-09-28; `f6c51b4`)
+- [x] `[Web]` New web page (left tabs, themes, web login, OTA with board check): works well,
+      theme selector on PC and mobile, temporary login replaced (user, 2026-09-28; `4be8091`)
+- [x] `[HA]` Phase 3: network temperature and daily summary over MQTT, REST removed; first
+      "Summary of the day" arrived in HA with clear data (user, 2026-09-28; `a28141b`)
+- [x] `[Docs]` Status report 01 (2026-09-27, `998f7cd`)
+- [x] `[HA]` Merge `mqtt` into `main` (2026-09-27, fast-forward to `f832628`; branch deleted)
+- [x] `[Docs]` Phase 5: docs and success criteria for the MQTT-era firmware (2026-09-27, `f832628`)
+- [x] `[HA]` Phase 4 (in HA): old helpers, rest_command and automations removed, fault
+      notifications rebuilt on the MQTT problem sensors (user, 2026-09-27)
+- [x] `[HA]` HA automations: network temperature for `fanController_01`, fault notifications
+      (user, 2026-09-27)
+- [x] `[Net]` Ethernet DHCP or static on the Network tab (settings version 9; new boards start on
+      DHCP, upgraded ones keep their static address). User tested DHCP (2026-09-27, `5dd3214`)
+- [x] `[Web]` Fan channels as a checkbox table: fan 1 fixed, next wired channel addable, last
+      removable, channels 3-4 "not wired", factory default 1 fan. User tested: removing and
+      re-adding fan 2 updated HA quickly (2026-09-27, `5dd3214`)
+- [x] `[Net]` WiFi backup and back: cable pulled, joined WiFi by DHCP, MQTT and .local over
+      WiFi, no restart; cable back, WiFi dropped ~60 s later (2026-09-27, `55d72a9`)
+- [x] `[Net]` Ethernet on the core's ETH driver (lwIP), SNTP via pool.ntp.org; each board uses
+      its chip's own MAC (was DE:AD:BE:EF:FE:ED on every board) (2026-09-27, `a43d531`)
+- [x] `[Web]` Active network and logged-in user in the page frame; OTA drop zone
+      (2026-09-27, `240e986`)
+- [x] `[HA]` Phase 2: fan curve start/top and manual override from HA (2026-09-27, `47d448c`)
+- [x] `[Board]` USB serial no longer stalls loop() (2026-09-27, `ff254bd`)
+- [x] `[HA]` HA entities grouped on the device page by name (2026-09-27, `f73f58b`)
+- [x] `[Board]` Second board: ESP32-S3-ETH build `waveshare_s3_eth` (2026-09-27, `18ea0e8`)
+- [x] `[HA]` Phase 1: MQTT settings, node ID, read-only sensors (2026-09-27, `64a6771`)
+- [x] `[HA]` MQTT design verified in HA with `tools/mqtt_sim.py` (2026-09-27, `c19398c`)
+- [x] `[Board]` 1 fan setting was reset to 2 at boot; now 1-2 allowed (2026-09-27)
