@@ -24,7 +24,7 @@ https://docs.google.com/document/d/1QRiNYOYCpe3n6oVMIhkXRHPVwEsFdX8NhLnUuT_J_Yo/
 
 - [ ] When you read this TODO file at the beginning of every session, summarize the list of open tasks for me. 
 
-- What would enabling BLE bring to the project, other than more complication? If the user had a button on a LCD page to enable it, then connected/paired with it, would it just take them to the website? 
+- [ ] What would enabling BLE bring to the project, other than more complication? If the user had a button on a LCD page to enable it, then connected/paired with it, would it just take them to the website? 
 
 - [ ] One thing that didn't make the list from the web session is adding a new page to the LCD which displays a QR code the user can scan and be taken to the website. 
 
