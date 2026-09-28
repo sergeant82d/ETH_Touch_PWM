@@ -394,7 +394,7 @@ static void handleOverride(NetworkClient &client, const Request &req) {
 // ============================================================================
 // Stored on the board (LittleFS), so every browser gets the same look.
 
-static const char* THEME_PRESETS[] = {"nut", "classic-dark", "classic-light", "custom"};
+static const char* THEME_PRESETS[] = {"nut", "navy-gold", "classic-dark", "classic-light", "custom"};
 static const char* THEME_KEYS[] = {"bg", "bg2", "panel", "border", "text", "muted", "accent", "onAccent", "ok", "warn", "error"};
 
 static bool isHexColor(const String &s) {

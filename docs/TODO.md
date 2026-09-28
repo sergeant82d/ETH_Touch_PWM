@@ -28,8 +28,6 @@ How this list works (agreed 2026-09-28):
 - [ ] `[LCD]` Screen flicker: every redraw clears everything; dirty-checking or an off-screen
       buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
 - [ ] `[Net]` Setup hotspot and a static WiFi address: not yet tried on a board (2026-09-27)
-- [ ] `[Decide]` Classic dark theme uses the Wifi_Fan_Knob gold/navy colours: confirm or change
-      (2026-09-27)
 - [ ] `[Web]` From the Claude web plans: Home tab notes, history viewer. The daily summary now
       reaches HA, so history tracking can start. Still without a spec: socket health, "shared
       network backup" (2026-09-27)
@@ -51,6 +49,9 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Web]` Themes: the Wifi_Fan_Knob gold/navy is its own preset "Navy & gold"; "Classic
+      dark" is a new neutral dark (charcoal, blue accent). Five presets now. User checked on
+      the ESP32-S3-ETH (2026-09-28)
 - [x] `[Docs]` TODO.md in the tagged Open/Done layout; open tasks summarised at the start of each
       session; list condensed with each status report (user decisions, 2026-09-28)
 - [x] `[Docs]` Project CLAUDE.md trimmed: what the global `~/.claude/CLAUDE.md` now covers was
