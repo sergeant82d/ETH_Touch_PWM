@@ -230,6 +230,11 @@ static void handleGetConfig(NetworkClient &client) {
     doc["fahrenheit"] = config.isFahrenheit;
     doc["tMinC"] = serialized(String(config.tMin, 1));
     doc["tMaxC"] = serialized(String(config.tMax, 1));
+    JsonObject gauge = doc["gauge"].to<JsonObject>(); // LCD bar scales (the web page's LCD view)
+    gauge["rpmMin"] = config.fanRpmGaugeMin;
+    gauge["rpmMax"] = config.fanRpmGaugeMax;
+    gauge["tMinF"] = config.tempGaugeMinF;
+    gauge["tMaxF"] = config.tempGaugeMaxF;
     doc["tzName"] = config.tzName;
     doc["clock24"] = config.is24Hour;
     doc["ethDhcp"] = config.ethDhcp;
