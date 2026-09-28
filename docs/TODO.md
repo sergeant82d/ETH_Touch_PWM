@@ -89,6 +89,7 @@ https://docs.google.com/document/d/1QRiNYOYCpe3n6oVMIhkXRHPVwEsFdX8NhLnUuT_J_Yo/
 - [ ] `isSpilloverNearFull()` is unused: wire it to the LCD/web SD indicator or an MQTT
       diagnostic, or remove it
 - [ ] Screen flicker: every redraw clears everything. Dirty-checking or an off-screen buffer
+    - [ ] Move this from the DECIDE block to the "Needs the board" block. 
 - [x] 1 fan setting reset to 2 at boot (`loadSettings` allowed 2-4): now 1-2 (2026-09-27)
 
 ## Use ESP32's MAC
