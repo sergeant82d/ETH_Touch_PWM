@@ -5,6 +5,7 @@
 #include "touch.h"
 #include "sd_logger.h"
 #include "fan_network.h"
+#include "mqtt.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7789.h>
 #include <SPI.h>
@@ -362,6 +363,11 @@ static void drawTitleBar() {
     // for why), red if none are.
     uint16_t netColor = isNetworkConnected() ? ST77XX_GREEN : ST77XX_RED;
     screenMain.fillCircle(22, TITLE_H / 2, 4, netColor);
+
+    // MQTT (Home Assistant) - third dot: green when connected, orange when
+    // not (same colours as the web page's sidebar). Added 2026-09-28.
+    uint16_t mqttColor = mqttStatusText().startsWith("Connected") ? ST77XX_GREEN : ST77XX_ORANGE;
+    screenMain.fillCircle(34, TITLE_H / 2, 4, mqttColor);
 
     int iconX = LCD_WIDTH - ICON_SETTINGS_SIZE - 6;
     int iconY = (TITLE_H - ICON_SETTINGS_SIZE) / 2;
