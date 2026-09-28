@@ -849,6 +849,24 @@ static void handleHistoryFile(NetworkClient &client, const Request &req) {
     if (!isSdCardPresent()) { sendResult(client, 404, "No SD card."); return; }
     File f = SD.open(path, FILE_READ);
     if (!f) { sendResult(client, 404, "File not found."); return; }
+
+    // ?tail=N: only the last ~N bytes, from a line start (the event list)
+    long tail = queryParam(req.query, "tail").toInt();
+    if (tail > 0) {
+        sendStreamHead(client, "text/csv; charset=utf-8");
+        if ((size_t)tail < f.size()) {
+            f.seek(f.size() - tail);
+            f.readStringUntil('\n');          // partial line
+        }
+        uint8_t buf[1024];
+        while (f.available()) {
+            int n = f.read(buf, sizeof(buf));
+            if (n <= 0 || client.write(buf, n) == 0) break;
+        }
+        f.close();
+        return;
+    }
+
     String name = path.substring(path.lastIndexOf('/') + 1);
     // Files from before 2026-09-28 have no column-name line: add it
     String header = isdigit(f.peek()) || f.peek() == 'A' ? csvHeaderFor(path) : String("");
