@@ -30,13 +30,6 @@ How this list works (agreed 2026-09-28):
 - [ ] `[Net]` Setup hotspot and a static WiFi address: not yet tried on a board (2026-09-27)
 - [ ] `[Web]` "Socket health" from the Claude web plans: no spec yet (the other web plan items are
       done; "shared network backup" dropped by the user 2026-09-28) (2026-09-27)
-- [ ] `[Web]` LCD view on the web page. Decided 2026-09-28: option (b), a card that redraws the
-      LCD layout from the live data (works on both boards; the Touch-LCD-2's LCD can't be read
-      back). Source: user's two Google Docs (TFT_eSPI / LovyanGFX mirroring; the LovyanGFX one
-      suits the Wifi_Fan_Knob):
-      https://docs.google.com/document/d/1eiV-0-nFfHzA8a_0D2_Bfcq3fkiPuLYAS52BnAqrvKo/edit?usp=drivesdk
-      https://docs.google.com/document/d/1QRiNYOYCpe3n6oVMIhkXRHPVwEsFdX8NhLnUuT_J_Yo/edit?usp=drivesdk
-      (2026-09-28)
 - [ ] `[LCD]` QR code page: tap the gear icon to show a QR code of the board's address (IP, as
       Android often can't open .local) and, while the hotspot is on, one to join it. Code done
       2026-09-28 (ricmoo/QRCode 0.0.1; tap anywhere or 60 s closes it); compiles, UNTESTED:
@@ -44,6 +37,8 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Web]` LCD view card on the Dashboard: the Touch-LCD-2 screen redrawn from live data
+      (option b). Works on the ESP32-S3-ETH (user, 2026-09-28, `6d41e3c`); fonts approximate.
 - [x] `[SD]` SD health on every display: OK green; >= 90 % used orange, slow flash; missing red,
       fast flash. Web dot + text and System row, HA "SD card" / "SD card used" / "Fault SD card",
       event log; replaces the unused `isSpilloverNearFull()` as a state of its own. Found and
