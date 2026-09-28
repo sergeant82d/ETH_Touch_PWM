@@ -14,6 +14,11 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 
 - Website theme selector works both PC and mobile. 
 
+- [ ] I would like to mirror the LCD display on the web page. According to the information in these two links, it should be possible. Discuss. 
+ https://docs.google.com/document/d/1eiV-0-nFfHzA8a_0D2_Bfcq3fkiPuLYAS52BnAqrvKo/edit?usp=drivesdk
+
+https://docs.google.com/document/d/1QRiNYOYCpe3n6oVMIhkXRHPVwEsFdX8NhLnUuT_J_Yo/edit?usp=drivesdk
+
 - [ ] DECISION - The variable isSpilloverNearFull() should be mapped to all the displays - the existing status 'dots', instead of showing green or red, should flash orange when the SD Card is getting full or otherwise unhealthy. Also noted in the SD Card log itself. Discuss options and methods. 
 
 - [ ] I would like you to condense the TODO.md file at the end of every day when you create the daily STATUS REPORT. Move all open items to the top, with the oldest items at the top. Move the complete items below, with the most recently completed at the top, in descending order. Discuss ideas about keeping the section headers (web page, Needs the board, etc.) or other methods of organizing it. 
