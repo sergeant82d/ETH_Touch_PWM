@@ -125,13 +125,36 @@ static void appendToSpillover(const String &line) {
     f.close();
 }
 
+// ---- Column names (first line of each file, since 2026-09-28) ----
+static const char* DAILY_COLS = "local_min_c,local_max_c,network_min_c,network_max_c,blended_min_c,"
+                                "blended_max_c,fan1_min_rpm,fan1_max_rpm,fan2_min_rpm,fan2_max_rpm";
+
+String csvHeaderFor(const String &path) {
+    if (path.startsWith("/logs/")) return "timestamp,local_c,network_c,blended_c,fan1_rpm,fan2_rpm,duty_pct,override";
+    if (path == "/rollups/daily.csv") return String("date,") + DAILY_COLS;
+    if (path == "/rollups/alltime.csv") return String("record,") + DAILY_COLS;
+    if (path == "/events.csv") return "timestamp,category,description";
+    return "";
+}
+
+// Opens an SD file for appending; a new file starts with its column names
+static File openForAppend(const String &path) {
+    bool isNew = !SD.exists(path);
+    File f = SD.open(path, FILE_APPEND);
+    if (f && isNew) {
+        String header = csvHeaderFor(path);
+        if (header.length()) f.println(header);
+    }
+    return f;
+}
+
 // Appends one line to an SD file, creating parent behavior isn't needed
 // (SD.open with FILE_APPEND creates the file if missing, but not parent
 // dirs - callers must mkdir once at init). Falls back to spillover if the
 // card is absent or low on space.
 static void appendLine(const char* sdPath, const String &line) {
     if (sdHasFreeSpace()) {
-        File f = SD.open(sdPath, FILE_APPEND);
+        File f = openForAppend(sdPath);
         if (f) {
             f.print(line);
             f.close();
@@ -173,7 +196,7 @@ static void drainSpilloverToSD() {
     // perfectly correct if a card-out spans a month boundary, but that's a
     // rare edge case for what's meant to be a brief-outage safety net.
     String monthPath = "/logs/" + String(year()) + "-" + (month() < 10 ? "0" : "") + String(month()) + ".csv";
-    File out = SD.open(monthPath, FILE_APPEND);
+    File out = openForAppend(monthPath);
     if (out) {
         while (f.available()) {
             out.write(f.read());
@@ -247,7 +270,11 @@ static void updateAllTimeRecord(const DailyExtremes &finalizedDay) {
     if (sdPresent && SD.exists("/rollups/alltime.csv")) {
         File f = SD.open("/rollups/alltime.csv", FILE_READ);
         if (f) {
-            String line = f.readStringUntil('\n');
+            String line;
+            while (f.available()) {              // skip the column-name line
+                line = f.readStringUntil('\n');
+                if (line.startsWith("ALL,")) break;
+            }
             f.close();
             // Format: ALL,localMin,localMax,netMin,netMax,blendMin,blendMax,f1Min,f1Max,f2Min,f2Max
             int idx = line.indexOf(',');
@@ -297,7 +324,7 @@ static void updateAllTimeRecord(const DailyExtremes &finalizedDay) {
         SD.remove("/rollups/alltime.csv");
         File out = SD.open("/rollups/alltime.csv", FILE_WRITE);
         if (out) {
-            out.print("ALL," + extremesToCsvFields(allTime) + "\n");
+            out.print(csvHeaderFor("/rollups/alltime.csv") + "\n" + "ALL," + extremesToCsvFields(allTime) + "\n");
             out.close();
         }
     }
@@ -441,12 +468,19 @@ void sdLoggerLoop() {
         lastMinuteLogMs = millis();
 
         String monthPath = "/logs/" + String(year()) + "-" + (month() < 10 ? "0" : "") + String(month()) + ".csv";
+        // timestamp, local, network, blended (C; empty = probe failed, not a
+        // stale value), fan 1 RPM, fan 2 RPM, fan duty % (both fans share the
+        // curve), manual override (1/0). Duty and override since 2026-09-28;
+        // older rows have 6 fields. Read by the web page's History tab.
+        auto temp = [](bool ok, float c) { return ok ? String(c, 1) : String(""); };
         String row = timestampNow() + "," +
-                     String(localTempC, 1) + "," +
-                     String(networkTempC, 1) + "," +
-                     String(blendedAverageC, 1) + "," +
+                     temp(localSensorHealthy, localTempC) + "," +
+                     temp(networkSensorHealthy, networkTempC) + "," +
+                     temp(localSensorHealthy || networkSensorHealthy, blendedAverageC) + "," +
                      String(currentRPMs[0]) + "," +
-                     String(currentRPMs[1]) + "\n";
+                     String(currentRPMs[1]) + "," +
+                     String((currentDutyCycles[0] * 100 + 127) / 255) + "," +
+                     (manualOverrideActive ? "1" : "0") + "\n";
         appendLine(monthPath.c_str(), row);
 
         updateDailyExtremes();

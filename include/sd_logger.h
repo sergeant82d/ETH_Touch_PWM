@@ -35,6 +35,11 @@ void sdLoggerUpdateSnapshot();
 // itself (including SD-absent spillover) is already handled here.
 void sdLogEvent(const String &category, const String &description);
 
+// Column-name line of an SD log file (without newline), "" if unknown.
+// Written as the first line when a file is created; downloads add it to
+// older files that don't have one.
+String csvHeaderFor(const String &path);
+
 // Current SD card presence, for status display on the LCD/web dashboard.
 // True once mounted successfully; false if never detected or lost partway
 // through (data is spilling to internal flash in that case - see

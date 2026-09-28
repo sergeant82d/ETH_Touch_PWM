@@ -44,6 +44,8 @@ bool isNetworkConnected();    // Ethernet or WiFi (the hotspot doesn't count)
 
 // "Ethernet", "WiFi", "Hotspot" or "None", and its address
 const char* activeNetwork();
+// Name of that network when it's WiFi (joined SSID) or the hotspot; else ""
+String activeNetworkName();
 IPAddress localIP();
 
 // Device name: config.hostname, or made from the node ID ("fancontroller-01")

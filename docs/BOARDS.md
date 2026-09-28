@@ -49,6 +49,22 @@ board uses its chip's own MAC (the ESP32-S3-ETH: `2E:84:85:53:86:65`), no longer
 - Device name (mDNS): http://<name>.local on Ethernet and WiFi; default from the node ID
   (`fancontroller-01`).
 
+## SD card files (both boards)
+
+Plain CSV; the first line holds the column names (files created since 2026-09-28; a download
+adds it to older files). The web page's History tab reads them (`/api/history/...`).
+
+| File | Row |
+|---|---|
+| `/logs/YYYY-MM.csv` | every minute: `timestamp, local, network, blended` (°C; empty = probe failed, since 2026-09-28), `fan 1 RPM, fan 2 RPM`, then since 2026-09-28 `fan duty %, override (1/0)` |
+| `/rollups/daily.csv` | per day (30 days kept): `date, local min/max, network min/max, blended min/max, fan 1 min/max, fan 2 min/max` |
+| `/rollups/alltime.csv` | one row `ALL, ...`: the all-time highs and lows, same columns |
+| `/events.csv` | `timestamp, category, description`: BOOT, CONFIG, OVERRIDE, OTA |
+
+Without a card, rows go to an internal buffer (LittleFS, 200 KB) and are written into the
+current month's file when a card is back; those rows are out of time order at the end of the
+file, and the History day view can miss them.
+
 ## ESP32-S3-ETH source
 
 Pins come from its Arduino sketch `ESP32_S3_ETH_PWM_Fans_VER_1_0_1_WORKING_NO_LCD.ino`

@@ -207,6 +207,13 @@ const char* activeNetwork() {
     return "None";
 }
 
+String activeNetworkName() {
+    const char* a = activeNetwork();
+    if (strcmp(a, "WiFi") == 0) return WiFi.SSID();
+    if (strcmp(a, "Hotspot") == 0) return hotspotSsid();
+    return "";
+}
+
 IPAddress localIP() {
     if (isEthernetConnected() && ETH.hasIP()) return ETH.localIP();
     if (isWifiConnected()) return WiFi.localIP();

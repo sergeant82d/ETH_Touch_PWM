@@ -60,6 +60,7 @@ body { font-family: var(--font); color: var(--text); background: linear-gradient
 .brand { padding: 0 20px 22px; }
 .brand-name { font-size: 1.15rem; font-weight: 700; color: var(--accent); word-break: break-all; }
 .brand-sub { font-size: .75rem; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+.brand-ip { font-size: .85rem; color: var(--text); margin-top: 4px; font-family: var(--mono); }
 .tabs { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .tab { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 20px; background: none; border: none;
   border-left: 3px solid transparent; color: var(--muted); font: inherit; font-size: .95rem; cursor: pointer; text-align: left; }
@@ -72,7 +73,6 @@ body { font-family: var(--font); color: var(--text); background: linear-gradient
 .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
 .dot.bad { background: var(--error); box-shadow: 0 0 6px var(--error); }
 .dot.warn { background: var(--warn); }
-.net-detail { font-family: var(--mono); font-size: .75rem; color: var(--text); margin: -4px 0 2px 17px; }
 .who { font-size: .85rem; color: var(--muted); }
 .who b { color: var(--text); font-weight: 600; }
 
@@ -107,7 +107,7 @@ body { font-family: var(--font); color: var(--text); background: linear-gradient
 .form { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label, .field .label { font-size: .85rem; color: var(--muted); }
-input[type=text], input[type=password], input[type=number], select, textarea {
+input[type=text], input[type=password], input[type=number], input[type=date], select, textarea {
   width: 100%; padding: 9px 11px; border-radius: var(--radius); border: 1px solid var(--border);
   background: var(--bg); color: var(--text); font: inherit; }
 input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
@@ -163,6 +163,17 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
 .emoji-bar button { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 3px 7px;
   font-size: 1.05rem; line-height: 1.2; cursor: pointer; }
 .emoji-bar button:hover { border-color: var(--accent); background: var(--accent-soft); }
+.hist-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.hist-controls input[type=date] { width: auto; }
+.hist-controls .btn { padding: 8px 14px; }
+.chart-wrap { position: relative; margin: 6px 0 4px; }
+.chart-wrap canvas { width: 100%; height: 260px; display: block; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); margin: 4px 0 16px; }
+.chart-legend span::before { content: ""; display: inline-block; width: 14px; height: 3px; margin-right: 6px; vertical-align: middle; background: var(--c); }
+.chart-legend span.dash::before { background: repeating-linear-gradient(90deg, var(--c) 0 4px, transparent 4px 7px); }
+.chart-legend span.shade::before { height: 10px; background: var(--c); opacity: .35; }
+.chart-tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+  padding: 6px 8px; font-size: .78rem; font-family: var(--mono); white-space: pre; color: var(--text); display: none; z-index: 5; }
 .scan-list { display: grid; gap: 6px; margin-top: 14px; }
 .scan-item { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; text-align: left; }
@@ -191,12 +202,17 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-name" id="brand-node">Fan Controller</div>
+      <div class="brand-ip" id="brand-ip">--</div>
+      <div class="brand-sub" id="brand-net" hidden></div>
       <div class="brand-sub" id="brand-board">--</div>
     </div>
     <nav class="tabs">
       <button class="tab active" data-page="dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         Dashboard</button>
+      <button class="tab" data-page="history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 4 3 5-7"/></svg>
+        History</button>
       <button class="tab" data-page="fans">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7 2 0 3 2 2 4s-4 3-6 3zM14 12c4 0 7 1 7 4 0 2-2 3-4 2s-3-4-3-6zM12 14c0 4-1 7-4 7-2 0-3-2-2-4s4-3 6-3zM10 12c-4 0-7-1-7-4 0-2 2-3 4-2s3 4 3 6z"/></svg>
         Fan Control</button>
@@ -215,7 +231,6 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
     </nav>
     <div class="lights">
       <div class="light"><span class="dot" id="dot-eth"></span><span>Network: <span id="net-name">--</span></span></div>
-      <div class="net-detail" id="net-detail">--</div>
       <div class="light"><span class="dot" id="dot-mqtt"></span>MQTT</div>
       <div class="light"><span class="dot" id="dot-sd"></span>SD card</div>
     </div>
@@ -259,6 +274,33 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
           <span class="msg" id="notes-msg"></span>
         </div>
         <div class="hint">Plain text; emojis work (Windows: Win + . opens the emoji picker). Kept on the board, shared by every browser.</div>
+      </div>
+    </section>
+
+    <!-- ===== History ===== -->
+    <section class="page" id="page-history">
+      <div class="panel">
+        <h2>Day</h2>
+        <div class="hist-controls">
+          <button class="btn ghost" id="hist-prev" title="Day before">&#9664;</button>
+          <input type="date" id="hist-date">
+          <button class="btn ghost" id="hist-next" title="Day after">&#9654;</button>
+          <button class="btn ghost" id="hist-today">Today</button>
+          <span class="msg" id="hist-msg"></span>
+        </div>
+        <div class="chart-wrap"><canvas id="hist-temp"></canvas><div class="chart-tip"></div></div>
+        <div class="chart-legend" id="legend-temp"></div>
+        <div class="chart-wrap"><canvas id="hist-fans"></canvas><div class="chart-tip"></div></div>
+        <div class="chart-legend" id="legend-fans"></div>
+        <div class="hint">One reading a minute from the SD card; hover (or touch) a chart for the values. Dashed lines: fan curve start and top (today's settings). Fan duty and override are logged since 2026-09-28.</div>
+      </div>
+      <div class="panel">
+        <h2>Downloads</h2>
+        <table class="fan-table">
+          <thead><tr><th>File</th><th>Contents</th><th>Size</th><th></th></tr></thead>
+          <tbody id="hist-files"></tbody>
+        </table>
+        <div class="hint">Raw CSV files from the SD card, e.g. for Excel. A full month can take a few seconds.</div>
       </div>
     </section>
 
@@ -522,6 +564,7 @@ function showTab(name) {
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === t));
   document.querySelectorAll(".page").forEach((p) => p.classList.toggle("active", p.id === "page-" + t.dataset.page));
   $("#page-title").textContent = t.textContent.trim();
+  if (t.dataset.page === "history" && typeof showHistoryTab === "function" && status) showHistoryTab();
 }
 document.querySelectorAll(".tab").forEach((t) => t.onclick = () => { history.replaceState(null, "", "#" + t.dataset.page); showTab(t.dataset.page); });
 showTab(location.hash.slice(1));
@@ -543,7 +586,9 @@ function renderStatus() {
   const s = status;
   $("#brand-node").textContent = s.node;
   $("#brand-board").textContent = s.board;
-  $("#net-detail").textContent = s.net === "None" ? "no network" : s.ip;
+  $("#brand-ip").textContent = s.net === "None" ? "no network" : s.ip;
+  $("#brand-net").hidden = !s.netName;
+  $("#brand-net").textContent = s.net === "Hotspot" ? `Hotspot: ${s.netName}` : `WiFi: ${s.netName}`;
   setTemp("#t-local", s.local, "Probe failed");
   setTemp("#t-network", s.network, "No value from HA");
   setTemp("#t-blended", s.blended, "Both probes failed: fans at 100%");
@@ -828,6 +873,175 @@ $("#wifi-scan").onclick = async () => {
 };
 setInterval(() => { if (wifiTabShown()) loadWifi(false); }, 3000);
 
+// ---------- History ----------
+const HIST_COLORS = { local: "#f97316", network: "#d946ef", blended: "var(--accent)", fan1: "#22d3ee", fan2: "#3b82f6", duty: "var(--muted)", override: "var(--error)" };
+const cssColor = (c) => c.startsWith("var(") ? getComputedStyle(document.documentElement).getPropertyValue(c.slice(4, -1)).trim() : c;
+let histRows = [], histDate = "";
+
+function boardToday() {
+  const t = (status && status.timeSet) ? new Date(status.time * 1000) : null;
+  return t ? t.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10);
+}
+function shiftDate(d, days) { const t = new Date(d + "T12:00:00Z"); t.setUTCDate(t.getUTCDate() + days); return t.toISOString().slice(0, 10); }
+
+// CSV row: time, local, network, blended (C; empty = failed), fan1, fan2[, duty %, override 1/0]
+function parseDay(text) {
+  const rows = [];
+  text.split("\n").forEach((line) => {
+    const f = line.trim().split(",");
+    if (f.length < 6 || f[0].length < 16) return;
+    const num = (v) => v === "" || v === undefined ? null : +v;
+    if (f[1] !== "" && isNaN(+f[1])) return;                 // an event line mixed in: skip
+    const hh = +f[0].slice(11, 13), mm = +f[0].slice(14, 16), ss = +f[0].slice(17, 19) || 0;
+    rows.push({ m: hh * 60 + mm + ss / 60, local: num(f[1]), network: num(f[2]), blended: num(f[3]),
+      fan1: num(f[4]), fan2: num(f[5]), duty: num(f[6]), override: f[7] === "1" });
+  });
+  return rows.sort((a, b) => a.m - b.m);
+}
+
+function niceRange(lo, hi) {
+  if (lo === Infinity) { lo = 0; hi = 1; }
+  if (hi - lo < 1) { lo -= 0.5; hi += 0.5; }
+  const pad = (hi - lo) * 0.08, step = Math.pow(10, Math.floor(Math.log10((hi - lo) / 4)));
+  const s = [1, 2, 5, 10].map((k) => k * step).find((v) => (hi - lo + 2 * pad) / v <= 6) || 10 * step;
+  let a = Math.floor((lo - pad) / s) * s;
+  if (lo >= 0 && a < 0) a = 0;                 // RPM, % etc. never go below zero
+  return { lo: a, hi: Math.ceil((hi + pad) / s) * s, step: s };
+}
+
+// One chart: series on a left (and optional right) axis over 0-24 h, with
+// dashed reference lines, shaded spans and a hover readout
+function drawChart(canvas, cfg) {
+  const dpr = window.devicePixelRatio || 1, W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const g = canvas.getContext("2d"); g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
+  const muted = cssColor("var(--muted)"), border = cssColor("var(--border)"), text = cssColor("var(--text)");
+  const L = 48, R = cfg.right ? 48 : 22, T = 10, B = 24, pw = W - L - R, ph = H - T - B;
+  const x = (m) => L + (m / 1440) * pw;
+  const axis = (side) => {
+    let lo = Infinity, hi = -Infinity;
+    cfg.series.filter((s) => (s.axis || "left") === side).forEach((s) => cfg.rows.forEach((r) => { const v = r[s.key]; if (v !== null) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }));
+    (cfg.lines || []).filter((l) => side === "left").forEach((l) => { lo = Math.min(lo, l.v); hi = Math.max(hi, l.v); });
+    return side === "right" && cfg.right.fixed ? cfg.right.fixed : niceRange(lo, hi);
+  };
+  const ax = { left: axis("left") }; if (cfg.right) ax.right = axis("right");
+  const y = (v, side) => { const a = ax[side || "left"]; return T + ph - ((v - a.lo) / (a.hi - a.lo)) * ph; };
+  g.font = "11px system-ui, sans-serif"; g.lineWidth = 1;
+  // grid + axis labels
+  g.strokeStyle = border; g.fillStyle = muted; g.textAlign = "right";
+  for (let v = ax.left.lo; v <= ax.left.hi + 1e-9; v += ax.left.step) {
+    g.beginPath(); g.moveTo(L, y(v)); g.lineTo(W - R, y(v)); g.stroke();
+    g.fillText(+v.toFixed(1) + (cfg.leftUnit || ""), L - 6, y(v) + 4);
+  }
+  if (cfg.right) { g.textAlign = "left"; for (let v = ax.right.lo; v <= ax.right.hi + 1e-9; v += ax.right.step) g.fillText(+v.toFixed(0) + (cfg.right.unit || ""), W - R + 6, y(v, "right") + 4); }
+  g.textAlign = "center";
+  for (let h = 0; h <= 24; h += 3) { g.fillText(String(h).padStart(2, "0") + ":00", x(h * 60), H - 6); g.beginPath(); g.moveTo(x(h * 60), T); g.lineTo(x(h * 60), T + ph); g.stroke(); }
+  // shaded spans (override on)
+  if (cfg.shade) {
+    g.fillStyle = cssColor(cfg.shade.color); g.globalAlpha = 0.18;
+    let start = null;
+    cfg.rows.forEach((r, i) => {
+      if (r[cfg.shade.key] && start === null) start = r.m;
+      const end = !r[cfg.shade.key] || i === cfg.rows.length - 1;
+      if (end && start !== null) { g.fillRect(x(start), T, Math.max(2, x(r.m) - x(start)), ph); start = null; }
+    });
+    g.globalAlpha = 1;
+  }
+  // reference lines
+  (cfg.lines || []).forEach((l) => { g.strokeStyle = cssColor(l.color); g.setLineDash([5, 4]); g.beginPath(); g.moveTo(L, y(l.v)); g.lineTo(W - R, y(l.v)); g.stroke(); g.setLineDash([]); });
+  // series (a gap of more than 5 minutes or a missing value breaks the line)
+  cfg.series.forEach((s) => {
+    g.strokeStyle = cssColor(s.color); g.lineWidth = s.width || 1.8; g.setLineDash(s.dash ? [4, 3] : []);
+    g.beginPath(); let pen = false, last = -99;
+    cfg.rows.forEach((r) => { const v = r[s.key]; if (v === null || r.m - last > 5) pen = false; if (v === null) return;
+      if (pen) g.lineTo(x(r.m), y(v, s.axis)); else g.moveTo(x(r.m), y(v, s.axis)); pen = true; last = r.m; });
+    g.stroke(); g.setLineDash([]);
+  });
+  if (!cfg.rows.length) { g.fillStyle = muted; g.textAlign = "center"; g.font = "14px system-ui, sans-serif"; g.fillText("No data for this day", L + pw / 2, T + ph / 2); }
+  // hover readout
+  const tip = canvas.parentElement.querySelector(".chart-tip");
+  canvas.onmousemove = canvas.ontouchmove = (e) => {
+    if (!cfg.rows.length) return;
+    const p = e.touches ? e.touches[0] : e, rect = canvas.getBoundingClientRect(), px = p.clientX - rect.left;
+    const m = ((px - L) / pw) * 1440;
+    let best = cfg.rows[0]; cfg.rows.forEach((r) => { if (Math.abs(r.m - m) < Math.abs(best.m - m)) best = r; });
+    const hh = String(Math.floor(best.m / 60)).padStart(2, "0"), mm = String(Math.floor(best.m % 60)).padStart(2, "0");
+    tip.textContent = [`${hh}:${mm}`].concat(cfg.series.map((s) => `${s.label}: ${best[s.key] === null ? "--" : s.fmt ? s.fmt(best[s.key]) : best[s.key]}`)).concat(cfg.shade && best[cfg.shade.key] ? [cfg.shade.label] : []).join("\n");
+    tip.style.display = "block";
+    tip.style.left = Math.min(px + 12, rect.width - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
+  };
+  canvas.onmouseleave = () => { tip.style.display = "none"; };
+}
+
+function legend(el, items) {
+  el.innerHTML = items.map((i) => `<span class="${i.cls || ""}" style="--c:${cssColor(i.color)}">${i.label}</span>`).join("");
+}
+
+function renderHistory() {
+  const F = status && status.fahrenheit, u = F ? "\u00b0F" : "\u00b0C", conv = (c) => c === null ? null : F ? c * 9 / 5 + 32 : c;
+  const rows = histRows.map((r) => Object.assign({}, r, { local: conv(r.local), network: conv(r.network), blended: conv(r.blended) }));
+  const t1 = (v) => v.toFixed(1) + " " + u;
+  const lines = config ? [{ v: conv(+config.tMinC), color: "var(--ok)" }, { v: conv(+config.tMaxC), color: "var(--error)" }] : [];
+  drawChart($("#hist-temp"), { rows, leftUnit: "\u00b0", lines, series: [
+    { key: "local", label: "Local", color: HIST_COLORS.local, fmt: t1 },
+    { key: "network", label: "Network", color: HIST_COLORS.network, fmt: t1 },
+    { key: "blended", label: "Blended", color: HIST_COLORS.blended, fmt: t1, width: 2.4 }] });
+  legend($("#legend-temp"), [{ label: "Local probe", color: HIST_COLORS.local }, { label: "Network (HA)", color: HIST_COLORS.network },
+    { label: "Blended", color: HIST_COLORS.blended }, { label: "Curve start", color: "var(--ok)", cls: "dash" }, { label: "Curve top", color: "var(--error)", cls: "dash" }]);
+  const nFans = status ? status.fans.length : 2;
+  const fanSeries = [{ key: "fan1", label: "Fan 1", color: HIST_COLORS.fan1, fmt: (v) => v + " RPM" }];
+  if (nFans > 1) fanSeries.push({ key: "fan2", label: "Fan 2", color: HIST_COLORS.fan2, fmt: (v) => v + " RPM" });
+  fanSeries.push({ key: "duty", label: "Duty", color: HIST_COLORS.duty, axis: "right", dash: true, width: 1.4, fmt: (v) => v + " %" });
+  drawChart($("#hist-fans"), { rows, series: fanSeries, right: { unit: "%", fixed: { lo: 0, hi: 100, step: 25 } },
+    shade: { key: "override", color: HIST_COLORS.override, label: "Manual override on" } });
+  legend($("#legend-fans"), fanSeries.map((s) => ({ label: s.label === "Duty" ? "Duty (right axis)" : s.label, color: s.color, cls: s.dash ? "dash" : "" }))
+    .concat([{ label: "Manual override on", color: HIST_COLORS.override, cls: "shade" }]));
+}
+
+async function loadHistoryDay(date) {
+  histDate = date; $("#hist-date").value = date;
+  const msg = $("#hist-msg"); msg.className = "msg"; msg.textContent = "Loading...";
+  try {
+    const text = DEMO ? demoDay() : await (async () => { const r = await fetch("/api/history/day?date=" + date); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Error " + r.status); return r.text(); })();
+    histRows = parseDay(text);
+    msg.textContent = histRows.length ? `${histRows.length} readings` : "";
+  } catch (e) { histRows = []; showMsg(msg, e.message, false); }
+  renderHistory();
+}
+
+const FILE_INFO = (p) => p.startsWith("/logs/") ? "Readings every minute, " + p.slice(6, 13) : p.includes("daily") ? "Daily highs and lows (30 days)" : p.includes("alltime") ? "All-time records" : "Events: boots, overrides, setting changes";
+async function loadHistoryFiles() {
+  try {
+    const r = DEMO ? { sd: true, files: [{ path: "/logs/2026-09.csv", size: 612345 }, { path: "/rollups/daily.csv", size: 1234 }, { path: "/events.csv", size: 8765 }] } : await api("/api/history/files");
+    const kb = (n) => n < 1024 ? n + " B" : (n / 1024).toFixed(n < 102400 ? 1 : 0) + " KB";
+    $("#hist-files").innerHTML = !r.sd ? `<tr><td colspan="4" class="muted">No SD card.</td></tr>`
+      : r.files.map((f) => `<tr><td class="mono">${esc(f.path)}</td><td>${FILE_INFO(f.path)}</td><td class="mono">${kb(f.size)}</td>
+          <td><a class="btn ghost" style="padding:5px 12px; text-decoration:none" href="/api/history/file?path=${encodeURIComponent(f.path)}" download>Download</a></td></tr>`).join("");
+  } catch (e) { $("#hist-files").innerHTML = `<tr><td colspan="4" class="msg bad">${esc(e.message)}</td></tr>`; }
+}
+
+function demoDay() {
+  const d = histDate, out = [];
+  for (let m = 0; m < 1440; m++) {
+    const hh = String(Math.floor(m / 60)).padStart(2, "0"), mm = String(m % 60).padStart(2, "0");
+    const local = 29 + 3 * Math.sin((m - 540) / 229), net = 27 + 1.5 * Math.sin((m - 600) / 229), blend = (local + net) / 2;
+    const ovr = m > 840 && m < 900, duty = ovr ? 100 : Math.max(0, Math.min(100, Math.round(20 + (blend - 29.2) / (40.6 - 29.2) * 80)));
+    out.push(`${d} ${hh}:${mm}:00,${local.toFixed(1)},${m > 300 && m < 330 ? "" : net.toFixed(1)},${blend.toFixed(1)},${duty ? 400 + duty * 18 : 0},${duty ? 380 + duty * 18 : 0},${duty},${ovr ? 1 : 0}`);
+  }
+  return out.join("\n");
+}
+
+$("#hist-date").onchange = (e) => e.target.value && loadHistoryDay(e.target.value);
+$("#hist-prev").onclick = () => loadHistoryDay(shiftDate(histDate || boardToday(), -1));
+$("#hist-next").onclick = () => loadHistoryDay(shiftDate(histDate || boardToday(), 1));
+$("#hist-today").onclick = () => loadHistoryDay(boardToday());
+let historyLoaded = false;
+function showHistoryTab() {
+  if (!historyLoaded) { historyLoaded = true; loadHistoryDay(boardToday()); loadHistoryFiles(); }
+  else renderHistory();
+}
+window.addEventListener("resize", () => { if ($("#page-history").classList.contains("active")) renderHistory(); });
+
 // ---------- Theme ----------
 function applyTheme() {
   const root = document.documentElement;
@@ -943,6 +1157,7 @@ function demoApi(path, body) {
   if (theme.preset === "custom") buildSwatches();
   await pollStatus();
   try { await loadConfig(); } catch (_) {}
+  if ($("#page-history").classList.contains("active")) showHistoryTab();
   loadWifi(true);
   loadNotes();
   setInterval(pollStatus, 2000);

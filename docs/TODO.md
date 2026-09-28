@@ -30,8 +30,8 @@ How this list works (agreed 2026-09-28):
 - [ ] `[Net]` Setup hotspot and a static WiFi address: not yet tried on a board (2026-09-27)
 - [ ] `[Web]` From the Claude web plans: Home tab notes, history viewer. The daily summary now
       reaches HA, so history tracking can start. Still without a spec: socket health.
-      ("Shared network backup" dropped by the user, 2026-09-28.) History viewer: own tab,
-      proposal given 2026-09-28 (Day / 30 days / Events / Downloads), waiting on the user
+      ("Shared network backup" dropped by the user, 2026-09-28.) History tab step 1 (Day chart,
+      Downloads) and duty/override log columns done 2026-09-28; step 2: 30 days and Events views
       (2026-09-27)
 - [ ] `[Web]` LCD view on the web page. Decided 2026-09-28: option (b), a card that redraws the
       LCD layout from the live data (works on both boards; the Touch-LCD-2's LCD can't be read

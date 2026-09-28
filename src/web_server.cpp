@@ -10,6 +10,7 @@
 #include <ArduinoJson.h>
 #include <Update.h>
 #include <base64.h>
+#include <SD.h>
 #include <math.h>
 
 // The page is web/index.html, compiled in (platformio.ini embed_txtfiles);
@@ -35,6 +36,7 @@ struct Request {
     String method;
     String path;
     String auth;          // Authorization header
+    String query;         // after '?' in the path
     size_t contentLength = 0;
 };
 
@@ -48,7 +50,10 @@ static bool readRequest(NetworkClient &client, Request &req) {
     req.method = line.substring(0, sp1);
     req.path = line.substring(sp1 + 1, sp2);
     int q = req.path.indexOf('?');
-    if (q >= 0) req.path = req.path.substring(0, q);
+    if (q >= 0) {
+        req.query = req.path.substring(q + 1);
+        req.path = req.path.substring(0, q);
+    }
 
     for (int i = 0; i < 40; i++) { // headers, until the blank line
         String h = client.readStringUntil('\n');
@@ -202,6 +207,7 @@ static void handleStatus(NetworkClient &client) {
     doc["sd"] = isSdCardPresent();
     doc["eth"] = isEthernetConnected();
     doc["net"] = activeNetwork();
+    doc["netName"] = activeNetworkName(); // WiFi SSID or hotspot name; "" on Ethernet
     doc["mqtt"] = mqttStatusText();
     doc["mqttOk"] = mqttStatusText().startsWith("Connected");
     doc["loginSet"] = loginSet();
@@ -719,6 +725,150 @@ static void handleHotspot(NetworkClient &client, const Request &req) {
     sendResult(client, 200);
 }
 
+
+// ============================================================================
+// /api/history/day, /api/history/files, /api/history/file  (SD card, read-only)
+// ============================================================================
+// Per-minute rows live in /logs/YYYY-MM.csv in time order (sd_logger.cpp), so
+// a day is found by bisecting the file instead of reading up to ~1.7 MB.
+// Rows written back from the internal buffer after a card-out sit at the end
+// of the month file, out of order; the day view can miss those (rare).
+
+static String queryParam(const String &query, const char* name) {
+    String key = String(name) + "=";
+    int start = 0;
+    while (start < (int)query.length()) {
+        int end = query.indexOf('&', start);
+        if (end < 0) end = query.length();
+        if (query.substring(start, start + key.length()) == key) return query.substring(start + key.length(), end);
+        start = end + 1;
+    }
+    return "";
+}
+
+static bool validDate(const String &d) {
+    if (d.length() != 10 || d[4] != '-' || d[7] != '-') return false;
+    for (int i : {0, 1, 2, 3, 5, 6, 8, 9}) if (!isdigit((unsigned char)d[i])) return false;
+    return true;
+}
+
+// Response without Content-Length: the connection closes at the end
+static void sendStreamHead(NetworkClient &client, const char* type, const String &extra = "") {
+    client.println("HTTP/1.1 200 OK");
+    client.print("Content-Type: "); client.println(type);
+    client.println("Cache-Control: no-store");
+    if (extra.length()) client.println(extra);
+    client.println("Connection: close");
+    client.println();
+}
+
+// Offset of the first line dated >= date (lines start "YYYY-MM-DD ...")
+static size_t findDayStart(File &f, const String &date) {
+    size_t lo = 0, hi = f.size();
+    while (hi - lo > 512) {
+        size_t mid = lo + (hi - lo) / 2;
+        f.seek(mid);
+        f.readStringUntil('\n');              // rest of a partial line
+        String line = f.readStringUntil('\n');
+        if (line.length() < 10 || line.substring(0, 10) >= date) hi = mid;
+        else lo = mid;
+    }
+    f.seek(lo);
+    if (lo > 0) f.readStringUntil('\n');      // everything before here is an earlier day
+    return f.position();
+}
+
+static void handleHistoryDay(NetworkClient &client, const Request &req) {
+    String date = queryParam(req.query, "date");
+    if (!validDate(date)) { sendResult(client, 400, "date=YYYY-MM-DD needed."); return; }
+    if (!isSdCardPresent()) { sendResult(client, 404, "No SD card."); return; }
+    String path = "/logs/" + date.substring(0, 7) + ".csv";
+    sendStreamHead(client, "text/csv; charset=utf-8");
+    if (!SD.exists(path)) return;             // no data that month: empty answer
+    File f = SD.open(path, FILE_READ);
+    if (!f) return;
+    f.seek(findDayStart(f, date));
+    String out;
+    out.reserve(1500);
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        if (line.length() < 10 || !isdigit((unsigned char)line[0])) continue; // column names
+        String d = line.substring(0, 10);
+        if (d < date) continue;
+        if (d > date) break;
+        out += line;
+        out += '\n';
+        if (out.length() > 1200) { client.print(out); out = ""; }
+    }
+    if (out.length()) client.print(out);
+    f.close();
+}
+
+// The downloadable files: month logs, daily rollups, all-time record, events
+static bool downloadable(const String &path) {
+    if (path.indexOf("..") >= 0) return false;
+    if (path == "/rollups/daily.csv" || path == "/rollups/alltime.csv" || path == "/events.csv") return true;
+    return path.startsWith("/logs/") && path.endsWith(".csv") && path.indexOf('/', 6) < 0;
+}
+
+static void handleHistoryFiles(NetworkClient &client) {
+    JsonDocument doc;
+    doc["sd"] = isSdCardPresent();
+    JsonArray files = doc["files"].to<JsonArray>();
+    if (isSdCardPresent()) {
+        auto add = [&](const String &path) {
+            File f = SD.open(path, FILE_READ);
+            if (!f) return;
+            JsonObject o = files.add<JsonObject>();
+            o["path"] = path;
+            o["size"] = (uint32_t)f.size();
+            f.close();
+        };
+        File dir = SD.open("/logs");
+        if (dir) {
+            for (File e = dir.openNextFile(); e; e = dir.openNextFile()) {
+                String name = e.name();
+                bool isDir = e.isDirectory();
+                e.close();
+                if (!isDir && name.endsWith(".csv")) add("/logs/" + name);
+            }
+            dir.close();
+        }
+        add("/rollups/daily.csv");
+        add("/rollups/alltime.csv");
+        add("/events.csv");
+    }
+    sendJson(client, 200, doc);
+}
+
+static void handleHistoryFile(NetworkClient &client, const Request &req) {
+    String path = queryParam(req.query, "path");
+    path.replace("%2F", "/");
+    path.replace("%2f", "/");
+    if (!downloadable(path)) { sendResult(client, 400, "Not a downloadable file."); return; }
+    if (!isSdCardPresent()) { sendResult(client, 404, "No SD card."); return; }
+    File f = SD.open(path, FILE_READ);
+    if (!f) { sendResult(client, 404, "File not found."); return; }
+    String name = path.substring(path.lastIndexOf('/') + 1);
+    // Files from before 2026-09-28 have no column-name line: add it
+    String header = isdigit(f.peek()) || f.peek() == 'A' ? csvHeaderFor(path) : String("");
+    if (header.length()) header += "\n";
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/csv; charset=utf-8");
+    client.print("Content-Length: "); client.println((uint32_t)f.size() + header.length());
+    client.print("Content-Disposition: attachment; filename=\""); client.print(name); client.println("\"");
+    client.println("Cache-Control: no-store");
+    client.println("Connection: close");
+    client.println();
+    if (header.length()) client.print(header);
+    uint8_t buf[1024];
+    while (f.available()) {
+        int n = f.read(buf, sizeof(buf));
+        if (n <= 0 || client.write(buf, n) == 0) break;
+    }
+    f.close();
+}
+
 // ============================================================================
 // ROUTER
 // ============================================================================
@@ -738,6 +888,9 @@ void handleNativeWebTraffic(NetworkClient &client) {
     else if (get && req.path == "/api/theme") handleGetTheme(client);
     else if (get && req.path == "/api/wifi") handleGetWifi(client);
     else if (get && req.path == "/api/notes") handleGetNotes(client);
+    else if (get && req.path == "/api/history/day") handleHistoryDay(client, req);
+    else if (get && req.path == "/api/history/files") handleHistoryFiles(client);
+    else if (get && req.path == "/api/history/file") handleHistoryFile(client, req);
     else if (get && req.path == "/api/wifi/scan") handleScan(client);
     else if (get && req.path == "/api/auth") {
         if (!loginSet()) sendResult(client, 403, "No login set.");
