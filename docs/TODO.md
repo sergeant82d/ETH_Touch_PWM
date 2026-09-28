@@ -3,11 +3,16 @@
 Open items. Tick them (`- [x]`) with the date and commit when done. Sources: the Claude web
 handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`).
 
-## user 2026-09-28
-- [ ] HA Status Report received with clear data. So Phase 3 should be complete. 
+## User on 2026-09-28:
+
+- HA Status Report received with clear data. So Phase 3 should be complete. 
     - This should allow work on the History tracking to begin (from the web session notes).
 
-- [ ] Web page redesign is working well. Time Zone picker works. Website theme selector works both PC and mobile. 
+- Web page redesign is working well.
+
+- Time Zone picker works.
+
+- Website theme selector works both PC and mobile. 
 
 - [ ] DECISION - The variablee isSpilloverNearFull() should be mapped to all the displays - the existing status 'dots', instead of showing green or red, should flash orange when the SD Card is getting full or otherwise unhealthy. Also noted in the SD Card log itself. Discus options and methods. 
 
