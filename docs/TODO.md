@@ -12,26 +12,13 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-- `[Web]` Node ID in the top left corner of the website - Apply the same underscore-removing/space-placing routine as we did for the LCD Display header bar. Use Title Case for it. The board name can stay as is.
-
-- `[Web]` Need to be able to offset the speed of one (or more) fan/s from the other/s. Recommend keeping Fan 1 as the standard speed, and adjusting the selected fan plus or minus ( +/- ) in 10 RPM increments. This should be in the Fan Control tab, Fan Channels table at the top. A LCD page able to do this would be nice, after the web work is done.
-
-- `[Board]` We will need to add another additional board compilation pin file/compiler setting/tag whatever it is we did earlier. When I get the LCD boards, I am going to use a W5500 Lite, rather than the 'original' style module, and I am going to try to set the pin assignments to work better with the hardware I am building.
-
-- `[HA]` Please write whatever configuration.yaml and Lovelace display card .yaml code is needed to break out the CSV data from the daily report it receives so it can be plotted there. Discuss if there are better alternatives.
-
-- `[LCD]` Add QR Code page to the LCD, sending phone to the website, or to the Hotspot if it is active. Borrow as much of the routines as possible from my WIFI_Fan_Knob project repository as possible.
-
-- `[LCD]` Discuss the impact both of transitioning current LCD display graphics and actually the using LVGL library for enhanced bar gauges, fonts, etc. It is not needed, is high-effort and low-impact, but SO PRETTY!!!! I am working on getting images for ideas, so mark this as pending, but near-term.
-
-- `[Question]` Can we implement a PID controller to maintain a steadier temperature, rather than speeding up and slowing down constantly?
-
-- `[Question]` What is the impact of moving this project from the Arduino environment to the native ESP-IDF development arena? Still using VS Code, and Platformio, if that is possible?
+(empty)
 
 ## Open
 
 - [ ] `[Board]` **Pin remap** on the Touch-LCD-2 (PWM2 = GPIO 6, TACH1 = GPIO 4, TACH2 = GPIO 16)
-      was never tested: check the wiring matches before its first flash (2026-09-27)
+      was never tested: check the wiring matches before its first flash. May be replaced by
+      the W5500 Lite board build below (2026-09-27)
 - [ ] `[Board]` Touch-LCD-2: first flash of the current firmware and the checks in CLAUDE.md's
       success criteria, incl. the settings upgrade from version 4, the LCD override path and
       NTP (works on the ESP32-S3-ETH) (2026-09-27)
@@ -47,10 +34,35 @@ How this list works (agreed 2026-09-28):
 - [ ] `[LCD]` QR code page: tap the gear icon to show a QR code of the board's address (IP, as
       Android often can't open .local) and, while the hotspot is on, one to join it. Code done
       2026-09-28 (ricmoo/QRCode 0.0.1; tap anywhere or 60 s closes it); compiles, UNTESTED:
-      needs the Touch-LCD-2 (2026-09-28)
+      needs the Touch-LCD-2. Your note (2026-09-28) asks to borrow from Wifi_Fan_Knob: its QR
+      page was ported from this one (LVGL widget there, Adafruit GFX here), so nothing to
+      borrow back unless the LCD moves to LVGL (2026-09-28)
+
+- [ ] `[Web]` Node ID in the page's top left corner: underscores to spaces as on the LCD title
+      bar, in Title Case; board name unchanged (your note, 2026-09-28)
+- [ ] `[Web]` Per-fan speed offset: fan 1 is the reference, each other fan +/- in 10 RPM steps,
+      in the Fan Channels table on the Fan Control tab; an LCD page for it later (your note,
+      2026-09-28)
+- [ ] `[Board]` New board build for the Touch-LCD-2 with a W5500 Lite module and your own pin
+      choices (a third environment and pin set, like `waveshare_s3_eth`); needs your pin list
+      (your note, 2026-09-28)
+- [ ] `[HA]` HA configuration.yaml and Lovelace card YAML to break out the daily summary CSV for
+      plotting; discuss better alternatives (your note, 2026-09-28)
+- [ ] `[LCD]` `[Decide]` Discuss moving the LCD to LVGL (nicer gauges and fonts): high effort, low
+      impact, but pretty. Pending, near term; you're collecting images (`docs/images/`) (your
+      note, 2026-09-28)
+- [ ] `[Question]` Can a PID controller hold a steadier temperature instead of the fans speeding
+      up and slowing down? (your note, 2026-09-28)
+- [ ] `[Question]` What is the impact of moving to native ESP-IDF, still in VS Code and
+      PlatformIO? (your note, 2026-09-28)
 
 ## Done
 
+- [x] `[Docs]` Status report 02; your notes moved into Open (2026-09-28, this commit)
+- [x] `[Docs]` Wifi_Fan_Knob handoff: which of today's features fit it, written to that repo's
+      `docs/HANDOFF_FROM_ETH_Touch_PWM.md` (2026-09-28)
+- [x] `[LCD]` MQTT status dot on the LCD title bar and the web LCD view. Web view checked on
+      the ESP32-S3-ETH; the real LCD UNTESTED (2026-09-28, `d5b909f`)
 - [x] `[Web]` LCD view card on the Dashboard: the Touch-LCD-2 screen redrawn from live data
       (option b). Works on the ESP32-S3-ETH (user, 2026-09-28, `6d41e3c`); fonts approximate.
 - [x] `[SD]` SD health on every display: OK green; >= 90 % used orange, slow flash; missing red,
@@ -70,10 +82,8 @@ How this list works (agreed 2026-09-28):
 - [x] `[Web]` Themes: the Wifi_Fan_Knob gold/navy is its own preset "Navy & gold"; "Classic
       dark" is a new neutral dark (charcoal, blue accent). Five presets now. User checked on
       the ESP32-S3-ETH (2026-09-28)
-- [x] `[Docs]` TODO.md in the tagged Open/Done layout; open tasks summarised at the start of each
-      session; list condensed with each status report (user decisions, 2026-09-28)
-- [x] `[Docs]` Project CLAUDE.md trimmed: what the global `~/.claude/CLAUDE.md` now covers was
-      removed (2026-09-28)
+- [x] `[Docs]` TODO.md in the tagged Open/Done layout (your decisions); project CLAUDE.md
+      trimmed to what the global one doesn't cover (2026-09-28, `e543ab5`)
 - [x] `[Question]` What would BLE bring? Answered 2026-09-28: BLE can't serve the web page, so
       pairing wouldn't open it; it could only pass the address or set WiFi (Improv). Real gain
       only if the board read BLE thermometers itself. Cost ~300-500 KB flash, RAM, shared radio.
