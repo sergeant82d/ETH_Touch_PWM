@@ -3,6 +3,15 @@
 Open items. Tick them (`- [x]`) with the date and commit when done. Sources: the Claude web
 handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`).
 
+## user 2026-09-28
+- [ ] HA Status Report received with clear data. So Phase 3 should be complete. 
+    - Question: Where does the report live in HA, and how to track/display trends? 
+
+- [ ] 
+
+- [ ] 
+
+
 ## MQTT (replaces the HA REST link)
 
 - [x] HA side designed and verified with `tools/mqtt_sim.py` (2026-09-27, `c19398c`)
