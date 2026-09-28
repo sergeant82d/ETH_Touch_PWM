@@ -73,6 +73,9 @@ Taken from the Arduino IDE Tools menu used for the working board:
   install --no-save -l file://<archive>`, then set its `.piopm` spec to the registry owner/id
   (e.g. `{"owner": "knolleary", "id": 89, "name": "PubSubClient", ...}`), or `pio run` tries
   to download it again.
+- **`pio pkg install -l <lib>` rewrites `platformio.ini`** (drops every comment, and gives
+  the `extends` environment its own `lib_deps`, which replaces the inherited list): always add
+  `--no-save`, or add the library to `platformio.ini` by hand and just build (2026-09-28).
 - The board profile header reads "8 MB, No PSRAM"; that is the generic devkit description.
   The `platformio.ini` overrides apply.
 

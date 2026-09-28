@@ -38,8 +38,9 @@ How this list works (agreed 2026-09-28):
       https://docs.google.com/document/d/1QRiNYOYCpe3n6oVMIhkXRHPVwEsFdX8NhLnUuT_J_Yo/edit?usp=drivesdk
       (2026-09-28)
 - [ ] `[LCD]` QR code page: tap the gear icon to show a QR code of the board's address (IP, as
-      Android often can't open .local) and, while the hotspot is on, one to join it. Needs a
-      small QR library; testable on the Touch-LCD-2 only (2026-09-28)
+      Android often can't open .local) and, while the hotspot is on, one to join it. Code done
+      2026-09-28 (ricmoo/QRCode 0.0.1; tap anywhere or 60 s closes it); compiles, UNTESTED:
+      needs the Touch-LCD-2 (2026-09-28)
 
 ## Done
 

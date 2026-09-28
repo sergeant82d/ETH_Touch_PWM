@@ -10,6 +10,7 @@
 #include <SPI.h>
 #include <TimeLib.h> // same clock source as web_server.cpp - see note in updateMainDashboardUI()
 #include <math.h>
+#include <qrcode.h>
 #include <Fonts/FreeSansBold24pt7b.h> // bundled with Adafruit_GFX - smoother/proportional, used for the big temp number
 #include <Fonts/FreeSansBold18pt7b.h> // smaller sibling, same family - used for the clock/F-C/button (a real size step down from the temp number)
 
@@ -63,6 +64,7 @@ static int barsHeight() { return (FOOTER_Y - 6) - BARS_TOP; }
 // See handleTouchInput() for the state machine; updateMainDashboardUI()
 // and refreshBarsOnly() no-op while this is true.
 static bool overlayOpen = false;
+static bool infoOpen = false;   // QR code info page (gear icon)
 
 // Gauge scales now live in config (config.fanRpmGaugeMin/Max, config.tempGaugeMinF/MaxF)
 // so they're adjustable from the LCD settings menu, web page, and Home Assistant
@@ -399,7 +401,7 @@ void displayInit() {
 }
 
 void updateMainDashboardUI() {
-    if (overlayOpen) return; // overlay owns the screen while open - see handleTouchInput()
+    if (overlayOpen || infoOpen) return; // an overlay owns the screen while open - see handleTouchInput()
 
     int cy = TITLE_H + 6;
 
@@ -534,7 +536,7 @@ void updateMainDashboardUI() {
 // active-state flash actually read as a flash rather than crawling along
 // at the main dashboard's 2s refresh rate.
 void refreshBarsOnly() {
-    if (overlayOpen) return; // overlay owns the screen while open
+    if (overlayOpen || infoOpen) return; // an overlay owns the screen while open
 
     drawFanRpmBars(LEFT_ZONE_X, BARS_TOP, LEFT_ZONE_W, barsHeight());
     drawTempProbeBars(RIGHT_ZONE_X, BARS_TOP, RIGHT_ZONE_W, barsHeight());
@@ -664,13 +666,101 @@ static bool pointInRect(int px, int py, int rx, int ry, int rw, int rh) {
     return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
 }
 
-bool isOverlayOpen() { return overlayOpen; }
+// ============================================================================
+// INFO PAGE: QR codes to open the web page (and join the hotspot)
+// ============================================================================
+// Opened by tapping the gear icon; any tap, or 60 s, closes it. The page QR
+// uses the IP address, not name.local (many Android phones can't open .local
+// names). While the hotspot is on, a second QR joins it. UNTESTED on the
+// board (written 2026-09-28 without a Touch-LCD-2).
+
+static unsigned long infoOpenedMs = 0;
+
+// Smallest QR version holding `len` bytes at ECC_MEDIUM (byte mode), 0 if too long
+static uint8_t qrVersionFor(size_t len) {
+    static const uint8_t cap[] = {0, 14, 26, 42, 62, 84, 106, 122, 152};
+    for (uint8_t v = 1; v < sizeof(cap); v++) if (len <= cap[v]) return v;
+    return 0;
+}
+
+// Draws `text` as a QR code in a white square of about `box` pixels at (x, y)
+static void drawQr(const String &text, int x, int y, int box) {
+    uint8_t version = qrVersionFor(text.length());
+    if (!version) return;
+    QRCode qr;
+    uint8_t data[qrcode_getBufferSize(8)];
+    qrcode_initText(&qr, data, version, ECC_MEDIUM, text.c_str());
+    const int quiet = 2;                                   // white border, in modules
+    int px = box / (qr.size + 2 * quiet);                  // pixels per module
+    if (px < 1) px = 1;
+    int side = px * (qr.size + 2 * quiet);
+    screenMain.fillRect(x, y, side, side, ST77XX_WHITE);
+    for (uint8_t my = 0; my < qr.size; my++) {
+        for (uint8_t mx = 0; mx < qr.size; mx++) {
+            if (qrcode_getModule(&qr, mx, my)) {
+                screenMain.fillRect(x + (quiet + mx) * px, y + (quiet + my) * px, px, px, ST77XX_BLACK);
+            }
+        }
+    }
+}
+
+// WIFI:... escapes \ ; , : " with a backslash
+static String wifiEscape(const String &v) {
+    String out;
+    for (size_t i = 0; i < v.length(); i++) {
+        if (strchr("\\;,:\"", v[i])) out += '\\';
+        out += v[i];
+    }
+    return out;
+}
+
+static void drawInfoPage() {
+    screenMain.fillScreen(ST77XX_BLACK);
+    screenMain.setFont(NULL);
+    String url = "http://" + localIP().toString() + "/";
+    bool hotspot = isHotspotActive();
+    screenMain.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
+    printCentered(0, LCD_WIDTH, 6, hotspot ? "Scan 1 to join, then 2 to open the page" : "Scan to open the web page", 1);
+    screenMain.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+    if (hotspot) {
+        String wifi = "WIFI:T:WPA;S:" + wifiEscape(activeNetworkName()) + ";P:" + wifiEscape(config.apPass) + ";;";
+        drawQr(wifi, 12, 26, 140);
+        drawQr(url, LCD_WIDTH - 152, 26, 140);
+        printCentered(12, 140, 172, "1  Join " + activeNetworkName(), 1);
+        printCentered(LCD_WIDTH - 152, 140, 172, "2  " + url, 1);
+    } else {
+        drawQr(url, 16, 30, 180);
+        int tx = 210, tw = LCD_WIDTH - tx - 8;
+        printCentered(tx, tw, 60, localIP().toString(), 1);
+        printCentered(tx, tw, 80, deviceHostname() + ".local", 1);
+        printCentered(tx, tw, 100, String("(") + activeNetwork() + ")", 1);
+    }
+    screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+    printCentered(0, LCD_WIDTH, LCD_HEIGHT - 16, "Tap anywhere to close", 1);
+    infoOpenedMs = millis();
+}
+
+static void closeInfoPage() {
+    infoOpen = false;
+    screenMain.fillScreen(ST77XX_BLACK);
+    updateMainDashboardUI();
+    refreshBarsOnly();
+}
+
+bool isOverlayOpen() { return overlayOpen || infoOpen; }
 
 void handleTouchInput() {
     static bool wasPressed = false;
 
     int tx, ty;
     bool pressed = getTouchPoint(tx, ty);
+
+    if (infoOpen) {
+        // Any tap closes the info page; so does 60 s without one
+        if ((pressed && !wasPressed) || millis() - infoOpenedMs > 60000) closeInfoPage();
+        wasPressed = pressed;
+        return;
+    }
 
     if (overlayOpen) {
         if (pressed) {
@@ -702,7 +792,13 @@ void handleTouchInput() {
         // Dashboard idle: only the Manual Control button is touch-active,
         // and only on the initial press edge.
         if (pressed && !wasPressed) {
-            if (pointInRect(tx, ty, CENTER_X, MANUAL_BTN_Y, CENTER_W, MANUAL_BTN_H)) {
+            // Gear icon (top right): a generous 60 x TITLE_H area, as the touch
+            // mapping isn't verified for small targets yet
+            if (pointInRect(tx, ty, LCD_WIDTH - 60, 0, 60, TITLE_H + 10)) {
+                infoOpen = true;
+                drawInfoPage();
+                Serial.println("LCD: info page (QR codes) opened");
+            } else if (pointInRect(tx, ty, CENTER_X, MANUAL_BTN_Y, CENTER_W, MANUAL_BTN_H)) {
                 if (!manualOverrideActive) {
                     manualOverrideActive = true;
                     manualOverrideDutyCycle = 255; // default full speed per spec
