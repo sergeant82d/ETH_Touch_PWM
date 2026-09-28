@@ -10,7 +10,7 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 
 - [ ] I would like you to condense the TODO.md file at the end of every day when you create the daily STATUS REPORT. Move all open items to the top, with the oldest items at the top. Move the complete items below, with the most recently completed at the top, in descending order. Discuss ideas about keeping the section headers (web page, Needs the board, etc.) or other methods of organizing it. 
 
-- [ ] 
+- [ ] When you read this TODO file at the beginning of every session, summarize the list of open tasks for me. 
 
 
 ## MQTT (replaces the HA REST link)
