@@ -6,7 +6,7 @@ handoff (`archive/web_changes.md`, section 20) and the MQTT work (`docs/MQTT.md`
 ## user 2026-09-28
 - [ ] HA Status Report received with clear data. So Phase 3 should be complete. 
 
-- This should allow work on the History tracking to begin (from the web session notes). 
+- [] This should allow work on the History tracking to begin (from the web session notes). 
 
 - [ ] I would like you to condense the TODO.md file at the end of every day when you create the daily STATUS REPORT. Move all open items to the top, with the oldest items at the top. Move the complete items below, with the most recently completed at the top, in descending order. 
 
