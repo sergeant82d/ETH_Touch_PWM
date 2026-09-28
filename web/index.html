@@ -73,6 +73,9 @@ body { font-family: var(--font); color: var(--text); background: linear-gradient
 .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
 .dot.bad { background: var(--error); box-shadow: 0 0 6px var(--error); }
 .dot.warn { background: var(--warn); }
+.dot.flash-slow { background: var(--warn); animation: blink 1.2s step-start infinite; }  /* SD getting full */
+.dot.flash-fast { background: var(--error); animation: blink .4s step-start infinite; }  /* SD missing */
+@keyframes blink { 50% { opacity: .15; } }
 .who { font-size: .85rem; color: var(--muted); }
 .who b { color: var(--text); font-weight: 600; }
 
@@ -245,7 +248,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
     <div class="lights">
       <div class="light"><span class="dot" id="dot-eth"></span><span>Network: <span id="net-name">--</span></span></div>
       <div class="light"><span class="dot" id="dot-mqtt"></span>MQTT</div>
-      <div class="light"><span class="dot" id="dot-sd"></span>SD card</div>
+      <div class="light"><span class="dot" id="dot-sd"></span><span id="sd-label">SD card</span></div>
     </div>
   </aside>
 
@@ -650,10 +653,12 @@ function renderStatus() {
   $("#net-name").textContent = s.net;
   $("#dot-eth").className = "dot " + (s.net === "Ethernet" || s.net === "WiFi" ? "ok" : s.net === "Hotspot" ? "warn" : "bad");
   $("#dot-mqtt").className = "dot " + (s.mqttOk ? "ok" : "warn");
-  $("#dot-sd").className = "dot " + (s.sd ? "ok" : "bad");
+  const sdCls = { "OK": "ok", "Getting full": "flash-slow", "Missing": "flash-fast" }[s.sdState] || (s.sd ? "ok" : "flash-fast");
+  $("#dot-sd").className = "dot " + sdCls;
+  $("#sd-label").textContent = s.sdState === "Missing" ? "SD card: missing" : s.sdState === "Getting full" ? `SD card: ${s.sdUsed} % used` : "SD card";
   $("#mqtt-status").textContent = s.mqtt;
 
-  $("#sys-info").innerHTML = [["Board", s.board], ["Time zone", s.tz], ["Build", s.build], ["Source", s.sketch], ["IP address", s.ip],
+  $("#sys-info").innerHTML = [["Board", s.board], ["Time zone", s.tz], ["SD card", s.sdState + (s.sdUsed !== null && s.sdUsed !== undefined ? ` \u00b7 ${s.sdUsed} % used` : "")], ["Build", s.build], ["Source", s.sketch], ["IP address", s.ip],
     ["Uptime", fmtUptime(s.uptime)], ["Free memory", Math.round(s.heap / 1024) + " KB"]]
     .map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
   $("#login-state").textContent = s.loginSet ? "A login is set. To change it, log in with the current one first." : "No login set: all changes are refused until you set one here.";
@@ -1288,7 +1293,7 @@ function demoApi(path, body) {
       fahrenheit: true, clock24: false, tz: "America/Chicago",
       local: { ok: true, c: 31.8 + Math.sin(t / 30) / 2 }, network: { ok: true, c: 27.8 }, blended: { ok: true, c: 29.8 + Math.sin(t / 30) / 4 },
       fans: [{ rpm: 690, duty: 38, fault: false }, { rpm: 0, duty: 38, fault: true }], override: false, overridePct: 100,
-      sd: true, eth: true, net: "Ethernet", mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true };
+      sd: true, sdState: "OK", sdUsed: 23, eth: true, net: "Ethernet", mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true };
   }
   if (path === "/api/config") return { fanCount: 2, channels: [{ pwm: 1, tach: 2 }, { pwm: 18, tach: 40 }, { pwm: -1, tach: -1 }, { pwm: -1, tach: -1 }], ethDhcp: false, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, tzName: "America/Chicago", clock24: false,
     ip: "192.168.10.53", subnet: "255.255.255.0", gateway: "192.168.10.1", dns: "192.168.10.11", nodeId: "fanController_01",

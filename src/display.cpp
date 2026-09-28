@@ -331,6 +331,21 @@ static String titleCaseFromNodeId(const char* nodeId) {
     return s;
 }
 
+// SD card dot, top-left of the title bar (sdState(), user decision
+// 2026-09-28): green = OK; orange, slow flash = getting full (>= 90 %);
+// red, fast flash = missing or failing (logging spills to internal flash).
+// Also redrawn from refreshBarsOnly() every 200 ms, so it can flash.
+static void drawSdDot() {
+    SdState st = sdState();
+    uint16_t c = ST77XX_GREEN;
+    if (st != SD_STATE_OK) {
+        unsigned long period = st == SD_STATE_MISSING ? 400 : 1200;
+        bool on = (millis() % period) < period / 2;
+        c = on ? (st == SD_STATE_MISSING ? ST77XX_RED : ST77XX_ORANGE) : ST77XX_BLUE; // off = title bar colour
+    }
+    screenMain.fillCircle(10, TITLE_H / 2, 4, c);
+}
+
 // Redraws the blue title bar with the current Home Assistant node name
 // and the settings gear icon (top-right).
 static void drawTitleBar() {
@@ -338,11 +353,7 @@ static void drawTitleBar() {
     screenMain.setTextColor(ST77XX_WHITE);
     printCentered(0, LCD_WIDTH, 5, titleCaseFromNodeId(config.nodeID), 2);
 
-    // SD card status - small dot, top-left (mirrors the settings gear on
-    // the top-right). Green = card present; red = absent, logging is
-    // spilling to internal flash until it returns.
-    uint16_t sdColor = isSdCardPresent() ? ST77XX_GREEN : ST77XX_RED;
-    screenMain.fillCircle(10, TITLE_H / 2, 4, sdColor);
+    drawSdDot();
 
     // Network status - second dot, right next to the SD one. Green if any
     // network path is up (currently just Ethernet - see isNetworkConnected()
@@ -530,6 +541,7 @@ void refreshBarsOnly() {
     if (manualOverrideActive) {
         drawManualControlButton(CENTER_X, MANUAL_BTN_Y, CENTER_W, MANUAL_BTN_H);
     }
+    drawSdDot();
 }
 
 static void drawFanRpmBars(int x0, int y0, int zoneWidth, int zoneHeight) {

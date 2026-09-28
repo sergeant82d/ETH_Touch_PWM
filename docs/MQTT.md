@@ -73,6 +73,9 @@ them in its own unit system. `None` = unknown (probe failed).
 | `override_speed` | number, 0-100 % | `100` | `input_number` override speed (0-255) |
 | `daily_summary` | sensor "Summary of the day", attributes in `daily_summary/attributes` (min/max per temperature and fan, `null` = no samples) | `2026-09-26` | `sensor.<nodeID>_daily_summary` |
 | `ip`, `uptime` | sensor, diagnostic | `192.168.10.54`, seconds | (new) |
+| `sd_card` | sensor "SD card" | `OK` / `Getting full` (>= 90 % used) / `Missing` (no card or a write failed) | (new, 2026-09-28) |
+| `sd_used` | sensor "SD card used", %, diagnostic | `23` / `None` without a card | (new, 2026-09-28) |
+| `sd_fault` | binary_sensor "Fault SD card", problem | `ON` unless the card is OK | (new, 2026-09-28) |
 
 HA to device (not retained): `t_min/set`, `t_max/set`, `override/set`, `override_speed/set`,
 `network_temp/set`.

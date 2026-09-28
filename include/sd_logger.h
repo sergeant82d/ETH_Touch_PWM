@@ -51,4 +51,13 @@ bool isSdCardPresent();
 // should be reinserted soon before further log rows start being dropped.
 bool isSpilloverNearFull();
 
+// One SD health state for the LCD dot, the web page and Home Assistant
+// (user decision 2026-09-28): OK = green; GETTING_FULL (>= 90 % used, or the
+// internal buffer over 80 % while a card is in) = orange, slow flash;
+// MISSING (no card, or a write failed) = red, fast flash.
+enum SdState { SD_STATE_OK, SD_STATE_GETTING_FULL, SD_STATE_MISSING };
+SdState sdState();
+const char* sdStateText();   // "OK", "Getting full", "Missing"
+int sdUsedPercent();         // -1 without a card (measured at each write, about once a minute)
+
 #endif // SD_LOGGER_H

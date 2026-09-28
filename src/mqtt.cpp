@@ -65,7 +65,7 @@ static const char* DEG_C = "\xC2\xB0" "C"; // "°C"
 
 // HA lists a device's entities alphabetically by name within each card, so
 // the names group them. Sensors: "Air temperature ...", "Fan duty N",
-// "Fan speed N", "Fault ...", "Summary of the day". Controls: "Fan curve start/top" (tMin/tMax),
+// "Fan speed N", "Fault ...", "SD card", "Summary of the day". Controls: "Fan curve start/top" (tMin/tMax),
 // "Manual override", "Manual override speed".
 // Every entity the device can have (all NUM_FANS fans), so the ones no
 // longer wanted can be removed from HA as well as the wanted ones added.
@@ -79,6 +79,9 @@ static int buildEntities(EntityDef *out) {
     out[n++] = {"sensor", "ip", "IP address", nullptr, nullptr, "mdi:ip-network", false, true};
     out[n++] = {"sensor", "uptime", "Uptime", "duration", "s", nullptr, false, true};
     out[n++] = {"sensor", "daily_summary", "Summary of the day", nullptr, nullptr, "mdi:calendar-today", false, false};
+    out[n++] = {"sensor", "sd_card", "SD card", nullptr, nullptr, "mdi:sd", false, false};
+    out[n++] = {"sensor", "sd_used", "SD card used", nullptr, "%", "mdi:sd", true, true};
+    out[n++] = {"binary_sensor", "sd_fault", "Fault SD card", "problem", nullptr, nullptr, false, false};
     out[n++] = {"number", "t_min", "Fan curve start", "temperature", DEG_C, "mdi:thermometer-low", false, false, 0, 100, 0.1, "box"};
     out[n++] = {"number", "t_max", "Fan curve top", "temperature", DEG_C, "mdi:thermometer-high", false, false, 0, 100, 0.1, "box"};
     out[n++] = {"switch", "override", "Manual override", nullptr, nullptr, "mdi:hand-back-right", false, false};
@@ -92,7 +95,7 @@ static int buildEntities(EntityDef *out) {
     return n;
 }
 
-static const int MAX_ENTITIES = 12 + 3 * 4;
+static const int MAX_ENTITIES = 15 + 3 * 4;
 
 // Fan entities beyond config.fanCount are unwanted
 static bool entityWanted(const EntityDef &e) {
@@ -161,9 +164,10 @@ static void publishDiscovery(const String &node, bool removeAll) {
 // STATE (retained; on change, RPM with a dead band, diagnostics every 60 s)
 // ============================================================================
 
-// Slots: 0-4 fixed sensors, 5-12 duty/fault per fan, 13-16 controls
+// Slots: 0-4 fixed sensors, 5-12 duty/fault per fan, 13-16 controls, 17-19 SD card
 static const int SLOT_T_MIN = 13, SLOT_T_MAX = 14, SLOT_OVERRIDE = 15, SLOT_OVERRIDE_SPEED = 16;
-static const int SLOT_COUNT = 17;
+static const int SLOT_SD = 17, SLOT_SD_USED = 18, SLOT_SD_FAULT = 19;
+static const int SLOT_COUNT = 20;
 static String lastSent[SLOT_COUNT];
 static long lastRpm[4] = {-1, -1, -1, -1};
 static unsigned long lastRpmMs[4] = {0, 0, 0, 0};
@@ -212,6 +216,11 @@ static void publishState(bool force) {
     publishIfChanged(SLOT_T_MAX, "t_max", String(config.tMax, 1), force);
     publishIfChanged(SLOT_OVERRIDE, "override", manualOverrideActive ? "ON" : "OFF", force);
     publishIfChanged(SLOT_OVERRIDE_SPEED, "override_speed", String((manualOverrideDutyCycle * 100 + 127) / 255), force);
+
+    // SD card health (sd_logger.cpp)
+    publishIfChanged(SLOT_SD, "sd_card", sdStateText(), force);
+    publishIfChanged(SLOT_SD_USED, "sd_used", sdUsedPercent() >= 0 ? String(sdUsedPercent()) : String("None"), force);
+    publishIfChanged(SLOT_SD_FAULT, "sd_fault", sdState() == SD_STATE_OK ? "OFF" : "ON", force);
 
     if (force && summaryDate.length()) {
         mqtt.publish(topic("daily_summary").c_str(), summaryDate.c_str(), true);

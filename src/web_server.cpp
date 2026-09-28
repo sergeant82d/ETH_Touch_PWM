@@ -205,6 +205,9 @@ static void handleStatus(NetworkClient &client) {
     doc["override"] = manualOverrideActive;
     doc["overridePct"] = (manualOverrideDutyCycle * 100 + 127) / 255;
     doc["sd"] = isSdCardPresent();
+    doc["sdState"] = sdStateText();            // "OK", "Getting full", "Missing"
+    if (sdUsedPercent() >= 0) doc["sdUsed"] = sdUsedPercent();
+    else doc["sdUsed"] = nullptr;
     doc["eth"] = isEthernetConnected();
     doc["net"] = activeNetwork();
     doc["netName"] = activeNetworkName(); // WiFi SSID or hotspot name; "" on Ethernet

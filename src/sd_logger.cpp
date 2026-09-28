@@ -85,17 +85,23 @@ static String timestampNow() {
     return String(buf);
 }
 
+static int usedPercent = -1;           // last measured, for sdState() (measuring can be slow)
+
 static bool sdHasFreeSpace() {
     if (!sdPresent) return false;
     uint64_t total = SD.totalBytes();
     uint64_t used = SD.usedBytes();
     if (total == 0) return false; // couldn't query - treat as unsafe
+    usedPercent = (int)(used * 100 / total);
     return (total - used) > MIN_FREE_BYTES;
 }
 
 static bool littleFsUnavailableWarned = false;
 
-static void appendToSpillover(const String &line) {
+// Each buffered line is "<sd path>\t<line>", so it goes back to the right
+// file (events vs. month log) when the card returns (since 2026-09-28).
+static void appendToSpillover(const String &sdPath, const String &text) {
+    String line = sdPath + "\t" + text;
     if (!isLittleFsMounted()) {
         // LittleFS never mounted successfully - do NOT touch it. Calling
         // filesystem operations against an unmounted LittleFS is a known
@@ -143,7 +149,7 @@ static File openForAppend(const String &path) {
     File f = SD.open(path, FILE_APPEND);
     if (f && isNew) {
         String header = csvHeaderFor(path);
-        if (header.length()) f.println(header);
+        if (header.length()) { f.print(header); f.print('\n'); }
     }
     return f;
 }
@@ -160,11 +166,15 @@ static void appendLine(const char* sdPath, const String &line) {
             f.close();
             return;
         }
-        // Open failed even though we thought the card was present - treat
-        // as a card fault for this write and fall through to spillover.
-        Serial.println("WARNING: SD write failed despite card appearing present - spilling to internal flash instead.");
+        // Open failed even though we thought the card was present: pulled
+        // out or failing. Mark it missing (the 15 s retry in sdLoggerLoop()
+        // mounts it again when it's back) and spill this line.
+        Serial.println("WARNING: SD write failed - card marked missing, spilling to internal flash.");
+        SD.end();
+        sdPresent = false;
+        usedPercent = -1;
     }
-    appendToSpillover(line);
+    appendToSpillover(sdPath, line);
 }
 
 void sdLogEvent(const String &category, const String &description) {
@@ -173,6 +183,22 @@ void sdLogEvent(const String &category, const String &description) {
 }
 
 bool isSdCardPresent() { return sdPresent; }
+
+SdState sdState() {
+    if (!sdPresent) return SD_STATE_MISSING;
+    if (usedPercent >= 90 || isSpilloverNearFull()) return SD_STATE_GETTING_FULL;
+    return SD_STATE_OK;
+}
+
+const char* sdStateText() {
+    switch (sdState()) {
+        case SD_STATE_GETTING_FULL: return "Getting full";
+        case SD_STATE_MISSING:      return "Missing";
+        default:                    return "OK";
+    }
+}
+
+int sdUsedPercent() { return sdPresent ? usedPercent : -1; }
 
 bool isSpilloverNearFull() {
     if (!isLittleFsMounted()) return false; // nothing to check if it's not even mounted
@@ -190,19 +216,28 @@ static void drainSpilloverToSD() {
     File f = LittleFS.open(SPILLOVER_PATH, FILE_READ);
     if (!f) return;
 
-    // Spillover rows may span both the events log and the time-series log
-    // (this project only spills events + time-series rows, both plain CSV
-    // text) - route everything into the current month's log file. Not
-    // perfectly correct if a card-out spans a month boundary, but that's a
-    // rare edge case for what's meant to be a brief-outage safety net.
+    // Each line names its file ("<path>\t<line>"); lines from older firmware
+    // without a path go to the current month's log, as they used to.
     String monthPath = "/logs/" + String(year()) + "-" + (month() < 10 ? "0" : "") + String(month()) + ".csv";
-    File out = openForAppend(monthPath);
-    if (out) {
-        while (f.available()) {
-            out.write(f.read());
+    String openPath;
+    File out;
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        if (line.length() == 0) continue;
+        String path = monthPath;
+        int tab = line.indexOf('\t');
+        if (tab > 0) {
+            path = line.substring(0, tab);
+            line = line.substring(tab + 1);
         }
-        out.close();
+        if (path != openPath) {          // lines of one file come in runs: reopen only on a change
+            if (out) out.close();
+            out = openForAppend(path);
+            openPath = path;
+        }
+        if (out) { out.print(line); out.print('\n'); }
     }
+    if (out) out.close();
     f.close();
     LittleFS.remove(SPILLOVER_PATH);
     spilloverCapWarned = false;
@@ -428,7 +463,8 @@ void sdLoggerInit() {
     if (sdPresent) {
         SD.mkdir("/logs");
         SD.mkdir("/rollups");
-        Serial.println("SD card mounted.");
+        sdHasFreeSpace(); // measure the card for sdState()
+        Serial.print("SD card mounted, "); Serial.print(usedPercent); Serial.println("% used.");
     } else {
         Serial.println("SD card not detected at boot - logging will spill to internal flash until it's inserted.");
     }
@@ -458,7 +494,42 @@ void sdLoggerInit() {
     sdLoggerUpdateSnapshot(); // establish a valid snapshot immediately, don't wait for the first 1s tick
 }
 
+// A card pulled out while running: file writes don't notice (FatFs buffers
+// them and the flush error is lost), so read sector 0 straight from the card
+// every 10 s. Two failures in a row = missing (found 2026-09-28).
+static void checkCardStillThere() {
+    static unsigned long lastCheck = 0;
+    static int failures = 0;
+    static uint8_t sector[512];
+    if (!sdPresent || millis() - lastCheck < 10000) return;
+    lastCheck = millis();
+    if (SD.readRAW(sector, 0)) { failures = 0; return; }
+    if (++failures < 2) return;
+    failures = 0;
+    Serial.println("WARNING: SD card not answering - marked missing, logging to internal flash.");
+    SD.end();
+    sdPresent = false;
+    usedPercent = -1;
+}
+
 void sdLoggerLoop() {
+    checkCardStillThere();
+
+    // --- SD health changes go to the event log (the buffer if the card is out) ---
+    static int lastState = -1;
+    static unsigned long lastStateCheck = 0;
+    if (millis() - lastStateCheck >= 1000) {
+        lastStateCheck = millis();
+        int st = sdState();
+        if (lastState != -1 && st != lastState) {
+            String desc = String("state=") + sdStateText();
+            if (sdUsedPercent() >= 0) desc += " used=" + String(sdUsedPercent()) + "%";
+            Serial.print("SD card: "); Serial.println(desc);
+            sdLogEvent("SD", desc);
+        }
+        lastState = st;
+    }
+
     if (timeStatus() == timeNotSet) return; // can't build valid timestamps/filenames yet
 
     // --- Per-minute time-series row ---
@@ -496,15 +567,16 @@ void sdLoggerLoop() {
         lastLoggedDay = currentDay;
     }
 
-    // --- SD-absent retry (every 60s) ---
+    // --- SD-absent retry (every 15 s) ---
     static unsigned long lastSdRetryMs = 0;
-    const unsigned long SD_RETRY_PERIOD_MS = 60000;
+    const unsigned long SD_RETRY_PERIOD_MS = 15000;
     if (!sdPresent && millis() - lastSdRetryMs >= SD_RETRY_PERIOD_MS) {
         lastSdRetryMs = millis();
         if (SD.begin(PIN_SD_CS, sdSPI(), 4000000)) {
             sdPresent = true;
             SD.mkdir("/logs");
             SD.mkdir("/rollups");
+            sdHasFreeSpace(); // measure the new card now
             drainSpilloverToSD();
         }
     }

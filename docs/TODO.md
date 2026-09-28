@@ -37,17 +37,19 @@ How this list works (agreed 2026-09-28):
       https://docs.google.com/document/d/1eiV-0-nFfHzA8a_0D2_Bfcq3fkiPuLYAS52BnAqrvKo/edit?usp=drivesdk
       https://docs.google.com/document/d/1QRiNYOYCpe3n6oVMIhkXRHPVwEsFdX8NhLnUuT_J_Yo/edit?usp=drivesdk
       (2026-09-28)
-- [ ] `[SD]` SD health on every display. Decided 2026-09-28: one SD state for everything:
-      OK = green; getting full (>= 90 % used), write errors or the internal buffer over 80 % =
-      orange, slow flash; card missing = red, fast flash. LCD dot and web sidebar dot; HA
-      "SD card" sensor (state, free space) and "Fault SD card"; every change logged to the SD
-      event log. Replaces the unused `isSpilloverNearFull()` (2026-09-28)
 - [ ] `[LCD]` QR code page: tap the gear icon to show a QR code of the board's address (IP, as
       Android often can't open .local) and, while the hotspot is on, one to join it. Needs a
       small QR library; testable on the Touch-LCD-2 only (2026-09-28)
 
 ## Done
 
+- [x] `[SD]` SD health on every display: OK green; >= 90 % used orange, slow flash; missing red,
+      fast flash. Web dot + text and System row, HA "SD card" / "SD card used" / "Fault SD card",
+      event log; replaces the unused `isSpilloverNearFull()` as a state of its own. Found and
+      fixed on the way: a card pulled while running was never noticed (now a sector read every
+      10 s, remount every 15 s), and events logged while the card was out were written back
+      into the month log instead of events.csv. User tested pull/reinsert on the ESP32-S3-ETH
+      (2026-09-28). Not yet: the LCD dot (Touch-LCD-2), a >= 90 % full card
 - [x] `[Web]` History tab: Day chart, Last 30 days (click a day to open it), all-time records,
       Events with filters, Downloads; per-minute log gained duty and override; CSV column names.
       User: "looks amazing" (2026-09-28; `7bf5979` + this commit). 30-day view on real data

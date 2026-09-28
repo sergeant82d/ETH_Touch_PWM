@@ -176,7 +176,7 @@ void loop() {
 
     // --- SD card data logging ---
     // Internally rate-limited (per-minute rows, daily rollup on day change,
-    // SD-absent retry every 60s) - safe and cheap to call every iteration.
+    // SD-absent retry every 15 s, card check every 10 s) - safe and cheap to call every iteration.
     sdLoggerLoop();
 
     // --- DIAGNOSTIC: heap logging (every 60s) ---
