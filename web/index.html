@@ -107,7 +107,7 @@ body { font-family: var(--font); color: var(--text); background: linear-gradient
 .form { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label, .field .label { font-size: .85rem; color: var(--muted); }
-input[type=text], input[type=password], input[type=number], select {
+input[type=text], input[type=password], input[type=number], select, textarea {
   width: 100%; padding: 9px 11px; border-radius: var(--radius); border: 1px solid var(--border);
   background: var(--bg); color: var(--text); font: inherit; }
 input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
@@ -157,6 +157,12 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
 .fan-table tr.off td { color: var(--muted); opacity: .55; }
 .fan-table input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 .fan-table input[type=checkbox]:disabled { cursor: not-allowed; }
+.notes { min-height: 170px; max-height: 420px; resize: vertical; overflow: auto; line-height: 1.45;
+  white-space: pre-wrap; font-family: var(--font); }
+.emoji-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.emoji-bar button { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 3px 7px;
+  font-size: 1.05rem; line-height: 1.2; cursor: pointer; }
+.emoji-bar button:hover { border-color: var(--accent); background: var(--accent-soft); }
 .scan-list { display: grid; gap: 6px; margin-top: 14px; }
 .scan-item { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; border: 1px solid var(--border);
   border-radius: var(--radius); background: var(--bg); color: var(--text); font: inherit; cursor: pointer; text-align: left; }
@@ -242,6 +248,17 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         </div>
         <div class="hint">On: both fans at the set speed instead of the curve (starts at 100%). Never kept over a restart.</div>
         <div class="msg" id="ovr-msg"></div>
+      </div>
+      <div class="panel">
+        <h2>Notes</h2>
+        <div class="emoji-bar" id="emoji-bar"></div>
+        <textarea id="notes" class="notes" rows="8" spellcheck="true" placeholder="Notes for this controller: maintenance, filter changes, what was set and why..."></textarea>
+        <div class="actions">
+          <button class="btn" id="notes-save">Save notes</button>
+          <span class="hint" id="notes-meta" style="margin: 0"></span>
+          <span class="msg" id="notes-msg"></span>
+        </div>
+        <div class="hint">Plain text; emojis work (Windows: Win + . opens the emoji picker). Kept on the board, shared by every browser.</div>
       </div>
     </section>
 
@@ -612,6 +629,51 @@ function renderFanRows() {
   rows.querySelectorAll("input").forEach((cb) => cb.onchange = () => { fanCount = cb.checked ? +cb.dataset.i + 1 : +cb.dataset.i; renderFanRows(); });
 }
 
+// ---------- Notes (Dashboard) ----------
+let notesMax = 4000, notesSaved = "";
+const NOTE_EMOJIS = ["\u2705", "\u26A0\uFE0F", "\u274C", "\u2757", "\uD83D\uDD27", "\uD83C\uDF21\uFE0F", "\uD83D\uDCA8", "\uD83D\uDD0C", "\uD83D\uDCC5", "\uD83D\uDCDD", "\uD83D\uDCA1", "\uD83D\uDC4D"];
+const noteBytes = (t) => new TextEncoder().encode(t).length;
+
+function notesMeta(extra) {
+  const t = $("#notes").value, n = noteBytes(t), dirty = t !== notesSaved;
+  $("#notes-meta").textContent = `${n} / ${notesMax} bytes` + (dirty ? " \u00b7 unsaved changes" : "") + (extra ? " \u00b7 " + extra : "");
+  $("#notes-meta").style.color = n > notesMax ? "var(--error)" : "";
+}
+function insertAtCursor(el, text) {
+  const a = el.selectionStart ?? el.value.length, b = el.selectionEnd ?? el.value.length;
+  el.value = el.value.slice(0, a) + text + el.value.slice(b);
+  el.selectionStart = el.selectionEnd = a + text.length;
+  el.focus();
+  notesMeta(lastSavedText);
+}
+let lastSavedText = "";
+async function loadNotes() {
+  try {
+    const r = await api("/api/notes");
+    notesMax = r.max || notesMax;
+    notesSaved = r.text || "";
+    if ($("#notes").value === "" || $("#notes").value === notesSaved) $("#notes").value = notesSaved;
+    lastSavedText = r.saved ? `last saved ${r.saved}${r.by ? " by " + r.by : ""}` : "";
+    notesMeta(lastSavedText);
+  } catch (_) {}
+}
+$("#emoji-bar").innerHTML = NOTE_EMOJIS.map((e) => `<button type="button" title="Insert ${e}">${e}</button>`).join("");
+$("#emoji-bar").querySelectorAll("button").forEach((b) => b.onclick = () => insertAtCursor($("#notes"), b.textContent));
+$("#notes").oninput = () => notesMeta(lastSavedText);
+$("#notes-save").onclick = async () => {
+  const text = $("#notes").value, msg = $("#notes-msg");
+  if (noteBytes(text) > notesMax) { showMsg(msg, `Too long: ${noteBytes(text)} of ${notesMax} bytes.`, false); return; }
+  try {
+    const r = await api("/api/notes", { text });
+    notesSaved = text;
+    lastSavedText = r.saved ? `last saved ${r.saved}${r.by ? " by " + r.by : ""}` : "saved";
+    notesMeta(lastSavedText);
+    showMsg(msg, "Saved.", true);
+  } catch (e) { showMsg(msg, e.message, false); }
+};
+// Leaving the page with unsaved notes: the browser asks first
+window.addEventListener("beforeunload", (e) => { if ($("#notes").value !== notesSaved) { e.preventDefault(); e.returnValue = ""; } });
+
 // ---------- Config forms ----------
 const radio = (form, name) => form.querySelector(`input[name=${name}]:checked`).value;
 const setRadio = (form, name, v) => form.querySelectorAll(`input[name=${name}]`).forEach((r) => r.checked = r.value === String(v));
@@ -862,6 +924,7 @@ function demoApi(path, body) {
     ip: "192.168.10.53", subnet: "255.255.255.0", gateway: "192.168.10.1", dns: "192.168.10.11", nodeId: "fanController_01",
     defaultNodeId: "fanController_xx", mqttBroker: "192.168.10.85", mqttPort: 1883, mqttUser: "Brad", mqttPassSet: true, loginSet: true, webUser: "admin" };
   if (path === "/api/theme") return theme;
+  if (path === "/api/notes") return body === undefined ? { text: "\u2705 Filter changed 2026-09-20\n\uD83D\uDD27 Fan 2 bearing a bit noisy - watch it\n\uD83C\uDF21\uFE0F Curve start raised to 84.6 \u00b0F for summer", saved: "2026-09-28 09:15", by: "Brad", max: 4000 } : { ok: true, saved: "2026-09-28 12:30", by: "Brad" };
   if (path === "/api/wifi") return { ssid: "HomeNet", passSet: true, static: false, ip: "", gateway: "", subnet: "", dns: "", hostname: "", hostnameShown: "fancontroller-01",
     status: { active: "Ethernet", ip: "192.168.10.53", hostname: "fancontroller-01",
       ethernet: { link: true, ip: "192.168.10.53", mac: "2E:84:85:53:86:65" },
@@ -881,6 +944,7 @@ function demoApi(path, body) {
   await pollStatus();
   try { await loadConfig(); } catch (_) {}
   loadWifi(true);
+  loadNotes();
   setInterval(pollStatus, 2000);
   setInterval(tickClock, 1000);
 })();

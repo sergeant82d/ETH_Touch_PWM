@@ -29,8 +29,10 @@ How this list works (agreed 2026-09-28):
       buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
 - [ ] `[Net]` Setup hotspot and a static WiFi address: not yet tried on a board (2026-09-27)
 - [ ] `[Web]` From the Claude web plans: Home tab notes, history viewer. The daily summary now
-      reaches HA, so history tracking can start. Still without a spec: socket health, "shared
-      network backup" (2026-09-27)
+      reaches HA, so history tracking can start. Still without a spec: socket health.
+      ("Shared network backup" dropped by the user, 2026-09-28.) History viewer: own tab,
+      proposal given 2026-09-28 (Day / 30 days / Events / Downloads), waiting on the user
+      (2026-09-27)
 - [ ] `[Web]` LCD view on the web page. Decided 2026-09-28: option (b), a card that redraws the
       LCD layout from the live data (works on both boards; the Touch-LCD-2's LCD can't be read
       back). Source: user's two Google Docs (TFT_eSPI / LovyanGFX mirroring; the LovyanGFX one
@@ -49,6 +51,9 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Web]` Notes box on the Dashboard: scrollable, emoji row, byte counter (4000 max),
+      "last saved ... by ...", unsaved-changes warning; stored on the board (/notes.json),
+      saving needs the login. User checked on the ESP32-S3-ETH (2026-09-28)
 - [x] `[Web]` Themes: the Wifi_Fan_Knob gold/navy is its own preset "Navy & gold"; "Classic
       dark" is a new neutral dark (charcoal, blue accent). Five presets now. User checked on
       the ESP32-S3-ETH (2026-09-28)

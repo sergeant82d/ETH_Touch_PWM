@@ -25,7 +25,7 @@ extern const uint8_t index_html_end[] asm("_binary_web_index_html_end");
 const char OTA_BOARD_MARKER[] = "@@BOARD=" BOARD_NAME "@@";
 
 static const char* THEME_PATH = "/theme.json";
-static const size_t MAX_BODY = 4096;
+static const size_t MAX_BODY = 12288;  // largest JSON body: the notes (4000 bytes + escaping)
 
 // ============================================================================
 // REQUEST / RESPONSE
@@ -446,6 +446,56 @@ static void handlePostTheme(NetworkClient &client, const Request &req) {
 }
 
 // ============================================================================
+// /api/notes  {"text": "..."}: free-text notes on the Dashboard
+// ============================================================================
+// Stored on the board (LittleFS /notes.json) with when and by whom they were
+// last saved. UTF-8, so emojis are fine; up to NOTES_MAX bytes.
+
+static const char* NOTES_PATH = "/notes.json";
+static const size_t NOTES_MAX = 4000;
+
+static void handleGetNotes(NetworkClient &client) {
+    JsonDocument doc;
+    if (isLittleFsMounted() && LittleFS.exists(NOTES_PATH)) {
+        File f = LittleFS.open(NOTES_PATH, "r");
+        if (f) {
+            if (deserializeJson(doc, f)) doc.clear();
+            f.close();
+        }
+    }
+    if (!doc["text"].is<const char*>()) doc["text"] = "";
+    doc["max"] = NOTES_MAX;
+    sendJson(client, 200, doc);
+}
+
+static void handlePostNotes(NetworkClient &client, const Request &req) {
+    JsonDocument in;
+    if (deserializeJson(in, readBody(client, req.contentLength))) { sendResult(client, 400, "Bad JSON."); return; }
+    String text = in["text"] | "";
+    if (text.length() > NOTES_MAX) { sendResult(client, 400, "Notes are too long (4000 bytes max)."); return; }
+    if (!isLittleFsMounted()) { sendResult(client, 500, "Storage not available."); return; }
+
+    JsonDocument out;
+    out["text"] = text;
+    char saved[20] = "";
+    if (timeStatus() != timeNotSet) {
+        snprintf(saved, sizeof(saved), "%04d-%02d-%02d %02d:%02d", year(), month(), day(), hour(), minute());
+    }
+    out["saved"] = saved;
+    out["by"] = config.webUser;
+    File f = LittleFS.open(NOTES_PATH, "w");
+    if (!f) { sendResult(client, 500, "Could not save the notes."); return; }
+    serializeJson(out, f);
+    f.close();
+
+    JsonDocument res;
+    res["ok"] = true;
+    res["saved"] = saved;
+    res["by"] = config.webUser;
+    sendJson(client, 200, res);
+}
+
+// ============================================================================
 // /api/login  {"user": "...", "pass": "..."}: set or change the web login
 // ============================================================================
 // The first login needs no authorization; changing it needs the current one.
@@ -687,6 +737,7 @@ void handleNativeWebTraffic(NetworkClient &client) {
     else if (get && req.path == "/api/config") handleGetConfig(client);
     else if (get && req.path == "/api/theme") handleGetTheme(client);
     else if (get && req.path == "/api/wifi") handleGetWifi(client);
+    else if (get && req.path == "/api/notes") handleGetNotes(client);
     else if (get && req.path == "/api/wifi/scan") handleScan(client);
     else if (get && req.path == "/api/auth") {
         if (!loginSet()) sendResult(client, 403, "No login set.");
@@ -701,6 +752,7 @@ void handleNativeWebTraffic(NetworkClient &client) {
     else if (post && req.path == "/api/wifi") { if (requireLogin(client, req)) handlePostWifi(client, req); }
     else if (post && req.path == "/api/wifi/forget") { if (requireLogin(client, req)) handleForgetWifi(client); }
     else if (post && req.path == "/api/hotspot") { if (requireLogin(client, req)) handleHotspot(client, req); }
+    else if (post && req.path == "/api/notes") { if (requireLogin(client, req)) handlePostNotes(client, req); }
     else sendResult(client, 404, "Not found.");
 
     client.flush();
