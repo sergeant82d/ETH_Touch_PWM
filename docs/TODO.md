@@ -12,7 +12,10 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-(empty)
+- `[Web]` LCD View - the "F" label for the temperature scale that is on the button, raises up out of the button border. I am running the board with no peripherals, just the Dev Board/display/MCU, so it is displaying "CRIT!" instead of the temperature, as it should. Just the "F" moved up. It is the same for the Celcius "C".
+
+
+
 
 ## Open
 
@@ -43,9 +46,6 @@ How this list works (agreed 2026-09-28):
 - [ ] `[Web]` Per-fan speed offset: fan 1 is the reference, each other fan +/- in 10 RPM steps,
       in the Fan Channels table on the Fan Control tab; an LCD page for it later (your note,
       2026-09-28)
-- [ ] `[Board]` New board build for the Touch-LCD-2 with a W5500 Lite module and your own pin
-      choices (a third environment and pin set, like `waveshare_s3_eth`); needs your pin list
-      (your note, 2026-09-28)
 - [ ] `[HA]` HA configuration.yaml and Lovelace card YAML to break out the daily summary CSV for
       plotting; discuss better alternatives (your note, 2026-09-28)
 - [ ] `[LCD]` `[Decide]` Discuss moving the LCD to LVGL (nicer gauges and fonts): high effort, low
@@ -56,8 +56,28 @@ How this list works (agreed 2026-09-28):
 - [ ] `[Question]` What is the impact of moving to native ESP-IDF, still in VS Code and
       PlatformIO? (your note, 2026-09-28)
 
+- [ ] `[Board]` W5500 Lite build: fans (PWM 6 / tach 16, PWM 2 / tach 4) and DS18B20 (GPIO 17)
+      UNTESTED, nothing connected yet (2026-09-29)
+- [ ] `[Board]` Boot log on the Touch-LCD-2 shows "GPIO isr service already installed" and one
+      I2C read error (touch bus) at ~4 s; touch works. Look into it (2026-09-29)
+- [ ] `[Web]` **First-time setup page** (your go-ahead, 2026-09-29): shown while the board is
+      new; one form (login, node ID + MQTT, fans, network), one Save, one restart, then says
+      where to find the page. Fixes the rough spots in `docs/SETUP.md`:
+      - no Save works until a login is set, and the login is on the last tab
+      - every Save reloads all forms and wipes other panels' unsaved fields; no unsaved warning
+      - the `.local` name follows the node ID only from the next restart or WiFi-tab save
+      - the Ethernet save restarts the board and moves the page (DHCP: address unknown)
+      - the hotspot turns off 30 s after a network works and drops the phone, no warning
+      - the HA automation topic has to be edited by hand per board
+      The second and third are worth fixing on the normal tabs too (2026-09-29)
+
 ## Done
 
+- [x] `[Docs]` `docs/SETUP.md`: setting up a new board, step by step as the firmware needs it
+      today, with the rough spots (your note, 2026-09-29, this commit)
+- [x] `[Board]` Third build `waveshare_s3_lcd2_lite`: Touch-LCD-2 + W5500 Lite on your pins.
+      Ethernet, MQTT, SD, web page and touch work on the new board (COM8) (user, 2026-09-29,
+      `59d3b9b`)
 - [x] `[Docs]` Status report 02; your notes moved into Open (2026-09-28, this commit)
 - [x] `[Docs]` Wifi_Fan_Knob handoff: which of today's features fit it, written to that repo's
       `docs/HANDOFF_FROM_ETH_Touch_PWM.md` (2026-09-28)
