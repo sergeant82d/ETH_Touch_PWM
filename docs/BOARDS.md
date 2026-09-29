@@ -1,22 +1,27 @@
 # Boards
 
-One firmware, two boards, picked by the PlatformIO environment. Pins: `include/pins.h`.
+One firmware, three builds, picked by the PlatformIO environment. Pins: `include/pins.h`.
 
-| | Waveshare ESP32-S3-Touch-LCD-2 | Waveshare ESP32-S3-ETH |
-|---|---|---|
-| Environment | `waveshare_s3_lcd2` (default) | `waveshare_s3_eth` (`-e waveshare_s3_eth`) |
-| Unit | fan_controller_02, 192.168.10.54 | fan_controller_01, 192.168.10.53, COM10 |
-| Chip (esptool, 2026-09-27) | | ESP32-S3 rev 0.2, 8 MB embedded PSRAM (R8, octal), 16 MB quad flash, USB-Serial/JTAG |
-| W5500 | external module: SCK 12, MOSI 13, MISO 14, CS 11, INT 10, RST 9 | onboard: MOSI 11, MISO 12, SCK 13, CS 14, INT 10, RST 9 |
-| Fan 1 PWM / tach | GPIO 2 / 4 | GPIO 1 / 2 |
-| Fan 2 PWM / tach | GPIO 6 / 16 | GPIO 18 / 40 |
-| DS18B20 | GPIO 8 | GPIO 21 |
-| MicroSD | shares the LCD SPI bus: CS 41, MISO 40, MOSI 38, SCK 39 | own SPI bus (HSPI): CS 4, MISO 5, MOSI 6, SCK 7 |
-| LCD / touch | ST7789T3 + CST816D | none (`HAS_LCD 0`: `display.cpp`, `touch.cpp` not built) |
-| Default IP | 192.168.10.54 | 192.168.10.53 |
-| Web page "Source File" | ETH_Touch_PWM (PlatformIO, ESP32-S3-Touch-LCD-2) | ETH_Touch_PWM (PlatformIO, ESP32-S3-ETH) |
+| | Waveshare ESP32-S3-Touch-LCD-2 | Touch-LCD-2 + W5500 Lite | Waveshare ESP32-S3-ETH |
+|---|---|---|---|
+| Environment | `waveshare_s3_lcd2` (default) | `waveshare_s3_lcd2_lite` | `waveshare_s3_eth` (`-e waveshare_s3_eth`) |
+| Unit | fan_controller_02, 192.168.10.54 | (new LCD board, COM8) | fan_controller_01, 192.168.10.53, COM10 |
+| Chip (esptool, 2026-09-27) | | | ESP32-S3 rev 0.2, 8 MB embedded PSRAM (R8, octal), 16 MB quad flash, USB-Serial/JTAG |
+| W5500 | external module: SCK 12, MOSI 13, MISO 14, CS 11, INT 10, RST 9 | W5500 Lite on the right header: MOSI 9, SCK 14, CS 12, INT 11, RST 13, MISO 15 (board pins 12-7; GND 13, 3V3 1) | onboard: MOSI 11, MISO 12, SCK 13, CS 14, INT 10, RST 9 |
+| Fan 1 PWM / tach | GPIO 2 / 4 | GPIO 6 / 16 | GPIO 1 / 2 |
+| Fan 2 PWM / tach | GPIO 6 / 16 | GPIO 2 / 4 | GPIO 18 / 40 |
+| DS18B20 | GPIO 8 | GPIO 17 | GPIO 21 |
+| MicroSD | shares the LCD SPI bus: CS 41, MISO 40, MOSI 38, SCK 39 | as Touch-LCD-2 | own SPI bus (HSPI): CS 4, MISO 5, MOSI 6, SCK 7 |
+| LCD / touch | ST7789T3 + CST816D | as Touch-LCD-2 | none (`HAS_LCD 0`: `display.cpp`, `touch.cpp` not built) |
+| Default IP | 192.168.10.54 | 192.168.10.55 | 192.168.10.53 |
+| Web page "Source File" | ETH_Touch_PWM (PlatformIO, ESP32-S3-Touch-LCD-2) | ETH_Touch_PWM (PlatformIO, ESP32-S3-Touch-LCD-2 W5500 Lite) | ETH_Touch_PWM (PlatformIO, ESP32-S3-ETH) |
 
-Both: 16 MB flash, `app3M_fat9M_16MB` partitions, OPI PSRAM, USB CDC on boot, 25 kHz PWM.
+W5500 Lite build (2026-09-29, the user's pins): Ethernet runs straight out of the right
+header, fans and probe out of the left one. Left-header spares: GPIO 7, 8, 10, 18, 21. GPIO 19/20
+are the USB port (flashing, serial log): never wire them. Its own board name, so OTA refuses
+the other LCD build and the reverse: the first switch between the two is a USB flash.
+
+All: 16 MB flash, `app3M_fat9M_16MB` partitions, OPI PSRAM, USB CDC on boot, 25 kHz PWM.
 Ethernet runs on the ESP32 core's ETH driver (`src/fan_network.cpp`) since 2026-09-27; each
 board uses its chip's own MAC (the ESP32-S3-ETH: `2E:84:85:53:86:65`), no longer the shared
 `DE:AD:BE:EF:FE:ED`.
