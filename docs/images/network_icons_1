@@ -92,3 +92,116 @@ To render these efficiently on your screen without flickering, use your library'
 tft.drawBitmap(300, 5, bitmap_wifi_16x16, 16, 16, TFT_GREEN, TFT_BLACK);
 
 
+
+
+
+Here are 16x16 pixel grid designs optimized for low-resolution screens. At this scale, every pixel counts, so these layouts use clean, high-contrast monochrome spacing (where █ represents an active pixel and . is blank space).
+## 📶 Wi-Fi Icon
+Standard radiating signal arcs.
+
+. . . █ █ █ █ █ █ . . . . . . .
+. . █ . . . . . . █ . . . . . .
+. █ . . █ █ █ █ . . █ . . . . .
+█ . . █ . . . . █ . . █ . . . .
+. . █ . . █ █ . . █ . . . . . .
+. . . . █ . . █ . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## 🧭 Hotspot Icon
+A central connection point radiating external broadcast rings.
+
+. . . . . █ █ █ . . . . . . . .
+. . . . █ . . . █ . . . . . . .
+. . . █ . . █ . . █ . . . . . .
+. . █ . . █ █ █ . . █ . . . . .
+. █ . . █ █ █ █ █ . . █ . . . .
+. . █ . . █ █ █ . . █ . . . . .
+. . . █ . . █ . . █ . . . . . .
+. . . . █ . . . █ . . . . . . .
+. . . . . █ █ █ . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## 🔌 Ethernet Icon
+A classic LAN ports/connector silhouette with three base terminal points.
+
+. . . . . █ █ █ █ . . . . . . .
+. . . . █ . . . . █ . . . . . .
+. . . . █ . █ █ . █ . . . . . .
+. . . . █ █ █ █ █ █ . . . . . .
+. . . . . . █ █ . . . . . . . .
+. . . . . . █ █ . . . . . . . .
+. █ █ █ █ █ █ █ █ █ █ █ █ . . .
+. █ . . . . █ █ . . . . █ . . .
+. █ . █ █ . █ █ . █ █ . █ . . .
+. █ █ █ █ █ █ █ █ █ █ █ █ . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## ⚡ Bluetooth Icon
+The traditional geometric rune shape with sharp angles.
+
+. . . . . █ . . . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . █ . . █ . █ . . . . . . . .
+. . . █ . █ . . █ . . . . . . .
+. . . . █ █ . █ . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . . . █ █ . █ . . . . . . . .
+. . . █ . █ . . █ . . . . . . .
+. . █ . . █ . █ . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . . . . █ . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## 💾 SD Card Icon
+Angled top-right corner with distinct metal pin cutouts on top.
+
+. . █ █ █ █ █ █ █ . . . . . . .
+. . █ █ █ █ █ █ █ █ . . . . . .
+. . █ . █ . █ . █ █ . . . . . .
+. . █ . █ . █ . █ █ . . . . . .
+. . █ █ █ █ █ █ █ █ . . . . . .
+. . █ . . . . . . █ . . . . . .
+. . █ . . . . . . █ . . . . . .
+. . █ . . . . . . █ . . . . . .
+. . █ . . . . . . █ . . . . . .
+. . █ █ █ █ █ █ █ █ . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## Design Notes for Low-Res Layouts
+
+* Anti-Aliasing: If your hardware display supports color/grayscale gradients, using half-opacity pixels on corners will soften the harsh blocks. For absolute raw screens (like OLED/LCD matrices or microcontrollers), stick strictly to binary on/off.
+* Padding: Each layout preserves a minimal 1-2 pixel margin buffer to prevent icons from visually bleeding into adjacent text characters or neighboring UI containers.
+
+If you would like, I can write a script to compile these matrices into HEX arrays or a single PNG image file. Let me know what your target platform needs!
+
+
+
