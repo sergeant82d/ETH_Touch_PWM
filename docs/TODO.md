@@ -28,9 +28,6 @@ How this list works (agreed 2026-09-28):
       button (2026-09-27)
 - [ ] `[LCD]` Screen flicker: every redraw clears everything; dirty-checking or an off-screen
       buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
-- [ ] `[Net]` Setup hotspot and a static WiFi address: not yet tried on a board (2026-09-27)
-- [ ] `[Web]` "Socket health" from the Claude web plans: no spec yet (the other web plan items are
-      done; "shared network backup" dropped by the user 2026-09-28) (2026-09-27)
 
 - [ ] `[Web]` Node ID in the page's top left corner: underscores to spaces as on the LCD title
       bar, in Title Case; board name unchanged (your note, 2026-09-28)
@@ -74,6 +71,9 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Net]` Setup hotspot and a static WiFi address: tested, working (user, 2026-09-29)
+- [x] `[Web]` "Socket health" from the Claude web plans: it meant SD card health, done with
+      the SD health state (`6bb7e19`) (user, 2026-09-29)
 - [x] `[LCD]` QR code page (gear icon): the QR codes scan on the W5500 Lite boards (user,
       2026-09-29, `4026820`). Opening it by touch is unreliable: in the touch item
 - [x] `[Board]` Pin remap for the original Touch-LCD-2 build (PWM2 6, TACH1 4, TACH2 16):
