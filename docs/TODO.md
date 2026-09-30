@@ -69,7 +69,12 @@ How this list works (agreed 2026-09-28):
 - [ ] `[LCD]` Touch is sporadic on the new boards (user, 2026-09-29); see also the touch
       mapping item above (2026-09-29)
 - [ ] `[Net]` After an Ethernet link drop and return (cable bumped), the board got no new DHCP
-      address and fell back to the hotspot. Test: unplug a few seconds, plug back (2026-09-29)
+      address and fell back to the hotspot. Happened twice on the F924 board (COM9) the same
+      evening; the second time with no known bump, MQTT "Host is unreachable" until reset.
+      User's working theory: not enough power on the bench set-up (W5500 Lite ~130 mA on the
+      3V3 rail). Revisit if it continues once the hardware is wired for good; then: log the
+      Ethernet/DHCP state, and restart DHCP (then the W5500) if the link is up with no
+      address. Test: unplug a few seconds, plug back (2026-09-29)
 - [ ] `[SD]` A failing card (knock-off) makes each SD retry block loop() up to ~0.5 s; the web
       page stalls ("Failed to fetch") during a run of them (2026-09-29)
 - [ ] `[LCD]` Setup screen: "no network" countdown and hotspot views UNTESTED; the hotspot
