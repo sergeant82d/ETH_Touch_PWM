@@ -49,9 +49,6 @@ How this list works (agreed 2026-09-28):
 - [ ] `[Board]` Boot log on the Touch-LCD-2 shows "GPIO isr service already installed" and one
       I2C read error (touch bus) at ~4 s; touch works. Look into it. Seen on both Lite boards, so it's the firmware (2026-09-29)
 
-- [ ] `[Web]` Normal tabs: each Save reloads every form and wipes other panels' unsaved
-      fields; no unsaved-changes warning. A node ID change reaches the `.local` name only at the
-      next restart or WiFi-tab save (from `docs/SETUP.md`, 2026-09-29)
 - [ ] `[Web]` Factory reset on the System tab (login + type RESET): settings back to factory,
       theme/notes/SD kept, restart into setup. Wifi_Fan_Knob has one (2026-09-29)
 - [ ] `[LCD]` Touch is sporadic on the new boards (user, 2026-09-29), incl. opening the QR
@@ -71,6 +68,10 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Web]` Normal tabs' rough spots: closed by the user, the Setup page covers first-time
+      setup (`1567e95`). Unchanged on the normal tabs (reopen if it bothers): each Save
+      reloads every form and wipes other panels' unsaved fields; a node ID change reaches
+      the `.local` name only at the next restart or WiFi-tab save (2026-09-29)
 - [x] `[Net]` Setup hotspot and a static WiFi address: tested, working (user, 2026-09-29)
 - [x] `[Web]` "Socket health" from the Claude web plans: it meant SD card health, done with
       the SD health state (`6bb7e19`) (user, 2026-09-29)
