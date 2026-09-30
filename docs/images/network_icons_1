@@ -1,0 +1,94 @@
+The ST7789 display driver running at a 320x240 resolution is actually quite sharp for its physical size! At this resolution, a 16x16 pixel icon is tiny but perfectly readable if you use high-contrast, pure-color shapes without anti-aliasing.
+For ST7789 displays, icons are typically uploaded directly into microcontroller firmware (like Arduino, ESP32, or Raspberry Pi Pico) as a C array hexadecimal bitmap. Since the ST7789 natively uses RGB565 (16-bit color), you can make these icons 1-bit monochome (saving RAM) and let your graphics library assign the foreground and background colors dynamically.
+Here are the optimal 16x16 pixel grid mappings and ready-to-use C code bitmaps for both icons.
+------------------------------
+## 1. Wi-Fi Icon (16x16 Pixel Grid)
+This layout replaces smooth curves with distinct 1-pixel horizontal bars and angular stepped edges, ensuring maximum clarity on the ST7789.
+
+Row 00:  . . 1 1 1 1 1 1 1 1 1 1 1 1 . .
+Row 01:  . 1 1 . . . . . . . . . . 1 1 .
+Row 02:  1 1 . . . . . . . . . . . . 1 1
+Row 03:  . . . . 1 1 1 1 1 1 1 1 . . . .
+Row 04:  . . . 1 1 . . . . . . 1 1 . . .
+Row 05:  . . . . . . . . . . . . . . . .
+Row 06:  . . . . . 1 1 1 1 1 1 . . . . .
+Row 07:  . . . . 1 1 . . . . 1 1 . . . .
+Row 08:  . . . . . . . . . . . . . . . .
+Row 09:  . . . . . . . 1 1 . . . . . . .
+Row 10:  . . . . . . 1 1 1 1 . . . . . .
+Row 11:  . . . . . . 1 1 1 1 . . . . . .
+Row 12:  . . . . . . . 1 1 . . . . . . .
+Row 13:  . . . . . . . . . . . . . . . .
+Row 14:  . . . . . . . . . . . . . . . .
+Row 15:  . . . . . . . . . . . . . . . .
+
+------------------------------
+## 2. Ethernet Icon (16x16 Pixel Grid)
+This layout uses the RJ45 plug profile, which is significantly easier to see at 16x16 pixels than a complex network topology diagram.
+
+Row 00:  . . . . 1 1 1 1 1 1 1 1 . . . .
+Row 01:  . . . 1 1 1 1 1 1 1 1 1 1 . . .
+Row 02:  . . . 1 1 1 1 1 1 1 1 1 1 . . .
+Row 03:  . . . 1 1 . 1 . 1 . 1 1 1 . . .
+Row 04:  . . . 1 1 . 1 . 1 . 1 1 1 . . .
+Row 05:  . . 1 1 1 1 1 1 1 1 1 1 1 1 . .
+Row 06:  . . 1 1 1 1 1 1 1 1 1 1 1 1 . .
+Row 07:  . . . . . . 1 1 1 1 . . . . . .
+Row 08:  . . . . . . 1 1 1 1 . . . . . .
+Row 09:  . . . . . . 1 1 1 1 . . . . . .
+Row 10:  . . . . . 1 1 1 1 1 1 . . . . .
+Row 11:  . . . . 1 1 1 . . 1 1 1 . . . .
+Row 12:  . . . 1 1 1 . . . . 1 1 1 . . .
+Row 13:  . . 1 1 1 . . . . . . 1 1 1 . .
+Row 14:  . 1 1 1 . . . . . . . . 1 1 1 .
+Row 15:  1 1 1 . . . . . . . . . . 1 1 1
+
+------------------------------
+## C-Code Bitmaps for Your Firmware
+These arrays are encoded as standard 1-bit monochome data (2 bytes per row). They are fully compatible with common ST7789 libraries like Adafruit_GFX or TFT_eSPI.
+
+// 16x16 Wi-Fi Icon Bitmap (Hexadecimal)const unsigned char bitmap_wifi_16x16[] PROGMEM = {
+    0x3F, 0xFC,  // ..111111 111111..
+    0x60, 0x06,  // .11..... ......11.
+    0xC0, 0x03,  // 11...... ......11
+    0x0F, 0xF0,  // ....1111 1111....
+    0x18, 0x18,  // ...11... ...11...
+    0x00, 0x00,  // ........ ........
+    0x07, 0xE0,  // .....111 111.....
+    0x0C, 0x30,  // ....11.. ..11....
+    0x00, 0x00,  // ........ ........
+    0x01, 0x80,  // .......1 1.......
+    0x03, 0xC0,  // ......11 11......
+    0x03, 0xC0,  // ......11 11......
+    0x01, 0x80,  // .......1 1.......
+    0x00, 0x00,  // ........ ........
+    0x00, 0x00,  // ........ ........
+    0x00, 0x00   // ........ ........
+};
+// 16x16 Ethernet Icon Bitmap (Hexadecimal)const unsigned char bitmap_ethernet_16x16[] PROGMEM = {
+    0x0F, 0xF0,  // ....1111 1111....
+    0x1F, 0xF8,  // ...11111 11111...
+    0x1F, 0xF8,  // ...11111 11111...
+    0x1A, 0x58,  // ...11.1. 1.111...
+    0x1A, 0x58,  // ...11.1. 1.111...
+    0x3F, 0xFC,  // ..111111 111111..
+    0x3F, 0xFC,  // ..111111 111111..
+    0x03, 0xC0,  // ......11 11......
+    0x03, 0xC0,  // ......11 11......
+    0x03, 0xC0,  // ......11 11......
+    0x07, 0xE0,  // .....111 111.....
+    0x0E, 0x70,  // ....111. .111....
+    0x1C, 0x38,  // ...111.. ..111...
+    0x38, 0x1C,  // ..111... ...111..
+    0x70, 0x0E,  // .111.... ....111.
+    0xE0, 0x07   // 111..... .....111
+};
+
+## How to Draw Them (Adafruit_GFX / TFT_eSPI Example)
+To render these efficiently on your screen without flickering, use your library's standard bitmap function. You can explicitly assign any color combination you want:
+
+// Arguments: drawBitmap(x_pos, y_pos, bitmap_array, width, height, foreground_color, background_color);// Example: Drawing a green Wi-Fi icon at the top right of the screen (x=300, y=5)
+
+tft.drawBitmap(300, 5, bitmap_wifi_16x16, 16, 16, TFT_GREEN, TFT_BLACK);
+
+
