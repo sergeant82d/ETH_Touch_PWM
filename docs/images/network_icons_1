@@ -205,3 +205,110 @@ If you would like, I can write a script to compile these matrices into HEX array
 
 
 
+
+Here are the hexadecimal arrays for your 16x16 pixel icons, formatted for immediate use in microcontrollers (like Arduino, ESP32, or STM32) running display libraries such as Adafruit_GFX or U8g2.
+Each icon is encoded in 1-bit monochrome (PROGMEM) format, where 1 represents an active pixel and 0 represents a blank pixel. Each row of 16 pixels is exactly 2 bytes (16 bits) of data.
+
+// 16x16 Wi-Fi Iconconst unsigned char bitmap_wifi[] PROGMEM = {
+  0x1F, 0x80, // . . . █ █ █ █ █ █ . . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x4F, 0x20, // . █ . . █ █ █ █ . . █ . . . . .
+  0x89, 0x10, // █ . . █ . . . . █ . . █ . . . .
+  0x36, 0x00, // . . █ . . █ █ . . █ . . . . . .
+  0x09, 0x00, // . . . . █ . . █ . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+// 16x16 Hotspot Iconconst unsigned char bitmap_hotspot[] PROGMEM = {
+  0x07, 0x00, // . . . . . █ █ █ . . . . . . . .
+  0x08, 0x80, // . . . . █ . . . █ . . . . . . .
+  0x12, 0x40, // . . . █ . . █ . . █ . . . . . .
+  0x27, 0x20, // . . █ . . █ █ █ . . █ . . . . .
+  0x4F, 0x10, // . █ . . █ █ █ █ █ . . █ . . . .
+  0x27, 0x20, // . . █ . . █ █ █ . . █ . . . . .
+  0x12, 0x40, // . . . █ . . █ . . █ . . . . . .
+  0x08, 0x80, // . . . . █ . . . █ . . . . . . .
+  0x07, 0x00, // . . . . . █ █ █ . . . . . . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+// 16x16 Ethernet Iconconst unsigned char bitmap_ethernet[] PROGMEM = {
+  0x07, 0x80, // . . . . . █ █ █ █ . . . . . . .
+  0x08, 0x40, // . . . . █ . . . . █ . . . . . .
+  0x0D, 0x40, // . . . . █ . █ █ . █ . . . . . .
+  0x0F, 0xC0, // . . . . █ █ █ █ █ █ . . . . . .
+  0x03, 0x00, // . . . . . . █ █ . . . . . . . .
+  0x03, 0x00, // . . . . . . █ █ . . . . . . . .
+  0x7F, 0xF8, // . █ █ █ █ █ █ █ █ █ █ █ █ . . .
+  0x43, 0x08, // . █ . . . . █ █ . . . . █ . . .
+  0x5B, 0x68, // . █ . █ █ . █ █ . █ █ . █ . . .
+  0x7F, 0xF8, // . █ █ █ █ █ █ █ █ █ █ █ █ . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+// 16x16 Bluetooth Iconconst unsigned char bitmap_bluetooth[] PROGMEM = {
+  0x04, 0x00, // . . . . . █ . . . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x25, 0x00, // . . █ . . █ . █ . . . . . . . .
+  0x14, 0x80, // . . . █ . █ . . █ . . . . . . .
+  0x0E, 0x00, // . . . . █ █ . █ . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x0E, 0x00, // . . . . █ █ . █ . . . . . . . .
+  0x14, 0x80, // . . . █ . █ . . █ . . . . . . .
+  0x25, 0x00, // . . █ . . █ . █ . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x04, 0x00, // . . . . . █ . . . . . . . . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+// 16x16 SD Card Iconconst unsigned char bitmap_sd_card[] PROGMEM = {
+  0x3F, 0x80, // . . █ █ █ █ █ █ █ . . . . . . .
+  0x3F, 0xC0, // . . █ █ █ █ █ █ █ █ . . . . . .
+  0x2A, 0xC0, // . . █ . █ . █ . █ █ . . . . . .
+  0x2A, 0xC0, // . . █ . █ . █ . █ █ . . . . . .
+  0x3F, 0xC0, // . . █ █ █ █ █ █ █ █ . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x3F, 0xC0, // . . █ █ █ █ █ █ █ █ . . . . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+
+## Implementation Tips
+
+* Adafruit_GFX: Draw these using display.drawBitmap(x, y, bitmap_name, 16, 16, COLOR);.
+* U8g2: Draw these using u8g2.drawXBMP(x, y, 16, 16, bitmap_name);. (Note: If your library uses standard XBMP format, the bits within each byte may need to be reversed. Let me know if the output looks jumbled, and I can flip the bit-endianness for you.)
+
+Would you like me to convert these into a different structure, such as RGB565 hex arrays for color TFT displays, or adjust the bit-endianness for a specific display library?
+
+
+
+
+
+
