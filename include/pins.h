@@ -1,6 +1,9 @@
 #ifndef PINS_H
 #define PINS_H
 
+// Changing a pin or adding a build: docs/BOARDS.md, "Changing pins or adding a board"
+// (update its pin table too).
+
 // Two boards, chosen by the PlatformIO environment:
 //   waveshare_s3_lcd2 (default): Waveshare ESP32-S3-Touch-LCD-2 + external W5500
 //   waveshare_s3_lcd2_lite (-DBOARD_LCD2_LITE): the same board + a W5500 Lite module, with

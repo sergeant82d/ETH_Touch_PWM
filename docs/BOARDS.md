@@ -26,6 +26,43 @@ Ethernet runs on the ESP32 core's ETH driver (`src/fan_network.cpp`) since 2026-
 board uses its chip's own MAC (the ESP32-S3-ETH: `2E:84:85:53:86:65`), no longer the shared
 `DE:AD:BE:EF:FE:ED`.
 
+## Changing pins or adding a board
+
+The firmware takes its pins from `include/pins.h` only; this file is the record. Change both.
+
+**Moving a pin on an existing build** (e.g. the probe to another GPIO):
+
+1. `include/pins.h`: find the build's block (`#if defined(BOARD_S3_ETH)`, `#if defined(BOARD_LCD2_LITE)`,
+   or the plain Touch-LCD-2 one after `#else`) and change the number, e.g.
+   `#define ONEWIRE_PIN 18`. Keep the comment beside it right.
+2. This file: change the same row in the table at the top (one column per build; edit the text
+   between the `|` marks, leave the marks), and the list of spare pins under it if needed.
+3. Build and flash as usual (USB or OTA). Settings are kept.
+
+Only for boards that are all wired the same way. Boards already out there get the new pins at
+their next update, so a different wiring for some boards needs its own build (below).
+
+**Pins to avoid on the Touch-LCD-2:** 19/20 (USB: flashing and the serial log), 47/48 (touch
+I2C), 0, 3, 45, 46 (start-up pins), and the LCD and SD pins in `pins.h`. On any board, check
+the board's pinout for pins it uses itself.
+
+**Fans 3 and 4:** besides `PWM3_PIN`/`TACH3_PIN` etc. in `pins.h`, `src/sensors.cpp` lists the
+channels (`pwmPins[]`, `tachPins[]`); 3 and 4 are `-1` there ("not wired"). Replace the `-1`s
+with the new names. Then they can be ticked on the Fan Control tab.
+
+**A new build (different wiring or a different board):** copy what `waveshare_s3_lcd2_lite`
+did (commit `59d3b9b`):
+
+1. `platformio.ini`: a new `[env:...]` that `extends = env:waveshare_s3_lcd2` and adds its own
+   flag to `build_flags` (e.g. `-DBOARD_MY_NAME`). A board without an LCD also needs
+   `build_src_filter` as in `waveshare_s3_eth`.
+2. `include/pins.h`: a block for that flag, with its own `BOARD_NAME` (OTA refuses firmware
+   with a different name, which keeps builds apart), `DEFAULT_IP_LAST_OCTET`, `HAS_LCD`, and
+   every pin.
+3. This file: a column in the table and a note under it.
+4. Build all builds (`pio run -e <each>`); the first flash of a board onto the new build is
+   over USB, since OTA refuses the other name.
+
 ## Web page, login, OTA (both boards)
 
 - Page: `web/index.html` (compiled in), API under `/api` (`src/web_server.cpp`). Tabs:

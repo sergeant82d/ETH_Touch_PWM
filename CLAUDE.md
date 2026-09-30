@@ -22,8 +22,10 @@ status reports, Windows/PlatformIO build) are in the user's global `~/.claude/CL
 - External W5500 Ethernet on GPIO 9-14, on the core's ETH driver (`src/fan_network.cpp`).
   All pins are in `include/pins.h`; keep them there.
 - Second board, Waveshare ESP32-S3-ETH (onboard W5500, no LCD; COM10): environment
-  `waveshare_s3_eth`. Differences: `docs/BOARDS.md`. `pio run` alone builds only the
-  Touch-LCD-2; always pass `-e` when uploading to the other board.
+  `waveshare_s3_eth`. Third build `waveshare_s3_lcd2_lite`: Touch-LCD-2 + W5500 Lite on the
+  user's pins (COM8/COM9 boards). Differences, and how to change pins or add a build:
+  `docs/BOARDS.md`. `pio run` alone builds only the Touch-LCD-2; always pass `-e` when
+  uploading to the other boards.
 - LCD and SD share one SPI bus. W5500 has its own.
 - Power: the board locks up on PC USB power with LCD + Ethernet + SD running. Use external power.
 
