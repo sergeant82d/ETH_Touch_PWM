@@ -244,6 +244,7 @@ static void handleGetConfig(NetworkClient &client) {
     doc["dns"] = config.dns.toString();
     doc["nodeId"] = config.nodeID;
     doc["defaultNodeId"] = DEFAULT_NODE_ID;
+    doc["suggestedNodeId"] = "fanController_" + macSuffix(); // setup page: unique per board
     doc["mqttBroker"] = config.mqttBroker;
     doc["mqttPort"] = config.mqttPort;
     doc["mqttUser"] = config.mqttUser;
@@ -259,28 +260,34 @@ static void logThreshold(const char* name, float oldC, float newC) {
     }
 }
 
-// Applies only the keys present (each tab saves its own fields)
-static void handlePostConfig(NetworkClient &client, const Request &req) {
-    JsonDocument in;
-    if (deserializeJson(in, readBody(client, req.contentLength))) {
-        sendResult(client, 400, "Bad JSON.");
-        return;
-    }
-    SystemConfig next = config;
+// Restart after a settings save that needs one. Margin for the settings write to
+// commit and LittleFS to unmount before the reset (a restart too soon after a
+// write once corrupted LittleFS; see mountLittleFSWithRecovery()).
+static void restartAfterSave(NetworkClient &client) {
+    client.flush();
+    client.stop();
+    delay(1500);
+    LittleFS.end();
+    delay(200);
+    ESP.restart();
+}
 
+// Checks the keys present in `in` and applies them to `next` (each tab saves its own
+// fields; the setup page sends them all). Returns an error message, or nullptr.
+static const char* applyConfigJson(JsonDocument &in, SystemConfig &next) {
     if (in["fanCount"].is<int>()) {
         int n = in["fanCount"];
         int wired = 0;
         while (wired < NUM_FANS && pwmPins[wired] >= 0) wired++;
-        if (n < 1 || n > wired) { sendResult(client, 400, "That fan channel isn't wired on this board."); return; }
+        if (n < 1 || n > wired) return "That fan channel isn't wired on this board.";
         next.fanCount = n;
     }
     if (in["fahrenheit"].is<bool>()) next.isFahrenheit = in["fahrenheit"];
     if (in["tMinC"].is<float>() || in["tMaxC"].is<float>()) {
         float lo = in["tMinC"] | next.tMin;
         float hi = in["tMaxC"] | next.tMax;
-        if (lo < 0 || lo > 100 || hi < 0 || hi > 100) { sendResult(client, 400, "Temperatures must be 0-100 C."); return; }
-        if (hi <= lo) { sendResult(client, 400, "Fan curve top must be above the start."); return; }
+        if (lo < 0 || lo > 100 || hi < 0 || hi > 100) return "Temperatures must be 0-100 C.";
+        if (hi <= lo) return "Fan curve top must be above the start.";
         next.tMin = lo;
         next.tMax = hi;
     }
@@ -292,7 +299,7 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
                   rule.length() > 0 && rule.length() < sizeof(next.tzPosix);
         for (size_t i = 0; ok && i < name.length(); i++) ok = isalnum((unsigned char)name[i]) || strchr("_/+-", name[i]);
         for (size_t i = 0; ok && i < rule.length(); i++) ok = isalnum((unsigned char)rule[i]) || strchr("<>+-,.:/", rule[i]);
-        if (!ok) { sendResult(client, 400, "Invalid time zone."); return; }
+        if (!ok) return "Invalid time zone.";
         strlcpy(next.tzName, name.c_str(), sizeof(next.tzName));
         strlcpy(next.tzPosix, rule.c_str(), sizeof(next.tzPosix));
     }
@@ -302,41 +309,50 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
     const char* ipKeys[] = {"ip", "subnet", "gateway", "dns"};
     IPAddress* ipFields[] = {&next.ip, &next.subnet, &next.gateway, &next.dns};
     for (int i = 0; i < 4; i++) {
-        if (in[ipKeys[i]].is<const char*>() && !parseIp(in[ipKeys[i]].as<String>(), *ipFields[i])) {
-            sendResult(client, 400, "Invalid IP address.");
-            return;
-        }
+        if (in[ipKeys[i]].is<const char*>() && !parseIp(in[ipKeys[i]].as<String>(), *ipFields[i])) return "Invalid IP address.";
     }
 
     if (in["nodeId"].is<const char*>()) {
         String id = in["nodeId"].as<String>();
-        if (!isValidNodeId(id.c_str())) { sendResult(client, 400, "Node ID: letters, digits, _ and - only."); return; }
+        if (!isValidNodeId(id.c_str())) return "Node ID: letters, digits, _ and - only.";
         strlcpy(next.nodeID, id.c_str(), sizeof(next.nodeID));
     }
     if (in["mqttBroker"].is<const char*>()) {
         String b = in["mqttBroker"].as<String>();
         b.trim();
         for (size_t i = 0; i < b.length(); i++) {
-            if (!isalnum((unsigned char)b[i]) && b[i] != '.' && b[i] != '-') { sendResult(client, 400, "Broker: host name or IP."); return; }
+            if (!isalnum((unsigned char)b[i]) && b[i] != '.' && b[i] != '-') return "Broker: host name or IP.";
         }
-        if (b.length() >= sizeof(next.mqttBroker)) { sendResult(client, 400, "Broker name too long."); return; }
+        if (b.length() >= sizeof(next.mqttBroker)) return "Broker name too long.";
         strlcpy(next.mqttBroker, b.c_str(), sizeof(next.mqttBroker));
     }
     if (in["mqttPort"].is<int>()) {
         int p = in["mqttPort"];
-        if (p < 1 || p > 65535) { sendResult(client, 400, "Port must be 1-65535."); return; }
+        if (p < 1 || p > 65535) return "Port must be 1-65535.";
         next.mqttPort = p;
     }
     if (in["mqttUser"].is<const char*>()) {
         String u = in["mqttUser"].as<String>();
-        if (u.length() >= sizeof(next.mqttUser)) { sendResult(client, 400, "MQTT user too long."); return; }
+        if (u.length() >= sizeof(next.mqttUser)) return "MQTT user too long.";
         strlcpy(next.mqttUser, u.c_str(), sizeof(next.mqttUser));
     }
     if (in["mqttPass"].is<const char*>()) { // blank = keep
         String p = in["mqttPass"].as<String>();
-        if (p.length() >= sizeof(next.mqttPass)) { sendResult(client, 400, "MQTT password too long."); return; }
+        if (p.length() >= sizeof(next.mqttPass)) return "MQTT password too long.";
         if (p.length()) strlcpy(next.mqttPass, p.c_str(), sizeof(next.mqttPass));
     }
+    return nullptr;
+}
+
+static void handlePostConfig(NetworkClient &client, const Request &req) {
+    JsonDocument in;
+    if (deserializeJson(in, readBody(client, req.contentLength))) {
+        sendResult(client, 400, "Bad JSON.");
+        return;
+    }
+    SystemConfig next = config;
+    const char* error = applyConfigJson(in, next);
+    if (error) { sendResult(client, 400, error); return; }
 
     bool tzChanged = strcmp(next.tzPosix, config.tzPosix) != 0;
     bool networkChanged = next.ethDhcp != config.ethDhcp ||
@@ -358,17 +374,52 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
         applyTimeZone();
         setSyncProvider(getNtpTime); // re-syncs now (up to ~5 s) with the new rule
     }
-    if (networkChanged) {
-        // Margin for the settings write to commit and LittleFS to unmount
-        // before the reset (a restart too soon after a write once corrupted
-        // LittleFS; see mountLittleFSWithRecovery()).
-        client.flush();
-        client.stop();
-        delay(1500);
-        LittleFS.end();
-        delay(200);
-        ESP.restart();
+    if (networkChanged) restartAfterSave(client);
+}
+
+// ============================================================================
+// /api/setup: first-time setup, one form and one restart
+// ============================================================================
+// Only while no web login is set (a new or erased board); needs no login itself,
+// like setting the first login. Everything is checked before anything is saved.
+
+static void handleSetup(NetworkClient &client, const Request &req) {
+    if (loginSet()) { sendResult(client, 403, "Setup is already done: log in and use the tabs."); return; }
+    JsonDocument in;
+    if (deserializeJson(in, readBody(client, req.contentLength))) { sendResult(client, 400, "Bad JSON."); return; }
+
+    String user = in["user"] | "";
+    String pass = in["pass"] | "";
+    if (!validUser(user)) { sendResult(client, 400, "User: 1-31 letters, digits, . _ -"); return; }
+    if (pass.length() < 8 || pass.length() >= sizeof(config.webPass)) { sendResult(client, 400, "Password: 8-63 characters."); return; }
+
+    SystemConfig next = config;
+    const char* error = applyConfigJson(in, next);
+    if (error) { sendResult(client, 400, error); return; }
+    if (strcmp(next.nodeID, DEFAULT_NODE_ID) == 0) { sendResult(client, 400, "Choose a controller name other than " DEFAULT_NODE_ID "."); return; }
+
+    if (in["wifiSsid"].is<const char*>()) { // optional WiFi backup; empty = none
+        String ssid = in["wifiSsid"].as<String>();
+        String wpass = in["wifiPass"] | "";
+        if (ssid.length() > 32) { sendResult(client, 400, "WiFi name: up to 32 characters."); return; }
+        if (ssid.length() && wpass.length() && (wpass.length() < 8 || wpass.length() > 63)) { sendResult(client, 400, "WiFi password: 8-63 characters."); return; }
+        strlcpy(next.wifiSsid, ssid.c_str(), sizeof(next.wifiSsid));
+        strlcpy(next.wifiPass, ssid.length() ? wpass.c_str() : "", sizeof(next.wifiPass));
     }
+
+    strlcpy(next.webUser, user.c_str(), sizeof(next.webUser));
+    strlcpy(next.webPass, pass.c_str(), sizeof(next.webPass));
+    config = next;
+    saveSettings();
+    Serial.println("Setup page: settings saved, restarting.");
+    sdLogEvent("CONFIG", "source=web field=setup user=" + user + " node=" + String(config.nodeID));
+
+    JsonDocument out;
+    out["ok"] = true;
+    out["hostname"] = deviceHostname(); // from the new node ID
+    out["ip"] = config.ethDhcp ? String("") : config.ip.toString();
+    sendJson(client, 200, out);
+    restartAfterSave(client);
 }
 
 // ============================================================================
@@ -924,6 +975,7 @@ void handleNativeWebTraffic(NetworkClient &client) {
         else sendResult(client, 401, "Wrong user or password.");
     }
     else if (post && req.path == "/api/login") handleSetLogin(client, req);
+    else if (post && req.path == "/api/setup") handleSetup(client, req);
     else if (post && req.path == "/api/config") { if (requireLogin(client, req)) handlePostConfig(client, req); }
     else if (post && req.path == "/api/override") { if (requireLogin(client, req)) handleOverride(client, req); }
     else if (post && req.path == "/api/theme") { if (requireLogin(client, req)) handlePostTheme(client, req); }

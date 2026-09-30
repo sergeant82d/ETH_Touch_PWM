@@ -50,6 +50,10 @@ IPAddress localIP();
 
 // Device name: config.hostname, or made from the node ID ("fancontroller-01")
 String deviceHostname();
+// Last two MAC bytes as 4 hex digits ("87F8"): hotspot name, suggested node ID
+String macSuffix();
+// Milliseconds until the setup hotspot starts; -1 while it is on or a network works
+long hotspotStartsInMs();
 
 // WiFi settings saved: reconnect if WiFi is in use, re-register the name
 void wifiReconfigure();

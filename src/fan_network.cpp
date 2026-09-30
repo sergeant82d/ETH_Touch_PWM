@@ -148,12 +148,14 @@ static const unsigned long WIFI_OFF_AFTER_ETH_UP_MS = 60000;
 static const unsigned long HOTSPOT_AFTER_MS = 60000;
 static const unsigned long HOTSPOT_OFF_AFTER_MS = 30000;
 
-static String hotspotSsid() {
+String macSuffix() {
     uint64_t mac = ESP.getEfuseMac();
-    char buf[24];
-    snprintf(buf, sizeof(buf), "FanController-%02X%02X", (uint8_t)(mac >> 32), (uint8_t)(mac >> 40));
+    char buf[8];
+    snprintf(buf, sizeof(buf), "%02X%02X", (uint8_t)(mac >> 32), (uint8_t)(mac >> 40));
     return buf;
 }
+
+static String hotspotSsid() { return "FanController-" + macSuffix(); }
 
 // Radio mode from what is wanted right now
 static void applyWifiMode() {
@@ -199,6 +201,12 @@ bool isEthernetConnected() { return ETH.linkUp(); }
 bool isWifiConnected() { return staActive && WiFi.status() == WL_CONNECTED; }
 bool isHotspotActive() { return apActive; }
 bool isNetworkConnected() { return isEthernetConnected() || isWifiConnected(); }
+
+long hotspotStartsInMs() {
+    if (apActive || isNetworkConnected()) return -1;
+    unsigned long since = millis() - lastAnyUpMs;
+    return since >= HOTSPOT_AFTER_MS ? 0 : (long)(HOTSPOT_AFTER_MS - since);
+}
 
 const char* activeNetwork() {
     if (isEthernetConnected() && ETH.hasIP()) return "Ethernet";

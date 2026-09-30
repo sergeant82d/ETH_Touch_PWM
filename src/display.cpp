@@ -66,6 +66,8 @@ static int barsHeight() { return (FOOTER_Y - 6) - BARS_TOP; }
 // and refreshBarsOnly() no-op while this is true.
 static bool overlayOpen = false;
 static bool infoOpen = false;   // QR code info page (gear icon)
+static bool setupOpen = false;  // setup screen: shown while no web login is set
+static void updateSetupScreen();
 
 // Gauge scales now live in config (config.fanRpmGaugeMin/Max, config.tempGaugeMinF/MaxF)
 // so they're adjustable from the LCD settings menu, web page, and Home Assistant
@@ -358,10 +360,9 @@ static void drawTitleBar() {
 
     drawSdDot();
 
-    // Network status - second dot, right next to the SD one. Green if any
-    // network path is up (currently just Ethernet - see isNetworkConnected()
-    // for why), red if none are.
-    uint16_t netColor = isNetworkConnected() ? ST77XX_GREEN : ST77XX_RED;
+    // Network status - second dot, right next to the SD one. Green on Ethernet
+    // or WiFi, orange while only the setup hotspot is on, red with none.
+    uint16_t netColor = isNetworkConnected() ? ST77XX_GREEN : isHotspotActive() ? ST77XX_ORANGE : ST77XX_RED;
     screenMain.fillCircle(22, TITLE_H / 2, 4, netColor);
 
     // MQTT (Home Assistant) - third dot: green when connected, orange when
@@ -408,6 +409,8 @@ void displayInit() {
 
 void updateMainDashboardUI() {
     if (overlayOpen || infoOpen) return; // an overlay owns the screen while open - see handleTouchInput()
+    updateSetupScreen();
+    if (setupOpen) return;
 
     int cy = TITLE_H + 6;
 
@@ -528,7 +531,10 @@ void updateMainDashboardUI() {
 
     screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
     screenMain.fillRect(RIGHT_ZONE_X, FOOTER_Y, RIGHT_ZONE_W, 10, ST77XX_BLACK);
-    if (haveTime) {
+    if (isHotspotActive()) { // the IP on the left is the hotspot's: say so
+        screenMain.setTextColor(ST77XX_ORANGE, ST77XX_BLACK);
+        printCentered(RIGHT_ZONE_X, RIGHT_ZONE_W, FOOTER_Y, "Hotspot on", 1);
+    } else if (haveTime) {
         char dStr[12];
         snprintf(dStr, sizeof(dStr), "%04d/%02d/%02d", year(), month(), day());
         printCentered(RIGHT_ZONE_X, RIGHT_ZONE_W, FOOTER_Y, dStr, 1);
@@ -542,7 +548,7 @@ void updateMainDashboardUI() {
 // active-state flash actually read as a flash rather than crawling along
 // at the main dashboard's 2s refresh rate.
 void refreshBarsOnly() {
-    if (overlayOpen || infoOpen) return; // an overlay owns the screen while open
+    if (overlayOpen || infoOpen || setupOpen) return; // an overlay owns the screen while open
 
     drawFanRpmBars(LEFT_ZONE_X, BARS_TOP, LEFT_ZONE_W, barsHeight());
     drawTempProbeBars(RIGHT_ZONE_X, BARS_TOP, RIGHT_ZONE_W, barsHeight());
@@ -753,13 +759,102 @@ static void closeInfoPage() {
     refreshBarsOnly();
 }
 
-bool isOverlayOpen() { return overlayOpen || infoOpen; }
+// ============================================================================
+// SETUP SCREEN: while no web login is set (a new or erased board)
+// ============================================================================
+// Replaces the dashboard and says how to reach the web page's Setup tab: wait
+// for a network (hotspot countdown), join the hotspot, or open the address.
+// Redrawn when the network situation changes; a tap shows the dashboard, and
+// the screen comes back after 2 minutes without a touch. Added 2026-09-29.
+
+static const unsigned long SETUP_AWAY_MS = 120000;
+static unsigned long setupAwaySince = 0;   // last touch while the dashboard is shown instead
+static String setupDrawnFor;               // network situation the screen was drawn for
+
+static bool setupNeeded() { return config.webPass[0] == '\0'; }
+
+static void drawSetupScreen(const String &net) {
+    screenMain.fillScreen(ST77XX_BLACK);
+    screenMain.setFont(NULL);
+    screenMain.fillRect(0, 0, LCD_WIDTH, TITLE_H, ST77XX_BLUE);
+    screenMain.setTextColor(ST77XX_WHITE);
+    printCentered(0, LCD_WIDTH, 5, "New controller: setup", 2);
+    screenMain.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+    String ip = localIP().toString();
+    if (net == "Hotspot") {
+        String wifi = "WIFI:T:WPA;S:" + wifiEscape(activeNetworkName()) + ";P:" + wifiEscape(config.apPass) + ";;";
+        drawQr(wifi, 12, TITLE_H + 6, 136);
+        drawQr("http://" + ip + "/", LCD_WIDTH - 148, TITLE_H + 6, 136);
+        printCentered(0, LCD_WIDTH / 2, 172, "1 Join " + activeNetworkName(), 1);
+        printCentered(0, LCD_WIDTH / 2, 184, String("password ") + config.apPass, 1);
+        printCentered(LCD_WIDTH / 2, LCD_WIDTH / 2, 172, "2 Open " + ip, 1);
+        printCentered(LCD_WIDTH / 2, LCD_WIDTH / 2, 184, "(scan, or type it)", 1);
+        screenMain.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
+        printCentered(0, LCD_WIDTH, 202, "3 Fill in the Setup page", 1);
+    } else if (net == "None") {
+        printCentered(0, LCD_WIDTH, 60, "No network yet.", 2);
+        printCentered(0, LCD_WIDTH, 96, "Plug in Ethernet, or wait for", 1);
+        printCentered(0, LCD_WIDTH, 108, "the setup hotspot:", 1);
+        printCentered(0, LCD_WIDTH, 150, "FanController-" + macSuffix(), 1);
+        printCentered(0, LCD_WIDTH, 162, String("password ") + config.apPass, 1);
+    } else {
+        drawQr("http://" + ip + "/", 12, TITLE_H + 10, 176);
+        int tx = 196, tw = LCD_WIDTH - tx - 4;
+        printCentered(tx, tw, 54, "Open", 1);
+        printCentered(tx, tw, 70, ip, 1);
+        printCentered(tx, tw, 86, "or", 1);
+        printCentered(tx, tw, 102, deviceHostname() + ".local", 1);
+        printCentered(tx, tw, 118, "(" + net + ")", 1);
+        screenMain.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
+        printCentered(tx, tw, 146, "then fill in the", 1);
+        printCentered(tx, tw, 158, "Setup page", 1);
+    }
+    screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+    printCentered(0, LCD_WIDTH, LCD_HEIGHT - 16, "Tap for the dashboard (fans run as usual)", 1);
+}
+
+// Called every 2 s from updateMainDashboardUI(): opens, redraws or keeps the screen
+static void updateSetupScreen() {
+    if (!setupNeeded()) { setupOpen = false; return; }
+    if (!setupOpen) {
+        if (setupAwaySince && millis() - setupAwaySince < SETUP_AWAY_MS) return;
+        setupOpen = true;
+        setupDrawnFor = "";
+    }
+    String net = activeNetwork();
+    String key = net + " " + localIP().toString();
+    if (key != setupDrawnFor) {
+        drawSetupScreen(net);
+        setupDrawnFor = key;
+    }
+    long wait = hotspotStartsInMs();
+    if (net == "None") { // countdown line, redrawn in place
+        screenMain.fillRect(0, 124, LCD_WIDTH, 16, ST77XX_BLACK);
+        screenMain.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
+        printCentered(0, LCD_WIDTH, 128, wait > 0 ? "starts in " + String((wait + 999) / 1000) + " s" : "starting...", 1);
+    }
+}
+
+bool isOverlayOpen() { return overlayOpen || infoOpen || setupOpen; }
 
 void handleTouchInput() {
     static bool wasPressed = false;
 
     int tx, ty;
     bool pressed = getTouchPoint(tx, ty);
+
+    if (setupOpen) {
+        if (pressed && !wasPressed) {
+            setupOpen = false;
+            setupAwaySince = millis();
+            screenMain.fillScreen(ST77XX_BLACK);
+            updateMainDashboardUI();
+            refreshBarsOnly();
+        }
+        wasPressed = pressed;
+        return;
+    }
+    if (pressed && setupNeeded()) setupAwaySince = millis(); // still using the dashboard
 
     if (infoOpen) {
         // Any tap closes the info page; so does 60 s without one

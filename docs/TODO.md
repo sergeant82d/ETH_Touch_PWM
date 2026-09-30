@@ -56,23 +56,32 @@ How this list works (agreed 2026-09-28):
 - [ ] `[Question]` What is the impact of moving to native ESP-IDF, still in VS Code and
       PlatformIO? (your note, 2026-09-28)
 
-- [ ] `[Board]` W5500 Lite build: fans (PWM 6 / tach 16, PWM 2 / tach 4) and DS18B20 (GPIO 17)
-      UNTESTED, nothing connected yet (2026-09-29)
+- [ ] `[Board]` W5500 Lite build: fans (PWM 6 / tach 16, PWM 2 / tach 4) UNTESTED, nothing
+      connected yet; DS18B20 on GPIO 17 reads (new board F924, 2026-09-29) (2026-09-29)
 - [ ] `[Board]` Boot log on the Touch-LCD-2 shows "GPIO isr service already installed" and one
-      I2C read error (touch bus) at ~4 s; touch works. Look into it (2026-09-29)
-- [ ] `[Web]` **First-time setup page** (your go-ahead, 2026-09-29): shown while the board is
-      new; one form (login, node ID + MQTT, fans, network), one Save, one restart, then says
-      where to find the page. Fixes the rough spots in `docs/SETUP.md`:
-      - no Save works until a login is set, and the login is on the last tab
-      - every Save reloads all forms and wipes other panels' unsaved fields; no unsaved warning
-      - the `.local` name follows the node ID only from the next restart or WiFi-tab save
-      - the Ethernet save restarts the board and moves the page (DHCP: address unknown)
-      - the hotspot turns off 30 s after a network works and drops the phone, no warning
-      - the HA automation topic has to be edited by hand per board
-      The second and third are worth fixing on the normal tabs too (2026-09-29)
+      I2C read error (touch bus) at ~4 s; touch works. Look into it. Seen on both Lite boards, so it's the firmware (2026-09-29)
+
+- [ ] `[Web]` Normal tabs: each Save reloads every form and wipes other panels' unsaved
+      fields; no unsaved-changes warning. A node ID change reaches the `.local` name only at the
+      next restart or WiFi-tab save (from `docs/SETUP.md`, 2026-09-29)
+- [ ] `[Web]` Factory reset on the System tab (login + type RESET): settings back to factory,
+      theme/notes/SD kept, restart into setup. Wifi_Fan_Knob has one (2026-09-29)
+- [ ] `[LCD]` Touch is sporadic on the new boards (user, 2026-09-29); see also the touch
+      mapping item above (2026-09-29)
+- [ ] `[Net]` After an Ethernet link drop and return (cable bumped), the board got no new DHCP
+      address and fell back to the hotspot. Test: unplug a few seconds, plug back (2026-09-29)
+- [ ] `[SD]` A failing card (knock-off) makes each SD retry block loop() up to ~0.5 s; the web
+      page stalls ("Failed to fetch") during a run of them (2026-09-29)
+- [ ] `[LCD]` Setup screen: "no network" countdown and hotspot views UNTESTED; the hotspot
+      turns off 30 s after a network works and drops a phone mid-setup (2026-09-29)
 
 ## Done
 
+- [x] `[Web]` First-time setup page: Setup tab while no login is set (name and login,
+      network and time, fans, Home Assistant optional), one Save, one restart, then it says
+      where the board is; unique suggested name from the MAC; login button hidden until a
+      login exists. LCD setup screen with QR codes; hotspot shown on the LCD (orange dot,
+      "Hotspot on"). Used by the user on both Lite boards (2026-09-29, this commit)
 - [x] `[Docs]` `docs/SETUP.md`: setting up a new board, step by step as the firmware needs it
       today, with the rough spots (your note, 2026-09-29, this commit)
 - [x] `[Board]` Third build `waveshare_s3_lcd2_lite`: Touch-LCD-2 + W5500 Lite on your pins.

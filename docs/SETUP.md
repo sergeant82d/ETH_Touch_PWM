@@ -1,94 +1,62 @@
 # Setting up a new board
 
-Written 2026-09-29 from the code as it is now (firmware `59d3b9b`). It describes what the
-firmware requires today, not how it should be; the rough spots are listed at the end.
-Flashing: `docs/BOARDS.md`. Home Assistant details: `docs/MQTT.md`.
+Updated 2026-09-29 for the Setup page (first written the same day, when setup meant visiting
+five tabs). Flashing: `docs/BOARDS.md`. Home Assistant details: `docs/MQTT.md`.
 
 ## What a new (or erased) board starts with
 
 | Setting | Factory value | Effect |
 |---|---|---|
-| Web login | none | The page can be viewed, but **every change is refused** until a login is set |
-| Ethernet | DHCP | The router picks the address; nobody knows it yet |
-| Node ID | `fanController_xx` | **MQTT stays off** while it is this |
-| Device name | from the node ID: `fancontroller-xx.local` | Follows the node ID (from the next restart or WiFi-tab save) |
-| Fans | 1 | Fan 2 has to be ticked |
-| Time zone | America/Chicago | |
+| Web login | none | The **Setup page** opens; every other change is refused until setup is saved |
+| Ethernet | DHCP | The router picks the address |
+| Node ID (controller name) | `fanController_xx` | The Setup page suggests `fanController_<last 4 MAC digits>` |
+| MQTT (Home Assistant) | off | Ticked on the Setup page if wanted |
+| Fans | 1 | |
+| Time zone | America/Chicago | The Setup page suggests the browser's time zone |
 | WiFi backup | none | |
-| Setup hotspot | `FanController-XXXX`, password `12345678` | Starts after 60 s with no Ethernet or WiFi |
+| Setup hotspot | `FanController-<last 4 MAC digits>`, password `12345678` | Starts after 60 s with no Ethernet or WiFi |
 
-A board flashed over an older version of this firmware keeps its settings instead (they
-upgrade in place); only a new or erased board starts from this table.
+The factory values for the broker (192.168.10.85) and the static-address fields come from
+the original Arduino sketch and match the author's network; an erase can't remove them.
+A board flashed over an older version of this firmware keeps its settings (they upgrade in
+place); only a new or erased board starts from this table.
 
-## Steps, in the order that causes the fewest reconnects
-
-The Network tab is last because it is the only save that restarts the board and moves the page.
-**Fill in one panel and press its Save before you type into the next one:** every Save reloads
-all the forms from the board, which wipes anything typed but not yet saved in other panels.
+## Steps
 
 1. **Connect and power.** Plug in the Ethernet cable before powering up. Use external power:
    the Touch-LCD-2 locks up on PC USB power with the LCD, Ethernet and SD running.
-2. **Find the address.**
-   - Touch-LCD-2: the IP is in the bottom-left corner of the LCD. Tap the gear icon for a QR
-     code of the page.
-   - Or open `http://fancontroller-xx.local` (most PCs and iPhones; many Android phones can't
-     open .local names).
-   - No Ethernet: after 60 s the board starts the hotspot. Join `FanController-XXXX`
-     (password `12345678`) and open `http://192.168.4.1`. See the note below before using it.
-3. **System tab > Web login:** set a user and password (8+ characters). You are logged in at
-   once. Nothing else can be saved before this.
-4. **Home Assistant tab > MQTT:** node ID (e.g. `fanController_02`), broker, port, MQTT
-   user and password > Save. MQTT starts without a restart, and the Status panel should show
-   "Connected". The device name will follow the new node ID (e.g. `fancontroller-02.local`),
-   but only from the next restart or WiFi-tab save; until then the old name still works.
-5. **Fan Control tab:** tick the fans that are connected, pick °F/°C, set the fan curve
-   start/top > Save (one Save for the whole tab).
-6. **WiFi tab** (optional):
-   - Backup WiFi network (scan, pick, password) > Save.
-   - WiFi address (DHCP or static) > Save.
-   - Device name, if you don't want the one made from the node ID > Save.
-   - Setup hotspot: change the `12345678` password > Save.
+2. **Follow the LCD.** While no login is set, the LCD shows a setup screen instead of the
+   dashboard (a tap shows the dashboard; the screen comes back after 2 minutes):
+   - *No network yet:* a countdown to the setup hotspot, with its name and password.
+   - *Hotspot on:* QR 1 joins the hotspot, QR 2 opens `http://192.168.4.1`.
+   - *On Ethernet or WiFi:* a QR code of the page's address, plus the IP and `.local` name.
 
-   Each panel has its own Save; nothing here restarts the board.
-7. **Network tab:**
-   - Time: time zone and 12/24 h > Save. No restart.
-   - Ethernet address: DHCP or static IP > Save. **Only if it changes, the board restarts**
-     and the page reopens itself at the new address after 10 s (by IP for static, by
-     `.local` name for DHCP).
-8. **Home Assistant (in HA):**
-   - The device and its entities appear by themselves once MQTT is connected.
-   - Add the network-temperature automation from `docs/MQTT.md`, with this board's node ID in
-     the topic (`<nodeID>/network_temp/set`), or add a second `mqtt.publish` action to the
-     existing automation.
-   - Until that runs, the page shows "No value from HA" and HA reports "Fault network probe".
-     Right after a restart that is normal for a minute or so.
-9. **Check:** the Dashboard shows temperatures and fan RPM; the sidebar shows Ethernet, MQTT
+   The ESP32-S3-ETH has no LCD: find it in the router, or at `http://fancontroller-xx.local`.
+3. **Fill in the Setup tab** (it opens by itself) and press **Save and restart**:
+   1. *Name and login:* the controller name (shown on the LCD and the page, gives the
+      `.local` address, names it in Home Assistant) and the web login.
+   2. *Network and time:* Ethernet DHCP or static, an optional backup WiFi (Scan networks),
+      time zone, 12/24 h.
+   3. *Fans:* how many are connected, °F or °C.
+   4. *Home Assistant (optional):* tick it for the MQTT broker and login.
+
+   The controller restarts once. The page says where to find it and moves there after 20 s
+   (by IP for static, by `.local` name for DHCP). On the hotspot it says to rejoin the normal
+   network first. Log in there with the new login.
+4. **Afterwards, on the tabs:** the fan curve (Fan Control), the WiFi address, device name and
+   hotspot password (WiFi), theme (System). Each panel has its own Save.
+5. **Home Assistant (in HA):** the device appears by itself once MQTT is connected. Add the
+   network-temperature automation from `docs/MQTT.md` with the controller name in the topic
+   (`<name>/network_temp/set`; the Setup page shows it). Until it runs, the page shows "No
+   value from HA", which is normal for a minute or so after a restart.
+6. **Check:** the Dashboard shows temperatures and fan RPM; the sidebar shows Ethernet, MQTT
    connected and the SD card; the LCD dots are green.
 
-**Setting up over the hotspot:** it turns itself off 30 s after Ethernet or WiFi starts
-working. The phone then loses the page, often in the middle of a step. Over the hotspot, set
-only what gets the board onto a network (the login, then WiFi or the Ethernet address). Do the
-rest from a PC on the normal network.
+## Still rough (TODO.md)
 
-## Rough spots (why it feels disjointed)
-
-Found while writing this down; candidates for `TODO.md`, nothing changed yet.
-
-1. **Login first, on the last tab.** A new board refuses every Save until a login is set on
-   the System tab, and only the login dialog says so, after the first refused Save. The page
-   could open the login panel by itself while no login is set.
-2. **Settings are spread over five tabs with ten separate Save buttons, and each Save wipes
-   the others' unsaved fields** (after a save the page reloads every form from the board).
-   Nothing warns about unsaved fields (the Notes box has a warning; the forms don't).
-3. **The node ID quietly renames the device later.** The `.local` name follows the node ID,
-   but only from the next restart or WiFi-tab save, so the name changes at an unexpected
-   moment (for example when the Ethernet save restarts the board).
-4. **The Ethernet change restarts the board and moves the page.** With DHCP the new address
-   is unknown until the LCD shows it or `.local` resolves.
-5. **The hotspot drops the phone** 30 s after a network works (see above), with no message
-   on the page first.
-6. **The Home Assistant side is manual:** the automation's topic has to be edited per board.
-
-One way to fix most of it: a **setup page** shown while the board is new, with one form
-(login, node ID and MQTT, fans, network) and one Save. The board would restart once at the
-end, and the page would say where to find it next.
+- On the normal tabs, each Save reloads every form, which wipes other panels' unsaved fields,
+  and nothing warns about unsaved fields.
+- A node ID change on the Home Assistant tab changes the `.local` name only from the next
+  restart or WiFi-tab save.
+- The hotspot turns itself off 30 s after a network works, which drops a phone mid-step.
+- No factory reset on the web page yet (only the USB erase, `docs/BOARDS.md`).

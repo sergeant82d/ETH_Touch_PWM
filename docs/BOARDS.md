@@ -5,7 +5,7 @@ One firmware, three builds, picked by the PlatformIO environment. Pins: `include
 | | Waveshare ESP32-S3-Touch-LCD-2 | Touch-LCD-2 + W5500 Lite | Waveshare ESP32-S3-ETH |
 |---|---|---|---|
 | Environment | `waveshare_s3_lcd2` (default) | `waveshare_s3_lcd2_lite` | `waveshare_s3_eth` (`-e waveshare_s3_eth`) |
-| Unit | fan_controller_02, 192.168.10.54 | (new LCD board, COM8) | fan_controller_01, 192.168.10.53, COM10 |
+| Unit | fan_controller_02, 192.168.10.54 | Fan_Controller_02 (COM8, MAC ..F8:84); fanController_F924 (COM9, MAC ..F9:24) | fan_controller_01, 192.168.10.53, COM10 |
 | Chip (esptool, 2026-09-27) | | | ESP32-S3 rev 0.2, 8 MB embedded PSRAM (R8, octal), 16 MB quad flash, USB-Serial/JTAG |
 | W5500 | external module: SCK 12, MOSI 13, MISO 14, CS 11, INT 10, RST 9 | W5500 Lite on the right header: MOSI 9, SCK 14, CS 12, INT 11, RST 13, MISO 15 (board pins 12-7; GND 13, 3V3 1) | onboard: MOSI 11, MISO 12, SCK 13, CS 14, INT 10, RST 9 |
 | Fan 1 PWM / tach | GPIO 2 / 4 | GPIO 6 / 16 | GPIO 1 / 2 |
