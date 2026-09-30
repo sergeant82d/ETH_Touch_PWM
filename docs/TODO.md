@@ -19,9 +19,6 @@ How this list works (agreed 2026-09-28):
 
 ## Open
 
-- [ ] `[Board]` **Pin remap** on the Touch-LCD-2 (PWM2 = GPIO 6, TACH1 = GPIO 4, TACH2 = GPIO 16)
-      was never tested: check the wiring matches before its first flash. May be replaced by
-      the W5500 Lite board build below (2026-09-27)
 - [ ] `[Board]` Touch-LCD-2: first flash of the current firmware and the checks in CLAUDE.md's
       success criteria, incl. the settings upgrade from version 4, the LCD override path and
       NTP (works on the ESP32-S3-ETH) (2026-09-27)
@@ -34,12 +31,6 @@ How this list works (agreed 2026-09-28):
 - [ ] `[Net]` Setup hotspot and a static WiFi address: not yet tried on a board (2026-09-27)
 - [ ] `[Web]` "Socket health" from the Claude web plans: no spec yet (the other web plan items are
       done; "shared network backup" dropped by the user 2026-09-28) (2026-09-27)
-- [ ] `[LCD]` QR code page: tap the gear icon to show a QR code of the board's address (IP, as
-      Android often can't open .local) and, while the hotspot is on, one to join it. Code done
-      2026-09-28 (ricmoo/QRCode 0.0.1; tap anywhere or 60 s closes it); compiles, UNTESTED:
-      needs the Touch-LCD-2. Your note (2026-09-28) asks to borrow from Wifi_Fan_Knob: its QR
-      page was ported from this one (LVGL widget there, Adafruit GFX here), so nothing to
-      borrow back unless the LCD moves to LVGL (2026-09-28)
 
 - [ ] `[Web]` Node ID in the page's top left corner: underscores to spaces as on the LCD title
       bar, in Title Case; board name unchanged (your note, 2026-09-28)
@@ -66,8 +57,9 @@ How this list works (agreed 2026-09-28):
       next restart or WiFi-tab save (from `docs/SETUP.md`, 2026-09-29)
 - [ ] `[Web]` Factory reset on the System tab (login + type RESET): settings back to factory,
       theme/notes/SD kept, restart into setup. Wifi_Fan_Knob has one (2026-09-29)
-- [ ] `[LCD]` Touch is sporadic on the new boards (user, 2026-09-29); see also the touch
-      mapping item above (2026-09-29)
+- [ ] `[LCD]` Touch is sporadic on the new boards (user, 2026-09-29), incl. opening the QR
+      page with the gear icon (works once open, but reaching it is unreliable); see also the
+      touch mapping item above (2026-09-29)
 - [ ] `[Net]` After an Ethernet link drop and return (cable bumped), the board got no new DHCP
       address and fell back to the hotspot. Happened twice on the F924 board (COM9) the same
       evening; the second time with no known bump, MQTT "Host is unreachable" until reset.
@@ -82,6 +74,10 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` QR code page (gear icon): the QR codes scan on the W5500 Lite boards (user,
+      2026-09-29, `4026820`). Opening it by touch is unreliable: in the touch item
+- [x] `[Board]` Pin remap for the original Touch-LCD-2 build (PWM2 6, TACH1 4, TACH2 16):
+      closed by the user, replaced by the W5500 Lite build `59d3b9b` (2026-09-29)
 - [x] `[Web]` LCD view: the °F/°C label on the Manual Control button sat above the button's
       border (your note). Fixed itself; archived, cause unknown (2026-09-29)
 - [x] `[Web]` First-time setup page: Setup tab while no login is set (name and login,
