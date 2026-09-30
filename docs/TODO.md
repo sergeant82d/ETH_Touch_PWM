@@ -12,7 +12,7 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-- `[Web]` LCD View - the "F" label for the temperature scale that is on the button, raises up out of the button border. I am running the board with no peripherals, just the Dev Board/display/MCU, so it is displaying "CRIT!" instead of the temperature, as it should. Just the "F" moved up. It is the same for the Celcius "C".
+(empty)
 
 
 
@@ -82,6 +82,8 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Web]` LCD view: the °F/°C label on the Manual Control button sat above the button's
+      border (your note). Fixed itself; archived, cause unknown (2026-09-29)
 - [x] `[Web]` First-time setup page: Setup tab while no login is set (name and login,
       network and time, fans, Home Assistant optional), one Save, one restart, then it says
       where the board is; unique suggested name from the MAC; login button hidden until a
