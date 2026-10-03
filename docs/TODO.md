@@ -12,10 +12,9 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-(empty)
+- `[Web]` Manual Override slider does not change speed
 
-
-
+- `[LCD]` Need to move the clock and main temperature display UP a very small amount, maybe 1/2/3 pixels, but enough to clear the top of the Manual Control button
 
 ## Open
 
