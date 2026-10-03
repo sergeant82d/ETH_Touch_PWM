@@ -1,0 +1,314 @@
+The ST7789 display driver running at a 320x240 resolution is actually quite sharp for its physical size! At this resolution, a 16x16 pixel icon is tiny but perfectly readable if you use high-contrast, pure-color shapes without anti-aliasing.
+For ST7789 displays, icons are typically uploaded directly into microcontroller firmware (like Arduino, ESP32, or Raspberry Pi Pico) as a C array hexadecimal bitmap. Since the ST7789 natively uses RGB565 (16-bit color), you can make these icons 1-bit monochome (saving RAM) and let your graphics library assign the foreground and background colors dynamically.
+Here are the optimal 16x16 pixel grid mappings and ready-to-use C code bitmaps for both icons.
+------------------------------
+## 1. Wi-Fi Icon (16x16 Pixel Grid)
+This layout replaces smooth curves with distinct 1-pixel horizontal bars and angular stepped edges, ensuring maximum clarity on the ST7789.
+
+Row 00:  . . 1 1 1 1 1 1 1 1 1 1 1 1 . .
+Row 01:  . 1 1 . . . . . . . . . . 1 1 .
+Row 02:  1 1 . . . . . . . . . . . . 1 1
+Row 03:  . . . . 1 1 1 1 1 1 1 1 . . . .
+Row 04:  . . . 1 1 . . . . . . 1 1 . . .
+Row 05:  . . . . . . . . . . . . . . . .
+Row 06:  . . . . . 1 1 1 1 1 1 . . . . .
+Row 07:  . . . . 1 1 . . . . 1 1 . . . .
+Row 08:  . . . . . . . . . . . . . . . .
+Row 09:  . . . . . . . 1 1 . . . . . . .
+Row 10:  . . . . . . 1 1 1 1 . . . . . .
+Row 11:  . . . . . . 1 1 1 1 . . . . . .
+Row 12:  . . . . . . . 1 1 . . . . . . .
+Row 13:  . . . . . . . . . . . . . . . .
+Row 14:  . . . . . . . . . . . . . . . .
+Row 15:  . . . . . . . . . . . . . . . .
+
+------------------------------
+## 2. Ethernet Icon (16x16 Pixel Grid)
+This layout uses the RJ45 plug profile, which is significantly easier to see at 16x16 pixels than a complex network topology diagram.
+
+Row 00:  . . . . 1 1 1 1 1 1 1 1 . . . .
+Row 01:  . . . 1 1 1 1 1 1 1 1 1 1 . . .
+Row 02:  . . . 1 1 1 1 1 1 1 1 1 1 . . .
+Row 03:  . . . 1 1 . 1 . 1 . 1 1 1 . . .
+Row 04:  . . . 1 1 . 1 . 1 . 1 1 1 . . .
+Row 05:  . . 1 1 1 1 1 1 1 1 1 1 1 1 . .
+Row 06:  . . 1 1 1 1 1 1 1 1 1 1 1 1 . .
+Row 07:  . . . . . . 1 1 1 1 . . . . . .
+Row 08:  . . . . . . 1 1 1 1 . . . . . .
+Row 09:  . . . . . . 1 1 1 1 . . . . . .
+Row 10:  . . . . . 1 1 1 1 1 1 . . . . .
+Row 11:  . . . . 1 1 1 . . 1 1 1 . . . .
+Row 12:  . . . 1 1 1 . . . . 1 1 1 . . .
+Row 13:  . . 1 1 1 . . . . . . 1 1 1 . .
+Row 14:  . 1 1 1 . . . . . . . . 1 1 1 .
+Row 15:  1 1 1 . . . . . . . . . . 1 1 1
+
+------------------------------
+## C-Code Bitmaps for Your Firmware
+These arrays are encoded as standard 1-bit monochome data (2 bytes per row). They are fully compatible with common ST7789 libraries like Adafruit_GFX or TFT_eSPI.
+
+// 16x16 Wi-Fi Icon Bitmap (Hexadecimal)const unsigned char bitmap_wifi_16x16[] PROGMEM = {
+    0x3F, 0xFC,  // ..111111 111111..
+    0x60, 0x06,  // .11..... ......11.
+    0xC0, 0x03,  // 11...... ......11
+    0x0F, 0xF0,  // ....1111 1111....
+    0x18, 0x18,  // ...11... ...11...
+    0x00, 0x00,  // ........ ........
+    0x07, 0xE0,  // .....111 111.....
+    0x0C, 0x30,  // ....11.. ..11....
+    0x00, 0x00,  // ........ ........
+    0x01, 0x80,  // .......1 1.......
+    0x03, 0xC0,  // ......11 11......
+    0x03, 0xC0,  // ......11 11......
+    0x01, 0x80,  // .......1 1.......
+    0x00, 0x00,  // ........ ........
+    0x00, 0x00,  // ........ ........
+    0x00, 0x00   // ........ ........
+};
+// 16x16 Ethernet Icon Bitmap (Hexadecimal)const unsigned char bitmap_ethernet_16x16[] PROGMEM = {
+    0x0F, 0xF0,  // ....1111 1111....
+    0x1F, 0xF8,  // ...11111 11111...
+    0x1F, 0xF8,  // ...11111 11111...
+    0x1A, 0x58,  // ...11.1. 1.111...
+    0x1A, 0x58,  // ...11.1. 1.111...
+    0x3F, 0xFC,  // ..111111 111111..
+    0x3F, 0xFC,  // ..111111 111111..
+    0x03, 0xC0,  // ......11 11......
+    0x03, 0xC0,  // ......11 11......
+    0x03, 0xC0,  // ......11 11......
+    0x07, 0xE0,  // .....111 111.....
+    0x0E, 0x70,  // ....111. .111....
+    0x1C, 0x38,  // ...111.. ..111...
+    0x38, 0x1C,  // ..111... ...111..
+    0x70, 0x0E,  // .111.... ....111.
+    0xE0, 0x07   // 111..... .....111
+};
+
+## How to Draw Them (Adafruit_GFX / TFT_eSPI Example)
+To render these efficiently on your screen without flickering, use your library's standard bitmap function. You can explicitly assign any color combination you want:
+
+// Arguments: drawBitmap(x_pos, y_pos, bitmap_array, width, height, foreground_color, background_color);// Example: Drawing a green Wi-Fi icon at the top right of the screen (x=300, y=5)
+
+tft.drawBitmap(300, 5, bitmap_wifi_16x16, 16, 16, TFT_GREEN, TFT_BLACK);
+
+
+
+
+
+Here are 16x16 pixel grid designs optimized for low-resolution screens. At this scale, every pixel counts, so these layouts use clean, high-contrast monochrome spacing (where █ represents an active pixel and . is blank space).
+## 📶 Wi-Fi Icon
+Standard radiating signal arcs.
+
+. . . █ █ █ █ █ █ . . . . . . .
+. . █ . . . . . . █ . . . . . .
+. █ . . █ █ █ █ . . █ . . . . .
+█ . . █ . . . . █ . . █ . . . .
+. . █ . . █ █ . . █ . . . . . .
+. . . . █ . . █ . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## 🧭 Hotspot Icon
+A central connection point radiating external broadcast rings.
+
+. . . . . █ █ █ . . . . . . . .
+. . . . █ . . . █ . . . . . . .
+. . . █ . . █ . . █ . . . . . .
+. . █ . . █ █ █ . . █ . . . . .
+. █ . . █ █ █ █ █ . . █ . . . .
+. . █ . . █ █ █ . . █ . . . . .
+. . . █ . . █ . . █ . . . . . .
+. . . . █ . . . █ . . . . . . .
+. . . . . █ █ █ . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## 🔌 Ethernet Icon
+A classic LAN ports/connector silhouette with three base terminal points.
+
+. . . . . █ █ █ █ . . . . . . .
+. . . . █ . . . . █ . . . . . .
+. . . . █ . █ █ . █ . . . . . .
+. . . . █ █ █ █ █ █ . . . . . .
+. . . . . . █ █ . . . . . . . .
+. . . . . . █ █ . . . . . . . .
+. █ █ █ █ █ █ █ █ █ █ █ █ . . .
+. █ . . . . █ █ . . . . █ . . .
+. █ . █ █ . █ █ . █ █ . █ . . .
+. █ █ █ █ █ █ █ █ █ █ █ █ . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## ⚡ Bluetooth Icon
+The traditional geometric rune shape with sharp angles.
+
+. . . . . █ . . . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . █ . . █ . █ . . . . . . . .
+. . . █ . █ . . █ . . . . . . .
+. . . . █ █ . █ . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . . . █ █ . █ . . . . . . . .
+. . . █ . █ . . █ . . . . . . .
+. . █ . . █ . █ . . . . . . . .
+. . . . . █ █ . . . . . . . . .
+. . . . . █ . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## 💾 SD Card Icon
+Angled top-right corner with distinct metal pin cutouts on top.
+
+. . █ █ █ █ █ █ █ . . . . . . .
+. . █ █ █ █ █ █ █ █ . . . . . .
+. . █ . █ . █ . █ █ . . . . . .
+. . █ . █ . █ . █ █ . . . . . .
+. . █ █ █ █ █ █ █ █ . . . . . .
+. . █ . . . . . . █ . . . . . .
+. . █ . . . . . . █ . . . . . .
+. . █ . . . . . . █ . . . . . .
+. . █ . . . . . . █ . . . . . .
+. . █ █ █ █ █ █ █ █ . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+. . . . . . . . . . . . . . . .
+
+## Design Notes for Low-Res Layouts
+
+* Anti-Aliasing: If your hardware display supports color/grayscale gradients, using half-opacity pixels on corners will soften the harsh blocks. For absolute raw screens (like OLED/LCD matrices or microcontrollers), stick strictly to binary on/off.
+* Padding: Each layout preserves a minimal 1-2 pixel margin buffer to prevent icons from visually bleeding into adjacent text characters or neighboring UI containers.
+
+If you would like, I can write a script to compile these matrices into HEX arrays or a single PNG image file. Let me know what your target platform needs!
+
+
+
+
+Here are the hexadecimal arrays for your 16x16 pixel icons, formatted for immediate use in microcontrollers (like Arduino, ESP32, or STM32) running display libraries such as Adafruit_GFX or U8g2.
+Each icon is encoded in 1-bit monochrome (PROGMEM) format, where 1 represents an active pixel and 0 represents a blank pixel. Each row of 16 pixels is exactly 2 bytes (16 bits) of data.
+
+// 16x16 Wi-Fi Iconconst unsigned char bitmap_wifi[] PROGMEM = {
+  0x1F, 0x80, // . . . █ █ █ █ █ █ . . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x4F, 0x20, // . █ . . █ █ █ █ . . █ . . . . .
+  0x89, 0x10, // █ . . █ . . . . █ . . █ . . . .
+  0x36, 0x00, // . . █ . . █ █ . . █ . . . . . .
+  0x09, 0x00, // . . . . █ . . █ . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+// 16x16 Hotspot Iconconst unsigned char bitmap_hotspot[] PROGMEM = {
+  0x07, 0x00, // . . . . . █ █ █ . . . . . . . .
+  0x08, 0x80, // . . . . █ . . . █ . . . . . . .
+  0x12, 0x40, // . . . █ . . █ . . █ . . . . . .
+  0x27, 0x20, // . . █ . . █ █ █ . . █ . . . . .
+  0x4F, 0x10, // . █ . . █ █ █ █ █ . . █ . . . .
+  0x27, 0x20, // . . █ . . █ █ █ . . █ . . . . .
+  0x12, 0x40, // . . . █ . . █ . . █ . . . . . .
+  0x08, 0x80, // . . . . █ . . . █ . . . . . . .
+  0x07, 0x00, // . . . . . █ █ █ . . . . . . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+// 16x16 Ethernet Iconconst unsigned char bitmap_ethernet[] PROGMEM = {
+  0x07, 0x80, // . . . . . █ █ █ █ . . . . . . .
+  0x08, 0x40, // . . . . █ . . . . █ . . . . . .
+  0x0D, 0x40, // . . . . █ . █ █ . █ . . . . . .
+  0x0F, 0xC0, // . . . . █ █ █ █ █ █ . . . . . .
+  0x03, 0x00, // . . . . . . █ █ . . . . . . . .
+  0x03, 0x00, // . . . . . . █ █ . . . . . . . .
+  0x7F, 0xF8, // . █ █ █ █ █ █ █ █ █ █ █ █ . . .
+  0x43, 0x08, // . █ . . . . █ █ . . . . █ . . .
+  0x5B, 0x68, // . █ . █ █ . █ █ . █ █ . █ . . .
+  0x7F, 0xF8, // . █ █ █ █ █ █ █ █ █ █ █ █ . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+// 16x16 Bluetooth Iconconst unsigned char bitmap_bluetooth[] PROGMEM = {
+  0x04, 0x00, // . . . . . █ . . . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x25, 0x00, // . . █ . . █ . █ . . . . . . . .
+  0x14, 0x80, // . . . █ . █ . . █ . . . . . . .
+  0x0E, 0x00, // . . . . █ █ . █ . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x0E, 0x00, // . . . . █ █ . █ . . . . . . . .
+  0x14, 0x80, // . . . █ . █ . . █ . . . . . . .
+  0x25, 0x00, // . . █ . . █ . █ . . . . . . . .
+  0x06, 0x00, // . . . . . █ █ . . . . . . . . .
+  0x04, 0x00, // . . . . . █ . . . . . . . . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+// 16x16 SD Card Iconconst unsigned char bitmap_sd_card[] PROGMEM = {
+  0x3F, 0x80, // . . █ █ █ █ █ █ █ . . . . . . .
+  0x3F, 0xC0, // . . █ █ █ █ █ █ █ █ . . . . . .
+  0x2A, 0xC0, // . . █ . █ . █ . █ █ . . . . . .
+  0x2A, 0xC0, // . . █ . █ . █ . █ █ . . . . . .
+  0x3F, 0xC0, // . . █ █ █ █ █ █ █ █ . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x20, 0x40, // . . █ . . . . . . █ . . . . . .
+  0x3F, 0xC0, // . . █ █ █ █ █ █ █ █ . . . . . .
+  0x00, 0x00, // Blank / Padding
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00,
+  0x00, 0x00
+};
+
+## Implementation Tips
+
+* Adafruit_GFX: Draw these using display.drawBitmap(x, y, bitmap_name, 16, 16, COLOR);.
+* U8g2: Draw these using u8g2.drawXBMP(x, y, 16, 16, bitmap_name);. (Note: If your library uses standard XBMP format, the bits within each byte may need to be reversed. Let me know if the output looks jumbled, and I can flip the bit-endianness for you.)
+
+Would you like me to convert these into a different structure, such as RGB565 hex arrays for color TFT displays, or adjust the bit-endianness for a specific display library?
+
+
+
+
+
+
