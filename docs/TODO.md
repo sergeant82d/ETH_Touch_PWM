@@ -53,14 +53,9 @@ How this list works (agreed 2026-09-28):
       3V3 rail). Revisit if it continues once the hardware is wired for good; then: log the
       Ethernet/DHCP state, and restart DHCP (then the W5500) if the link is up with no
       address. Test: unplug a few seconds, plug back (2026-09-29)
-- [ ] `[SD]` A failing card (knock-off) makes each SD retry block loop() up to ~0.5 s; the web
-      page stalls ("Failed to fetch") during a run of them (2026-09-29)
 - [ ] `[LCD]` Setup screen: "no network" countdown and hotspot views UNTESTED; the hotspot
       turns off 30 s after a network works and drops a phone mid-setup (2026-09-29)
 
-- [ ] `[SD]` Some cards are recognised until the buffered (internal flash) data has been
-      written to them, then the card is lost and the dot flashes red again; only certain
-      cards (your note). Likely the same as the failing-card item above (2026-10-04)
 - [ ] `[Web]` Low priority: Manual Override slider sometimes doesn't change the speed (your
       note, 2026-10-02). Has worked and not worked; can't be confirmed while the bench
       hardware has network/connection problems. Re-check once wired for good (2026-10-04)
@@ -74,6 +69,11 @@ How this list works (agreed 2026-09-28):
       0.6 s now and then. Harmless alone; they add up (touch, flashing) (2026-10-04)
 - [ ] `[Board]` Lowest free heap 153 KB while WiFi and Ethernet were both up (floor ~150 KB,
       CLAUDE.md success criteria) (2026-10-04)
+- [ ] `[SD]` (lower priority, user 2026-10-04) A failing card (knock-off) makes each SD retry block loop() up to ~0.5 s; the web
+      page stalls ("Failed to fetch") during a run of them (2026-09-29)
+- [ ] `[SD]` Some cards are recognised until the buffered (internal flash) data has been
+      written to them, then the card is lost and the dot flashes red again; only certain
+      cards (your note). Likely the same as the failing-card item above (2026-10-04)
 
 ## Done
 
