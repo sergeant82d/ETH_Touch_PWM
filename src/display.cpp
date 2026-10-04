@@ -928,9 +928,12 @@ void handleTouchInput() {
         // Dashboard idle: only the Manual Control button is touch-active,
         // and only on the initial press edge.
         if (pressed && !wasPressed) {
-            // Gear icon (top right): a generous 60 x TITLE_H area, as the touch
-            // mapping isn't verified for small targets yet
-            if (pointInRect(tx, ty, LCD_WIDTH - 60, 0, 60, TITLE_H + 10)) {
+            // Gear icon (top right). Near the top edge the panel reads a tap
+            // low: taps aimed at the icon (y ~13) arrived at y 40-76 (logged
+            // 2026-10-04), and as far left as x 233, so the area is the whole
+            // top-right corner (x 225+, y 0-90): the end of the title text
+            // and the top of the temperature bars, neither touch-active.
+            if (pointInRect(tx, ty, 225, 0, LCD_WIDTH - 225, 90)) {
                 infoOpen = true;
                 drawInfoPage();
                 Serial.println("LCD: info page (QR codes) opened");

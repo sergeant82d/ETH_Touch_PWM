@@ -22,13 +22,26 @@ void touchInit() {
     pinMode(PIN_TP_INT, INPUT); // not used as an interrupt yet - polled instead
 }
 
+// DIAGNOSTIC (2026-10-04, touch "sporadic"): every finger down/up is logged
+// with raw and mapped coordinates, and failed I2C reads are counted.
+static bool logWasDown = false;
+static unsigned long i2cFails = 0, lastFailReportMs = 0;
+
+static void countI2cFail() {
+    i2cFails++;
+    if (millis() - lastFailReportMs >= 10000) {
+        lastFailReportMs = millis();
+        Serial.print("TOUCH: I2C read failures so far: "); Serial.println(i2cFails);
+    }
+}
+
 bool getTouchPoint(int &x, int &y) {
     Wire.beginTransmission(CST816_ADDR);
     Wire.write(REG_GESTURE_ID);
-    if (Wire.endTransmission(false) != 0) return false; // controller not responding
+    if (Wire.endTransmission(false) != 0) { countI2cFail(); return false; } // controller not responding
 
     const uint8_t bytesToRead = 6;
-    if (Wire.requestFrom((int)CST816_ADDR, (int)bytesToRead) != bytesToRead) return false;
+    if (Wire.requestFrom((int)CST816_ADDR, (int)bytesToRead) != bytesToRead) { countI2cFail(); return false; }
 
     uint8_t gesture   = Wire.read();
     uint8_t fingerNum = Wire.read();
@@ -38,7 +51,10 @@ bool getTouchPoint(int &x, int &y) {
     uint8_t yl        = Wire.read();
     (void)gesture;
 
-    if (fingerNum == 0) return false;
+    if (fingerNum == 0) {
+        if (logWasDown) { logWasDown = false; Serial.println("TOUCH: up"); }
+        return false;
+    }
 
     int rawX = ((xh & 0x0F) << 8) | xl;
     int rawY = ((yh & 0x0F) << 8) | yl;
@@ -50,5 +66,9 @@ bool getTouchPoint(int &x, int &y) {
     x = TOUCH_NATIVE_H - rawY;
     y = rawX;
 
+    if (!logWasDown) {
+        logWasDown = true;
+        Serial.printf("TOUCH: down raw=(%d,%d) -> screen (%d,%d) gesture=0x%02X\n", rawX, rawY, x, y, gesture);
+    }
     return true;
 }

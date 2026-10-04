@@ -21,8 +21,6 @@ How this list works (agreed 2026-09-28):
       NTP (works on the ESP32-S3-ETH) (2026-09-27)
 - [ ] `[Board]` Sensor-blackout failsafe fix (`918439d`): both probes down = both fans full
       speed (2026-09-27)
-- [ ] `[LCD]` Touch coordinate mapping: check small targets, not just the big Manual Control
-      button (2026-09-27)
 - [ ] `[LCD]` Screen flicker: every redraw clears everything; dirty-checking or an off-screen
       buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
 
@@ -48,9 +46,6 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[Web]` Factory reset on the System tab (login + type RESET): settings back to factory,
       theme/notes/SD kept, restart into setup. Wifi_Fan_Knob has one (2026-09-29)
-- [ ] `[LCD]` Touch is sporadic on the new boards (user, 2026-09-29), incl. opening the QR
-      page with the gear icon (works once open, but reaching it is unreliable); see also the
-      touch mapping item above (2026-09-29)
 - [ ] `[Net]` After an Ethernet link drop and return (cable bumped), the board got no new DHCP
       address and fell back to the hotspot. Happened twice on the F924 board (COM9) the same
       evening; the second time with no known bump, MQTT "Host is unreachable" until reset.
@@ -82,6 +77,12 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` Touch: every tap logged (raw and screen coordinates) on COM15. The coordinate
+      mapping is right (Manual Control, slider, Stay On, tap-to-cancel all hit first time, no
+      I2C read failures). The "sporadic" part was the gear: near the top edge taps read
+      30-60 px low (aimed at y ~13, arrived at y 31-79, x 233-316), outside its 60x36 area.
+      The gear area is now the whole top-right corner (x 225+, y 0-90); user: "feels good"
+      (2026-10-04, this commit)
 - [x] `[Net]` NTP after network switches (your note): the DNS server of the network in use is
       set again and SNTP restarted after every switch and hotspot on/off; log line per switch
       and in the minute DIAGNOSTIC (net, DNS, time sync). Tested on COM15: time synced within
