@@ -384,6 +384,27 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
 }
 
 // ============================================================================
+// /api/factory-reset  {"confirm": "RESET"}: settings back to factory, restart
+// ============================================================================
+// Deletes /settings.cfg (no file = the factory values at boot) and restarts
+// into the Setup page. Theme, notes and the SD card logs are kept.
+
+static void handleFactoryReset(NetworkClient &client, const Request &req) {
+    JsonDocument in;
+    if (deserializeJson(in, readBody(client, req.contentLength)) || String(in["confirm"] | "") != "RESET") {
+        sendResult(client, 400, "Type RESET to confirm.");
+        return;
+    }
+    sdLogEvent("CONFIG", "source=web field=factory-reset user=" + String(config.webUser));
+    Serial.println("Factory reset from the web page: settings deleted, restarting.");
+    LittleFS.remove("/settings.cfg");
+    JsonDocument out;
+    out["ok"] = true;
+    sendJson(client, 200, out);
+    restartAfterSave(client);
+}
+
+// ============================================================================
 // /api/setup: first-time setup, one form and one restart
 // ============================================================================
 // Only while no web login is set (a new or erased board); needs no login itself,
@@ -969,6 +990,34 @@ static void handleHistoryFile(NetworkClient &client, const Request &req) {
 // ROUTER
 // ============================================================================
 
+static const int WEB_SLOTS = 4;
+static const unsigned long WEB_IDLE_MS = 5000;  // a parked connection that sends nothing is closed
+
+void webServerLoop() {
+    static NetworkClient slot[WEB_SLOTS];
+    static unsigned long since[WEB_SLOTS];
+    for (int i = 0; i < WEB_SLOTS; i++) {         // park new connections in free slots
+        if (slot[i]) continue;
+        NetworkClient c = server.accept();
+        if (!c) break;
+        slot[i] = c;
+        since[i] = millis();
+    }
+    bool served = false;                         // at most one request per pass
+    for (int i = 0; i < WEB_SLOTS; i++) {
+        if (!slot[i]) continue;
+        if (!served && slot[i].available()) {
+            NetworkClient c = slot[i];
+            slot[i] = NetworkClient();
+            handleNativeWebTraffic(c);
+            served = true;
+        } else if (millis() - since[i] > WEB_IDLE_MS) {
+            slot[i].stop();
+            slot[i] = NetworkClient();
+        }
+    }
+}
+
 void handleNativeWebTraffic(NetworkClient &client) {
     Request req;
     if (!readRequest(client, req)) {
@@ -995,6 +1044,7 @@ void handleNativeWebTraffic(NetworkClient &client) {
     }
     else if (post && req.path == "/api/login") handleSetLogin(client, req);
     else if (post && req.path == "/api/setup") handleSetup(client, req);
+    else if (post && req.path == "/api/factory-reset") { if (requireLogin(client, req)) handleFactoryReset(client, req); }
     else if (post && req.path == "/api/config") { if (requireLogin(client, req)) handlePostConfig(client, req); }
     else if (post && req.path == "/api/override") { if (requireLogin(client, req)) handleOverride(client, req); }
 #if HAS_LCD

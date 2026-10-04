@@ -24,8 +24,6 @@ How this list works (agreed 2026-09-28):
 - [ ] `[LCD]` Screen flicker: every redraw clears everything; dirty-checking or an off-screen
       buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
 
-- [ ] `[Web]` Node ID in the page's top left corner: underscores to spaces as on the LCD title
-      bar, in Title Case; board name unchanged (your note, 2026-09-28)
 - [ ] `[Web]` Per-fan speed offset: fan 1 is the reference, each other fan +/- in 10 RPM steps,
       in the Fan Channels table on the Fan Control tab; an LCD page for it later (your note,
       2026-09-28)
@@ -44,8 +42,6 @@ How this list works (agreed 2026-09-28):
 - [ ] `[Board]` Boot log on the Touch-LCD-2 shows "GPIO isr service already installed" and one
       I2C read error (touch bus) at ~4 s; touch works. Look into it. Seen on both Lite boards, so it's the firmware (2026-09-29)
 
-- [ ] `[Web]` Factory reset on the System tab (login + type RESET): settings back to factory,
-      theme/notes/SD kept, restart into setup. Wifi_Fan_Knob has one (2026-09-29)
 - [ ] `[Net]` After an Ethernet link drop and return (cable bumped), the board got no new DHCP
       address and fell back to the hotspot. Happened twice on the F924 board (COM9) the same
       evening; the second time with no known bump, MQTT "Host is unreachable" until reset.
@@ -64,9 +60,6 @@ How this list works (agreed 2026-09-28):
       no WiFi join, no hotspot until the cable was back. Not reproduced in three later
       unplugs; main.cpp now prints "SLOW: <part> took N ms" for any part over 500 ms, so the
       log names it if it happens again (2026-10-04)
-- [ ] `[Board]` Short loop() pauses seen in the SLOW log: each MQTT connect attempt 2-2.8 s
-      (also at boot), an idle browser connection 1 s (request read timeout), a DS18B20 read
-      0.6 s now and then. Harmless alone; they add up (touch, flashing) (2026-10-04)
 - [ ] `[Board]` Lowest free heap 153 KB while WiFi and Ethernet were both up (floor ~150 KB,
       CLAUDE.md success criteria) (2026-10-04)
 - [ ] `[SD]` (lower priority, user 2026-10-04) A failing card (knock-off) makes each SD retry block loop() up to ~0.5 s; the web
@@ -77,6 +70,17 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Board]` Loop pauses: MQTT connect limited to 1 s and discovery resent only when the node
+      or fan count changed or HA sends its birth message (was ~30 messages per reconnect,
+      2-2.8 s); web connections are parked until the request arrives (browser spare
+      connections held loop() 1 s); the DS18B20 conversion is read on the next sample
+      instead of waited for (0.6 s). COM15: no SLOW lines in 4 min with page/status traffic;
+      probe, MQTT fine. HA-restart re-announce UNTESTED (2026-10-04, this commit)
+- [x] `[Web]` Factory reset on the System tab (login + type RESET): deletes /settings.cfg and
+      restarts into the Setup page; theme, notes, SD kept. Refused without login (tested);
+      the reset itself UNTESTED (2026-10-04, this commit)
+- [x] `[Web]` Node ID in Title Case in the sidebar, same rule as the LCD title bar ("6U Rack
+      Fans") (your note, 2026-10-04, this commit)
 - [x] `[LCD]` Override panel artifacts (user): closing it (Stay On / Cancel) now wipes and
       redraws the whole dashboard, like the QR page; the slider label's wipe no longer cuts
       the panel border. Checked by the user on COM15 (2026-10-04, this commit)

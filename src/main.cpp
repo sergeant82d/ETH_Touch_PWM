@@ -165,10 +165,7 @@ void loop() {
 
     // --- Web traffic handling ---
     t0 = millis();
-    NetworkClient client = server.accept();
-    if (client) {
-        handleNativeWebTraffic(client);
-    }
+    webServerLoop();
     slowCheck("web", t0);
 
     // --- Home Assistant over MQTT (every pass; rate-limited inside) ---

@@ -609,6 +609,17 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         <div class="hint">Every change on this page needs the login; viewing doesn't. Forgotten: the settings have to be erased over USB (docs/BOARDS.md).</div>
         <div class="actions"><button class="btn" type="submit">Save login</button><span class="msg"></span></div>
       </form>
+
+      <form class="panel" id="form-reset">
+        <h2>Factory reset</h2>
+        <div class="hint" style="margin-bottom: 12px">All settings go back to the factory values: login, name, MQTT, network (DHCP),
+          WiFi, fans, fan curve, time zone. The controller restarts into the Setup page; find it by the IP on its LCD or in
+          your router, or at <b>http://fancontroller-xx.local</b>. The theme, the notes and the SD card logs are kept.</div>
+        <div class="form">
+          <div class="field"><label for="reset-confirm">Type RESET to confirm</label><input type="text" id="reset-confirm" autocomplete="off"></div>
+        </div>
+        <div class="actions"><button class="btn danger" type="submit">Factory reset</button><span class="msg"></span></div>
+      </form>
     </section>
   </main>
 </div>
@@ -721,7 +732,7 @@ function setTemp(id, t, failNote) {
 
 function renderStatus() {
   const s = status;
-  $("#brand-node").textContent = s.node;
+  $("#brand-node").textContent = nodeTitle(s.node);
   $("#brand-board").textContent = s.board;
   $("#brand-ip").textContent = s.net === "None" ? "no network" : s.ip;
   $("#brand-net").hidden = !s.netName;
@@ -783,6 +794,9 @@ function tickClock() {
   $("#clock").textContent = (status.clock24 ? String(h).padStart(2, "0") : h) + ":" + String(m).padStart(2, "0") + sfx;
 }
 const fmtUptime = (s) => { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + "d " : "") + h + "h " + m + "m"; };
+// "fan_controller_01" -> "Fan Controller 01": underscores to spaces, first letter of each word
+// upper case, the rest as typed (titleCaseFromNodeId() in display.cpp)
+const nodeTitle = (id) => String(id).replace(/_/g, " ").replace(/(^| )(\S)/g, (_, a, b) => a + b.toUpperCase());
 const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ---------- LCD standby ----------
@@ -874,7 +888,7 @@ function drawLcdView() {
 
   // Title bar: node name, dots (network, MQTT, SD), gear
   g.fillStyle = C.blue; g.fillRect(0, 0, 320, 26);
-  text(0, 320, 5, s.node.replace(/_/g, " ").replace(/(^| )(\S)/g, (_, a, b) => a + b.toUpperCase()), 2, C.white);
+  text(0, 320, 5, nodeTitle(s.node), 2, C.white);
   let sdc = C.green;
   if (s.sdState === "Missing" || s.sdState === "Getting full") {
     const miss = s.sdState === "Missing";
@@ -1099,6 +1113,19 @@ $("#form-login").onsubmit = async (e) => {
     $("#newPass").value = $("#newPass2").value = "";
     showMsg(msg, "Login saved. You're logged in.", true);
     pollStatus();
+  } catch (err) { showMsg(msg, err.message, false); }
+};
+
+// ---------- Factory reset ----------
+$("#form-reset").onsubmit = async (e) => {
+  e.preventDefault();
+  const msg = e.target.querySelector(".msg");
+  if ($("#reset-confirm").value !== "RESET") { showMsg(msg, "Type RESET (capitals) to confirm.", false); return; }
+  try {
+    await api("/api/factory-reset", { confirm: "RESET" });
+    auth = ""; sessionStorage.removeItem("auth"); updateLoginButton();
+    msg.className = "msg ok";
+    msg.textContent = "Reset. The controller is restarting into setup: find it by the IP on its LCD, or at http://fancontroller-xx.local.";
   } catch (err) { showMsg(msg, err.message, false); }
 };
 

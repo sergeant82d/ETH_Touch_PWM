@@ -29,6 +29,7 @@ static void IRAM_ATTR tachISR1() { tachCounts[1]++; }
 
 void sensorsInit() {
     dallasSensors.begin();
+    dallasSensors.setWaitForConversion(false); // see sampleLocalTemperature()
 
     for (int i = 0; i < NUM_FANS; i++) {
         if (pwmPins[i] < 0) continue; // channel not physically wired
@@ -43,9 +44,18 @@ void sensorsInit() {
     // Channels 2/3: no physical pins on this board revision; left disabled.
 }
 
+// Called every second. Reads the conversion started on the previous call
+// (12-bit takes up to 750 ms), then starts the next one, so loop() never
+// waits for the probe (it did, ~0.6 s each time; 2026-10-04).
 void sampleLocalTemperature() {
-    dallasSensors.requestTemperatures();
+    static bool converting = false;
+    if (!converting) {           // first call: nothing to read yet
+        dallasSensors.requestTemperatures();
+        converting = true;
+        return;
+    }
     float raw = dallasSensors.getTempCByIndex(0);
+    dallasSensors.requestTemperatures();
 
     // Guard against disconnected-probe sentinel values
     if (raw > -50.0 && raw != 85.0 && raw != -127.0) {

@@ -317,6 +317,13 @@ static void onMessage(char *t, byte *payload, unsigned int len) {
     for (unsigned int i = 0; i < len; i++) msg += (char)payload[i];
     msg.trim();
 
+    if (tp == "homeassistant/status") { // HA (re)started: announce everything again
+        if (msg == "online") {
+            publishDiscovery(activeNode, false);
+            publishState(true);
+        }
+        return;
+    }
     String prefix = activeNode + "/";
     if (!tp.startsWith(prefix) || !tp.endsWith("/set")) return;
     String object = tp.substring(prefix.length(), tp.length() - 4);
@@ -365,6 +372,8 @@ static void onMessage(char *t, byte *payload, unsigned int len) {
 // CONNECTION
 // ============================================================================
 
+static String announcedFor;   // node/fanCount whose discovery was last sent
+
 static void tryConnect() {
     activeNode = config.nodeID;
     mqtt.setServer(config.mqttBroker, config.mqttPort);
@@ -387,14 +396,25 @@ static void tryConnect() {
     Serial.print(" as "); Serial.println(activeNode);
 
     mqtt.publish(will.c_str(), "online", true);
-    publishDiscovery(activeNode, false);
+    // Discovery is retained on the broker: resend it only when it changed
+    // (node or fan count) or HA asks (its birth message, below). Every
+    // reconnect used to resend ~30 messages, holding loop() up ~2 s.
+    String announce = activeNode + "/" + String(config.fanCount);
+    if (announce != announcedFor) {
+        publishDiscovery(activeNode, false);
+        announcedFor = announce;
+    }
     mqtt.subscribe((activeNode + "/+/set").c_str());
+    mqtt.subscribe("homeassistant/status");
     publishState(true);
 }
 
 static void disconnectCleanly(bool removeFromHA) {
     if (!mqtt.connected()) return;
-    if (removeFromHA) publishDiscovery(activeNode, true);
+    if (removeFromHA) {
+        publishDiscovery(activeNode, true);
+        announcedFor = ""; // removed from HA: announce again on the next connect
+    }
     mqtt.publish(topic("status").c_str(), "offline", true);
     mqtt.disconnect();
     lastConnectState = MQTT_DISCONNECTED;
@@ -403,6 +423,7 @@ static void disconnectCleanly(bool removeFromHA) {
 void mqttInit() {
     mqtt.setBufferSize(1024); // discovery payloads exceed the 256-byte default
     mqtt.setSocketTimeout(5); // seconds to wait for the broker's reply
+    net.setConnectionTimeout(1000); // the broker is on the LAN: it answers fast or not at all (was 3 s)
     net.setConnectionTimeout(2000); // a dead broker blocks loop() at most this long
     mqtt.setCallback(onMessage);
 }
