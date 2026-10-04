@@ -16,22 +16,13 @@ How this list works (agreed 2026-09-28):
 
 ## Open
  
-- [ ] `[Board]` Touch-LCD-2: first flash of the current firmware and the checks in CLAUDE.md's
-      success criteria, incl. the settings upgrade from version 4, the LCD override path and
-      NTP (works on the ESP32-S3-ETH) (2026-09-27)
-- [ ] `[Board]` Sensor-blackout failsafe fix (`918439d`): both probes down = both fans full
-      speed (2026-09-27)
 - [ ] `[LCD]` Screen flicker: every redraw clears everything; dirty-checking or an off-screen
       buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
 
 - [ ] `[Web]` Per-fan speed offset: fan 1 is the reference, each other fan +/- in 10 RPM steps,
       in the Fan Channels table on the Fan Control tab; an LCD page for it later (your note,
       2026-09-28)
-- [ ] `[HA]` HA configuration.yaml and Lovelace card YAML to break out the daily summary CSV for
-      plotting; discuss better alternatives (your note, 2026-09-28)
 
-- [ ] `[Board]` W5500 Lite build: fans (PWM 6 / tach 16, PWM 2 / tach 4) UNTESTED, nothing
-      connected yet; DS18B20 on GPIO 17 reads (new board F924, 2026-09-29) (2026-09-29)
 - [ ] `[Board]` Boot log on the Touch-LCD-2 shows "GPIO isr service already installed" and one
       I2C read error (touch bus) at ~4 s; touch works. Look into it. Seen on both Lite boards, so it's the firmware (2026-09-29)
 
@@ -42,8 +33,6 @@ How this list works (agreed 2026-09-28):
       3V3 rail). Revisit if it continues once the hardware is wired for good; then: log the
       Ethernet/DHCP state, and restart DHCP (then the W5500) if the link is up with no
       address. Test: unplug a few seconds, plug back (2026-09-29)
-- [ ] `[LCD]` Setup screen: "no network" countdown and hotspot views UNTESTED; the hotspot
-      turns off 30 s after a network works and drops a phone mid-setup (2026-09-29)
 
 - [ ] `[Web]` Low priority: Manual Override slider sometimes doesn't change the speed (your
       note, 2026-10-02). Has worked and not worked; can't be confirmed while the bench
@@ -66,6 +55,14 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Board]` W5500 Lite build pins (fans, tach, DS18B20, W5500): in use, work (user,
+      2026-10-04). You'll edit the pins yourself from here (docs/BOARDS.md, "Changing pins")
+- [x] `[Board]` Both-probes-failed failsafe (both fans full speed): tested, good (user, 2026-10-04)
+- [x] `[Board]` Touch-LCD-2 build (`waveshare_s3_lcd2`): flashed, works (user, 2026-10-04)
+- [x] `[LCD]` Setup screen views (no network / hotspot / network): taken care of (user,
+      2026-10-04). Still true by design: the hotspot turns off 30 s after a network works,
+      which drops a phone that is on it
+- [x] `[HA]` HA YAML for plotting the daily summary: cancelled by the user (2026-10-04)
 - [x] `[Board]` Steadier fans (your PID question): the curve follows the blended temperature
       averaged over ~30 s, hysteresis at the start (off only 1.1 C / 2 F below it), duty
       changes at most 2 %/s up and 0.5 %/s down; failsafe and override still immediate, and
