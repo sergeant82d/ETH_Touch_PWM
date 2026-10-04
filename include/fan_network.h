@@ -54,6 +54,8 @@ String deviceHostname();
 String macSuffix();
 // Milliseconds until the setup hotspot starts; -1 while it is on or a network works
 long hotspotStartsInMs();
+// One line for the serial log: network in use, DNS server, time sync state
+String networkDiagText();
 
 // WiFi settings saved: reconnect if WiFi is in use, re-register the name
 void wifiReconfigure();

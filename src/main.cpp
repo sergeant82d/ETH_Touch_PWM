@@ -111,13 +111,23 @@ void setup() {
     Serial.println("==================================================\n");
 }
 
+// DIAGNOSTIC (2026-10-04): loop() stalled for minutes with the Ethernet cable
+// out. Each part is timed; one taking over 500 ms is printed by name.
+static void slowCheck(const char* part, unsigned long startedMs) {
+    unsigned long took = millis() - startedMs;
+    if (took > 500) { Serial.print("SLOW: "); Serial.print(part); Serial.print(" took "); Serial.print(took); Serial.println(" ms"); }
+}
+
 void loop() {
+    unsigned long t0;
     // --- Local temperature sampling + fan curve (every 1s) ---
     static unsigned long lastThermalSample = 0;
     if (millis() - lastThermalSample >= 1000) {
         lastThermalSample = millis();
 
+        t0 = millis();
         sampleLocalTemperature();
+        slowCheck("probe", t0);
         evaluateSensorFailsafes();
         calculateFanCurve(blendedAverageC);
         sdLoggerUpdateSnapshot(); // keep the RTC last-known-state snapshot current
@@ -136,7 +146,9 @@ void loop() {
     static unsigned long lastDisplayUpdate = 0;
     if (millis() - lastDisplayUpdate >= REFRESH_PERIOD_MS) {
         lastDisplayUpdate = millis();
+        t0 = millis();
         updateMainDashboardUI();
+        slowCheck("dashboard", t0);
     }
 
     // --- Bar gauge fast refresh (every 200ms) ---
@@ -152,15 +164,21 @@ void loop() {
 #endif
 
     // --- Web traffic handling ---
+    t0 = millis();
     NetworkClient client = server.accept();
     if (client) {
         handleNativeWebTraffic(client);
     }
+    slowCheck("web", t0);
 
     // --- Home Assistant over MQTT (every pass; rate-limited inside) ---
     // State out, thresholds/override/network temperature in (mqtt.cpp).
+    t0 = millis();
     networkLoop(); // WiFi backup / hotspot (fan_network.cpp)
+    slowCheck("network", t0);
+    t0 = millis();
     mqttLoop();
+    slowCheck("mqtt", t0);
 
     // --- Touch input (every 30ms) ---
     // Fast enough to feel responsive for slider dragging, without hammering
@@ -170,14 +188,18 @@ void loop() {
     const unsigned long TOUCH_POLL_MS = 30;
     if (millis() - lastTouchPoll >= TOUCH_POLL_MS) {
         lastTouchPoll = millis();
+        t0 = millis();
         handleTouchInput();
+        slowCheck("touch", t0);
     }
 #endif
 
     // --- SD card data logging ---
     // Internally rate-limited (per-minute rows, daily rollup on day change,
     // SD-absent retry every 15 s, card check every 10 s) - safe and cheap to call every iteration.
+    t0 = millis();
     sdLoggerLoop();
+    slowCheck("sd", t0);
 
     // --- DIAGNOSTIC: heap logging (every 60s) ---
     // Testing the memory-overflow theory directly: a steadily declining
@@ -194,6 +216,8 @@ void loop() {
         Serial.print("s  freeHeap=");
         Serial.print(ESP.getFreeHeap());
         Serial.print("  minFreeHeap=");
-        Serial.println(ESP.getMinFreeHeap());
+        Serial.print(ESP.getMinFreeHeap());
+        Serial.print("  ");
+        Serial.println(networkDiagText()); // network, DNS, time sync (NTP after switches, 2026-10-04)
     }
 }

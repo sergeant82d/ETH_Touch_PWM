@@ -63,10 +63,6 @@ How this list works (agreed 2026-09-28):
 - [ ] `[LCD]` Setup screen: "no network" countdown and hotspot views UNTESTED; the hotspot
       turns off 30 s after a network works and drops a phone mid-setup (2026-09-29)
 
-- [ ] `[Net]` NTP sync on WiFi "extremely slow" (your note): not reproduced on 2026-10-04
-      (synced within 2 s of joining on two boots). Probably a side effect of the slow/failed
-      WiFi joins fixed today; note what the LCD and web page show if it happens again
-      (2026-10-04)
 - [ ] `[SD]` Some cards are recognised until the buffered (internal flash) data has been
       written to them, then the card is lost and the dot flashes red again; only certain
       cards (your note). Likely the same as the failing-card item above (2026-10-04)
@@ -74,8 +70,27 @@ How this list works (agreed 2026-09-28):
       note, 2026-10-02). Has worked and not worked; can't be confirmed while the bench
       hardware has network/connection problems. Re-check once wired for good (2026-10-04)
 
+- [ ] `[Net]` loop() stalled ~3 min with the Ethernet cable out (first unplug, 2026-10-04):
+      no WiFi join, no hotspot until the cable was back. Not reproduced in three later
+      unplugs; main.cpp now prints "SLOW: <part> took N ms" for any part over 500 ms, so the
+      log names it if it happens again (2026-10-04)
+- [ ] `[Board]` Short loop() pauses seen in the SLOW log: each MQTT connect attempt 2-2.8 s
+      (also at boot), an idle browser connection 1 s (request read timeout), a DS18B20 read
+      0.6 s now and then. Harmless alone; they add up (touch, flashing) (2026-10-04)
+- [ ] `[Board]` Lowest free heap 153 KB while WiFi and Ethernet were both up (floor ~150 KB,
+      CLAUDE.md success criteria) (2026-10-04)
+
 ## Done
 
+- [x] `[Net]` NTP after network switches (your note): the DNS server of the network in use is
+      set again and SNTP restarted after every switch and hotspot on/off; log line per switch
+      and in the minute DIAGNOSTIC (net, DNS, time sync). Tested on COM15: time synced within
+      2-4 s through boot, Ethernet->WiFi, WiFi->Ethernet and Ethernet->hotspot->Ethernet
+      (user + Claude, 2026-10-04, this commit)
+- [x] `[Net]` Crash (LoadProhibited in mDNS) when saving WiFi after the setup hotspot had been
+      on and off: MDNS.end() followed the deleted hotspot interface. mDNS is now started once
+      and renamed in place. Same sequence repeated without a crash (COM15, 2026-10-04, this
+      commit)
 - [x] `[LCD]` `[HA]` `[Web]` LCD standby (your note): backlight off/on from HA (switch
       "LCD display"), the web page (button under the LCD view; the view dims) or a tap on the
       dark screen (wakes it, nothing else). On after every boot. HA path tested via MQTT on

@@ -7,7 +7,10 @@
 #include <esp_sntp.h>
 #include <WiFi.h>
 #include <ESPmDNS.h>
+#include <mdns.h>
 #include <esp_mac.h>
+#include <esp_netif.h>
+#include <lwip/dns.h>
 #include "mqtt.h"
 
 // The W5500 runs on the core's ETH driver (lwIP) rather than the Arduino
@@ -60,7 +63,10 @@ static time_t toLocal(time_t utc) {
     return makeTime(te);
 }
 
+static unsigned long lastSyncMs = 0;   // 0 = not synced since boot
+
 static void onSntpSync(struct timeval *tv) {
+    lastSyncMs = millis();
     Serial.println("SNTP: time synchronized.");
 }
 
@@ -85,16 +91,25 @@ time_t getNtpTime() {
     return toLocal(utc);
 }
 
+// DNS servers as each network handed them out. lwIP has one global DNS
+// setting, and starting/stopping the setup hotspot can overwrite it; then
+// SNTP can't look up pool.ntp.org until the next address event (user's NTP
+// problem after network switches, 2026-10-04). restoreDnsAndTime() puts the
+// right one back.
+static uint32_t ethDns = 0, wifiDns = 0;
+
 static void onNetworkEvent(arduino_event_id_t event, arduino_event_info_t info) {
     switch (event) {
         case ARDUINO_EVENT_ETH_CONNECTED:    Serial.println("Ethernet: link up"); break;
         case ARDUINO_EVENT_ETH_DISCONNECTED: Serial.println("Ethernet: link down"); break;
         case ARDUINO_EVENT_ETH_GOT_IP:
+            ethDns = (uint32_t)ETH.dnsIP();
             Serial.print("Ethernet: address "); Serial.print(ETH.localIP());
             Serial.print(", DNS "); Serial.println(ETH.dnsIP());
             startSntp();
             break;
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+            wifiDns = (uint32_t)WiFi.dnsIP();
             Serial.print("WiFi: joined "); Serial.print(WiFi.SSID()); Serial.print(", address ");
             Serial.print(WiFi.localIP()); Serial.print(", signal "); Serial.print(WiFi.RSSI()); Serial.println(" dBm");
             startSntp();
@@ -120,13 +135,25 @@ String deviceHostname() {
     return h.length() ? h : String("fancontroller");
 }
 
+// mDNS is started once and renamed in place. MDNS.end() crashed (2026-10-04):
+// after the setup hotspot had been on and off, mDNS still held the deleted
+// hotspot interface, and ending it dereferenced that (WiFi save -> panic).
+static String mdnsName; // "" = mDNS not started yet
+
 static void applyHostname() {
     String name = deviceHostname();
     ETH.setHostname(name.c_str());
     WiFi.setHostname(name.c_str());
-    MDNS.end();
-    if (MDNS.begin(name.c_str())) {
-        MDNS.addService("http", "tcp", 80);
+    if (name == mdnsName) return;
+    bool ok;
+    if (mdnsName.length() == 0) {
+        ok = MDNS.begin(name.c_str());
+        if (ok) MDNS.addService("http", "tcp", 80);
+    } else {
+        ok = mdns_hostname_set(name.c_str()) == ESP_OK;
+    }
+    if (ok) {
+        mdnsName = name;
         Serial.print("Device name: http://"); Serial.print(name); Serial.println(".local");
     }
 }
@@ -192,11 +219,40 @@ static void stopSta(const char* why) {
     Serial.print("WiFi: backup off ("); Serial.print(why); Serial.println(")");
 }
 
+static String currentDns() {
+    const ip_addr_t *d = dns_getserver(0);
+    return d ? IPAddress(ip_addr_get_ip4_u32(d)).toString() : String("none");
+}
+
+String networkDiagText() {
+    String t = String("net=") + activeNetwork() + " dns=" + currentDns() + " time=";
+    if (lastSyncMs) t += "synced " + String((millis() - lastSyncMs) / 1000) + " s ago";
+    else t += time(nullptr) >= VALID_TIME ? "set, no sync since boot" : "not set";
+    return t;
+}
+
+// Puts back the DNS server of the network in use (Ethernet or WiFi) and
+// restarts SNTP, after anything that may have overwritten the global DNS
+static void restoreDnsAndTime(const char* why) {
+    uint32_t ip = 0;
+    esp_netif_t *nif = nullptr;
+    if (strcmp(activeNetwork(), "Ethernet") == 0) { ip = ethDns; nif = ETH.netif(); }
+    else if (strcmp(activeNetwork(), "WiFi") == 0) { ip = wifiDns; nif = WiFi.STA.netif(); }
+    if (!ip || !nif) return;
+    esp_netif_dns_info_t d = {};
+    d.ip.type = ESP_IPADDR_TYPE_V4;
+    d.ip.u_addr.ip4.addr = ip;
+    esp_netif_set_dns_info(nif, ESP_NETIF_DNS_MAIN, &d);
+    Serial.print("Network: DNS "); Serial.print(IPAddress(ip)); Serial.print(" set again ("); Serial.print(why); Serial.println(")");
+    startSntp();
+}
+
 static void startAp() {
     apActive = true;
     applyWifiMode();
     WiFi.softAP(hotspotSsid().c_str(), config.apPass);
     Serial.print("Hotspot: "); Serial.print(hotspotSsid()); Serial.print(" on, page at http://"); Serial.println(WiFi.softAPIP());
+    restoreDnsAndTime("hotspot on");
 }
 
 static void stopAp() {
@@ -204,6 +260,7 @@ static void stopAp() {
     apActive = false;
     applyWifiMode();
     Serial.println("Hotspot: off (a network is back)");
+    restoreDnsAndTime("hotspot off");
 }
 
 bool isEthernetConnected() { return ETH.linkUp(); }
@@ -276,7 +333,11 @@ void networkLoop() {
     const char* active = activeNetwork();
     if (strcmp(active, lastActive) != 0) {
         Serial.print("Network in use: "); Serial.println(active);
-        if (lastActive[0]) mqttReconfigure();
+        if (lastActive[0]) {
+            restoreDnsAndTime("network switch");
+            mqttReconfigure();
+        }
+        Serial.print("Network: "); Serial.println(networkDiagText());
         lastActive = active;
     }
 }
