@@ -77,6 +77,9 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` Override panel artifacts (user): closing it (Stay On / Cancel) now wipes and
+      redraws the whole dashboard, like the QR page; the slider label's wipe no longer cuts
+      the panel border. Checked by the user on COM15 (2026-10-04, this commit)
 - [x] `[LCD]` Touch: every tap logged (raw and screen coordinates) on COM15. The coordinate
       mapping is right (Manual Control, slider, Stay On, tap-to-cancel all hit first time, no
       I2C read failures). The "sporadic" part was the gear: near the top edge taps read

@@ -658,7 +658,8 @@ static void drawOverlaySliderOnly() {
     int pct = (manualOverrideDutyCycle * 100) / 255;
     String pctStr = "Fan Speed: " + String(pct) + "%";
     screenMain.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    screenMain.fillRect(OVERLAY_BOX_X, OVERLAY_BOX_Y + 28, OVERLAY_BOX_W, 12, ST77XX_BLACK);
+    // Inside the box only: the full box width wiped its border at this height (user, 2026-10-04)
+    screenMain.fillRect(OVERLAY_BOX_X + 2, OVERLAY_BOX_Y + 28, OVERLAY_BOX_W - 4, 12, ST77XX_BLACK);
     printCentered(OVERLAY_BOX_X, OVERLAY_BOX_W, OVERLAY_BOX_Y + 28, pctStr, 1);
 
     screenMain.fillRect(OVERLAY_SLIDER_X + 1, OVERLAY_SLIDER_Y + 1, OVERLAY_SLIDER_W - 2, OVERLAY_SLIDER_H - 2, ST77XX_BLACK);
@@ -764,11 +765,17 @@ static void drawInfoPage() {
     infoOpenedMs = millis();
 }
 
-static void closeInfoPage() {
-    infoOpen = false;
+// Full-screen pages leave pieces behind in the gaps the dashboard's own
+// redraws don't cover, so closing one wipes the screen and redraws it all.
+static void redrawWholeDashboard() {
     screenMain.fillScreen(ST77XX_BLACK);
     updateMainDashboardUI();
     refreshBarsOnly();
+}
+
+static void closeInfoPage() {
+    infoOpen = false;
+    redrawWholeDashboard();
 }
 
 // ============================================================================
@@ -914,10 +921,12 @@ void handleTouchInput() {
                 if (pointInRect(tx, ty, OVERLAY_CANCEL_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_H)) {
                     manualOverrideActive = false; // revert to auto
                     overlayOpen = false;
+                    redrawWholeDashboard(); // override box left artifacts (user, 2026-10-04)
                     Serial.println("Override DEACTIVATED via LCD (Cancel)");
                     sdLogEvent("OVERRIDE", "source=LCD action=OFF (cancel)");
                 } else if (pointInRect(tx, ty, OVERLAY_KEEPON_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_H)) {
                     overlayOpen = false; // stays active; button keeps flashing (see refreshBarsOnly())
+                    redrawWholeDashboard();
                     int pct = (manualOverrideDutyCycle * 100) / 255;
                     Serial.print("Override kept ON via LCD - speed="); Serial.print(pct); Serial.println("%");
                     sdLogEvent("OVERRIDE", "source=LCD action=SPEED (keep-on) speed=" + String(pct) + "%");
