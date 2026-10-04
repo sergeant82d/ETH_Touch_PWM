@@ -84,8 +84,8 @@ How this list works (agreed 2026-09-28):
       LCD view); temperature bars network left, local right; clock top level with the column
       labels and the big temperature centred between clock and button; alert colour red from
       75 % of fan curve start -> top (was top - 5 C). Network dot/MQTT now need an address,
-      not just a cable link (one cause of the LCD/web light mismatch). UNTESTED on the LCD
-      (web LCD view checked in demo) (2026-10-04, this commit)
+      not just a cable link (one cause of the LCD/web light mismatch). LCD layout confirmed
+      and approved by the user (2026-10-04, `b730576`)
 - [x] `[Net]` WiFi without Ethernet (your note: restart started the hotspot instead of the
       saved WiFi): no W5500 = join WiFi at once (was 30 s); W5500 but no address at boot =
       wait 10 s; the hotspot waits while a WiFi join is under way (up to 45 s). Boot log on
