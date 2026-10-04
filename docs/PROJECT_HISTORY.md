@@ -3,20 +3,19 @@
 How this project came to be, and what was learned (2026-09-27). Read this before starting
 work; it saves re-discovering things.
 
-## Current status (2026-09-27)
+## Current status (2026-10-04)
 
-- All of this is on `main` (the `mqtt` branch was fast-forwarded into it 2026-09-27, `f832628`).
-- **ESP32-S3-ETH (fan_controller_01, COM10):** runs the current firmware. Tested on it: fans,
-  probe, network temperature from HA, MQTT/HA (all phases), web page with login and OTA,
-  Ethernet static and DHCP, WiFi backup and back, device name, settings upgrades v5 to v9.
-  Not yet: setup hotspot, static WiFi address, daily summary at a real day change.
-- **Touch-LCD-2 (fan_controller_02):** builds, but has run none of this. First flash: check
-  the pin remap wiring first (`docs/TODO.md`), then LCD, touch, the settings upgrade from
-  version 4, and the sensor-blackout failsafe fix.
-- **Home Assistant:** MQTT only (REST link, token and helpers removed, HA cleanup done); needs
-  the network temperature automation (set up) and optionally the fault notifications (set
-  up). `docs/MQTT.md`.
-- Success criteria: `CLAUDE.md`.
+- Everything is on `main`. Three builds: `waveshare_s3_lcd2` (Touch-LCD-2 + W5500 module),
+  `waveshare_s3_lcd2_lite` (Touch-LCD-2 + W5500 Lite on the user's pins), `waveshare_s3_eth`
+  (ESP32-S3-ETH, no LCD). Settings version 10. Image ~1.48 MB (47 % of the 3 MB slot).
+- **ESP32-S3-ETH (fan_controller_01, COM10):** fully tested up to 2026-09-28; not reflashed
+  since.
+- **Touch-LCD-2 W5500 Lite boards (COM8/COM9/COM14/COM15 on different days):** the bench boards
+  since 2026-09-29; everything since then was tested on them (`docs/TODO.md`, Done).
+- **Touch-LCD-2 (plain build):** flashed and works (user, 2026-10-04).
+- **Home Assistant:** MQTT only; the network-temperature automation needs one action per
+  controller name (`docs/MQTT.md`).
+- Success criteria: `CLAUDE.md`. Setup of a new board: `docs/SETUP.md`.
 
 ## Origin
 
@@ -154,5 +153,25 @@ growth. Current limit: `CLAUDE.md`, success criteria.
 - 2026-09-27: Ethernet DHCP option (settings version 9; new boards start on DHCP, upgraded ones
   keep their static address) and the fan channel table; both tested by the user. HA cleanup
   (Phase 4) done by the user. Docs and success criteria updated (Phase 5).
+
+- 2026-09-29: Third build `waveshare_s3_lcd2_lite` (W5500 Lite, user's pins; GPIO 19/20 are
+  USB and must stay free). First-time setup: Setup tab while no login is set (one form, one
+  restart, suggested name from the MAC) and an LCD setup screen with QR codes. Flash reads over
+  these boards' USB fail with the esptool stub; `--no-stub` works, slowly. esptool's progress bar
+  crashes when its output is captured on Windows: set `PYTHONIOENCODING=utf-8`.
+- 2026-10-04: Network: WiFi joins at once without a W5500 (was 30 s) and the hotspot waits
+  for a WiFi join. **lwIP has one global DNS server:** network switches can leave it wrong and
+  SNTP then can't resolve pool.ntp.org; the firmware now sets the network's DNS again and
+  restarts SNTP after every switch. **`MDNS.end()` panics** (LoadProhibited in mdns_free) once
+  the setup hotspot has been on and off (it follows the deleted AP netif): mDNS is started
+  once and renamed with `mdns_hostname_set()`. **TimeLib:** `setSyncInterval(300)` right after
+  `setSyncProvider()` overrode the provider's own 5 s retry, so after a power cut the clock
+  waited ~5 minutes. "SLOW: <part> took N ms" in main.cpp finds loop() stalls.
+- 2026-10-04: LCD: the CST816D reads taps 30-60 px low near the top edge (centre is accurate);
+  the gear's touch area is the whole top-right corner. Closing a full-screen page must wipe
+  and redraw the whole dashboard (its own redraws leave gaps). LCD standby (HA switch).
+- 2026-10-04: Fans: curve input averaged ~30 s, hysteresis, rate limit; per-fan RPM offset by
+  an integral trim on averaged RPMs (single tach readings jump 60-120 RPM). Settings v10; an
+  upgrade used to reset `ethDhcp` for every older file (now only before v9).
 
 Open items: `docs/TODO.md`.
