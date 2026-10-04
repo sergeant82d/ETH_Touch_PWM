@@ -66,7 +66,23 @@ void sampleLocalTemperature() {
     }
 }
 
+// Steadier fans (user, 2026-10-04), for the automatic curve only - the
+// both-probes-down failsafe and the manual override still act at once:
+// - the curve follows the blended temperature averaged over ~30 s
+//   (exponential, called once a second), not each reading;
+// - hysteresis at the start: on at tMin, off only below tMin - 1.1 C (2 F);
+// - the duty changes at most 2 %/s up (0 -> 100 % in < 1 min) and 0.5 %/s
+//   down, so the fans ease off. Off -> 20 % is still a single step.
+static const float SMOOTH_SAMPLES = 30.0;           // ~30 s time constant
+static const float HYSTERESIS_C = 1.1;
+static const float DUTY_UP_PER_CALL = 255 * 0.02;   // calls are 1 s apart
+static const float DUTY_DOWN_PER_CALL = 255 * 0.005;
+
 void calculateFanCurve(float targetTemp) {
+    static bool smoothReady = false;
+    static float smoothC = 0;
+    static bool curveOn = false;
+    static float autoDuty = 0;      // the duty actually applied, with fractions
     int targetDuty = 0;
 
     // Manual override takes priority over the auto curve, per spec - but
@@ -76,16 +92,31 @@ void calculateFanCurve(float targetTemp) {
     // alone would switch the fans off every second instead of full duty.
     if (!localSensorHealthy && !networkSensorHealthy) {
         targetDuty = 255;
+        autoDuty = 0;   // afterwards the curve starts again from 20 % (also the first second after boot)
     } else if (manualOverrideActive) {
         targetDuty = manualOverrideDutyCycle;
+        autoDuty = targetDuty; // afterwards the curve eases on from the speed chosen
     } else if (config.tMax <= config.tMin) {
         targetDuty = 255; // corrupt thresholds -> fail safe to full power
-    } else if (targetTemp < config.tMin) {
-        targetDuty = 0;
-    } else if (targetTemp >= config.tMax) {
-        targetDuty = 255;
     } else {
-        targetDuty = (int)(51.0 + ((targetTemp - config.tMin) / (config.tMax - config.tMin)) * 204.0);
+        if (!smoothReady) { smoothC = targetTemp; smoothReady = true; }
+        smoothC += (targetTemp - smoothC) / SMOOTH_SAMPLES;
+        if (smoothC >= config.tMin) curveOn = true;
+        else if (smoothC < config.tMin - HYSTERESIS_C) curveOn = false;
+
+        float want;
+        if (!curveOn) want = 0;
+        else if (smoothC >= config.tMax) want = 255;
+        else want = 51.0 + max(0.0f, (smoothC - config.tMin) / (config.tMax - config.tMin)) * 204.0;
+
+        if (want == 0) {
+            autoDuty = 0;                                  // off: at once
+        } else {
+            if (autoDuty < 51) autoDuty = 51;              // off -> on: 20 %, then ramp
+            if (want > autoDuty) autoDuty = min(want, autoDuty + DUTY_UP_PER_CALL);
+            else autoDuty = max(want, autoDuty - DUTY_DOWN_PER_CALL);
+        }
+        targetDuty = (int)lroundf(autoDuty);
     }
 
     for (int i = 0; i < NUM_FANS; i++) {

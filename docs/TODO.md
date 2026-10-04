@@ -29,13 +29,6 @@ How this list works (agreed 2026-09-28):
       2026-09-28)
 - [ ] `[HA]` HA configuration.yaml and Lovelace card YAML to break out the daily summary CSV for
       plotting; discuss better alternatives (your note, 2026-09-28)
-- [ ] `[LCD]` `[Decide]` Discuss moving the LCD to LVGL (nicer gauges and fonts): high effort, low
-      impact, but pretty. Pending, near term; you're collecting images (`docs/images/`) (your
-      note, 2026-09-28)
-- [ ] `[Question]` Can a PID controller hold a steadier temperature instead of the fans speeding
-      up and slowing down? (your note, 2026-09-28)
-- [ ] `[Question]` What is the impact of moving to native ESP-IDF, still in VS Code and
-      PlatformIO? (your note, 2026-09-28)
 
 - [ ] `[Board]` W5500 Lite build: fans (PWM 6 / tach 16, PWM 2 / tach 4) UNTESTED, nothing
       connected yet; DS18B20 on GPIO 17 reads (new board F924, 2026-09-29) (2026-09-29)
@@ -67,9 +60,21 @@ How this list works (agreed 2026-09-28):
 - [ ] `[SD]` Some cards are recognised until the buffered (internal flash) data has been
       written to them, then the card is lost and the dot flashes red again; only certain
       cards (your note). Likely the same as the failing-card item above (2026-10-04)
+- [ ] `[LCD]` `[Decide]` Discuss moving the LCD to LVGL (nicer gauges and fonts): high effort, low
+      impact, but pretty. Discussed 2026-10-04 (worth it after your design images; dashboard first behind a build switch); moved to the bottom by the user. You're collecting images (`docs/images/`) (your
+      note, 2026-09-28)
 
 ## Done
 
+- [x] `[Board]` Steadier fans (your PID question): the curve follows the blended temperature
+      averaged over ~30 s, hysteresis at the start (off only 1.1 C / 2 F below it), duty
+      changes at most 2 %/s up and 0.5 %/s down; failsafe and override still immediate, and
+      after the failsafe (e.g. the first second after boot) the curve restarts at 20 %.
+      COM15: steady 29-31 % after boot, 1 % move when the network temperature arrived.
+      PI/PID only if the History tab still shows hunting. Day-long behaviour UNTESTED
+      (2026-10-04, this commit)
+- [x] `[Question]` Native ESP-IDF: answered 2026-10-04 (most code rewritten, weeks; Arduino as
+      an IDF component would keep it); cancelled by the user
 - [x] `[Board]` Loop pauses: MQTT connect limited to 1 s and discovery resent only when the node
       or fan count changed or HA sends its birth message (was ~30 messages per reconnect,
       2-2.8 s); web connections are parked until the request arrives (browser spare

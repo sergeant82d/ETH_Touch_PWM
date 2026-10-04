@@ -457,7 +457,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
           <div class="field"><label for="tMin">Fan curve start (<span class="u"></span>)</label><input type="number" id="tMin" step="0.1" required></div>
           <div class="field"><label for="tMax">Fan curve top (<span class="u"></span>)</label><input type="number" id="tMax" step="0.1" required></div>
         </div>
-        <div class="hint">Below the start the fans are off; from the start they run at 20%, rising to 100% at the top. Uses the blended temperature. Also settable from Home Assistant.</div>
+        <div class="hint">Below the start the fans are off; from the start they run at 20%, rising to 100% at the top. Uses the blended temperature averaged over about 30 s; once on, the fans stop only 2 °F (1.1 °C) below the start, and their speed changes gradually (up to 2%/s faster, 0.5%/s slower). Also settable from Home Assistant.</div>
         <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
       </form>
     </section>
