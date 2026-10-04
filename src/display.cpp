@@ -231,6 +231,14 @@ static const int MANUAL_BTN_Y = 150;
 static const int MANUAL_BTN_BOTTOM_MARGIN = 6;
 static const int MANUAL_BTN_H = LCD_HEIGHT - MANUAL_BTN_BOTTOM_MARGIN - MANUAL_BTN_Y;
 
+// Big temperature and unit letter: red from 75 % of the way from the fan curve
+// start to its top, green below (user, 2026-10-04; was a fixed 5 C below the top)
+static const float TEMP_ALERT_FRACTION = 0.75;
+static uint16_t tempAlertColor() {
+    float alertC = config.tMin + TEMP_ALERT_FRACTION * (config.tMax - config.tMin);
+    return blendedAverageC >= alertC ? ST77XX_RED : ST77XX_GREEN;
+}
+
 // Draws the Manual Control button: red outline when idle, flashing solid
 // red/black when override is active. Now three rows: the temperature unit
 // indicator on top (moved in here from its own row above, freeing that
@@ -256,11 +264,11 @@ static void drawManualControlButton(int x, int y, int w, int h) {
     int unitRowH = 38;
 
     // --- Row 1: temperature unit indicator ---
-    // Colored the same as the big temp number (red above tMax-5, green
-    // otherwise) - since that can itself be red, this row keeps its own
-    // black background band regardless of the button's flash state, so
-    // the letter never disappears against a red flashing button.
-    uint16_t tempColor = (blendedAverageC > (config.tMax - 5.0)) ? ST77XX_RED : ST77XX_GREEN;
+    // Colored the same as the big temp number (tempAlertColor()) - since
+    // that can itself be red, this row keeps its own black background band
+    // regardless of the button's flash state, so the letter never
+    // disappears against a red flashing button.
+    uint16_t tempColor = tempAlertColor();
     screenMain.fillRect(x + 2, y + 2, w - 4, unitRowH - 2, ST77XX_BLACK);
     String unitLetter = config.isFahrenheit ? "F" : "C";
 
@@ -336,7 +344,7 @@ static String titleCaseFromNodeId(const char* nodeId) {
     return s;
 }
 
-// SD card dot, top-left of the title bar (sdState(), user decision
+// SD card dot, third in the title bar (sdState(), user decision
 // 2026-09-28): green = OK; orange, slow flash = getting full (>= 90 %);
 // red, fast flash = missing or failing (logging spills to internal flash).
 // Also redrawn from refreshBarsOnly() every 200 ms, so it can flash.
@@ -348,7 +356,7 @@ static void drawSdDot() {
         bool on = (millis() % period) < period / 2;
         c = on ? (st == SD_STATE_MISSING ? ST77XX_RED : ST77XX_ORANGE) : ST77XX_BLUE; // off = title bar colour
     }
-    screenMain.fillCircle(10, TITLE_H / 2, 4, c);
+    screenMain.fillCircle(34, TITLE_H / 2, 4, c); // third dot (network, MQTT, SD)
 }
 
 // Redraws the blue title bar with the current Home Assistant node name
@@ -360,15 +368,16 @@ static void drawTitleBar() {
 
     drawSdDot();
 
-    // Network status - second dot, right next to the SD one. Green on Ethernet
-    // or WiFi, orange while only the setup hotspot is on, red with none.
+    // Status dots, left to right: network, MQTT, SD (user, 2026-10-04; the
+    // web page's sidebar has the same order and colours).
+    // Network: green on Ethernet or WiFi with an address, orange while only
+    // the setup hotspot is on, red with none.
     uint16_t netColor = isNetworkConnected() ? ST77XX_GREEN : isHotspotActive() ? ST77XX_ORANGE : ST77XX_RED;
-    screenMain.fillCircle(22, TITLE_H / 2, 4, netColor);
+    screenMain.fillCircle(10, TITLE_H / 2, 4, netColor);
 
-    // MQTT (Home Assistant) - third dot: green when connected, orange when
-    // not (same colours as the web page's sidebar). Added 2026-09-28.
+    // MQTT (Home Assistant): green when connected, orange when not.
     uint16_t mqttColor = mqttStatusText().startsWith("Connected") ? ST77XX_GREEN : ST77XX_ORANGE;
-    screenMain.fillCircle(34, TITLE_H / 2, 4, mqttColor);
+    screenMain.fillCircle(22, TITLE_H / 2, 4, mqttColor);
 
     int iconX = LCD_WIDTH - ICON_SETTINGS_SIZE - 6;
     int iconY = (TITLE_H - ICON_SETTINGS_SIZE) / 2;
@@ -430,30 +439,30 @@ void updateMainDashboardUI() {
         strncpy(tStr, "syncing...", sizeof(tStr));
     }
 
-    // Fixed zone height (rather than sizing the zone to whichever font/size
-    // ends up rendering) keeps everything below it at a consistent position
-    // regardless of which fallback path this or the unit indicator take.
-    const int TIME_ZONE_H = 40;
-    screenMain.fillRect(CENTER_X, cy, CENTER_W, TIME_ZONE_H, ST77XX_BLACK);
-
-    if (!tryDrawWithBigFont(tStr, CENTER_X, CENTER_W, cy, TIME_ZONE_H, ST77XX_YELLOW)) {
-        // Bundled font didn't fit - classic font cascade (size 3, then 2),
-        // same as before this change.
-        uint8_t timeSize = 3;
-        int16_t tbx, tby;
-        uint16_t tbw, tbh;
-        screenMain.setTextSize(timeSize);
-        screenMain.getTextBounds(tStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-        if (tbw > (uint16_t)(CENTER_W - 4)) {
-            timeSize = 2;
-            screenMain.setTextSize(timeSize);
-            screenMain.getTextBounds(tStr, 0, 0, &tbx, &tby, &tbw, &tbh);
-        }
-        screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-        int centeredY = cy + (TIME_ZONE_H - (int)tbh) / 2;
-        printCentered(CENTER_X, CENTER_W, centeredY, tStr, timeSize);
+    // Clock: the top of the digits level with the top of the "Fan RPM" /
+    // "Temperature" labels (user, 2026-10-04). The big temperature below is
+    // centred between the clock's bottom and the Manual Control button.
+    const int CLOCK_TOP = TITLE_H + 4;   // = drawColumnHeaders()' text top
+    const int CLOCK_MAX_H = 30;
+    screenMain.fillRect(CENTER_X, TITLE_H + 2, CENTER_W, CLOCK_MAX_H + 4, ST77XX_BLACK);
+    int16_t tbx, tby;
+    uint16_t tbw, tbh;
+    screenMain.setFont(&FreeSansBold18pt7b);
+    screenMain.setTextSize(1);
+    screenMain.getTextBounds(tStr, 0, 0, &tbx, &tby, &tbw, &tbh);
+    screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+    if (tbw <= (uint16_t)(CENTER_W - 4) && tbh <= CLOCK_MAX_H) {
+        screenMain.setCursor(CENTER_X + (CENTER_W - (int)tbw) / 2 - tbx, CLOCK_TOP - tby);
+        screenMain.print(tStr);
+        cy = CLOCK_TOP + tbh;
+    } else {
+        // Bundled font too wide (e.g. "12:45 PM"): classic font, size 3 if it fits, else 2
+        screenMain.setFont(NULL);
+        uint8_t timeSize = (strlen(tStr) * 18 <= (size_t)(CENTER_W - 4)) ? 3 : 2; // 6 px per letter per size
+        printCentered(CENTER_X, CENTER_W, CLOCK_TOP, tStr, timeSize);
+        cy = CLOCK_TOP + 7 * timeSize; // classic glyphs: 7 of their 8 rows are inked
     }
-    cy += TIME_ZONE_H;
+    screenMain.setFont(NULL);
 
     // --- Big blended-average temperature ---
     // Vertically centered in the space between the rows above and the
@@ -463,9 +472,10 @@ void updateMainDashboardUI() {
     // getTextBounds() and only used if it genuinely fits, so this
     // maximizes size without risking overflow regardless of exactly how
     // large the real compiled glyphs turn out to be.
-    int tempAreaTop = cy;
-    int tempAreaHeight = MANUAL_BTN_Y - tempAreaTop;
-    screenMain.fillRect(CENTER_X, tempAreaTop, CENTER_W, tempAreaHeight, ST77XX_BLACK);
+    screenMain.fillRect(CENTER_X, cy, CENTER_W, MANUAL_BTN_Y - cy, ST77XX_BLACK);
+    const int TEMP_GAP = 3; // clear of the clock above and the button's top edge below
+    int tempAreaTop = cy + TEMP_GAP;
+    int tempAreaHeight = (MANUAL_BTN_Y - TEMP_GAP) - tempAreaTop;
 
     if (!localSensorHealthy && !networkSensorHealthy) {
         screenMain.setTextColor(ST77XX_RED, ST77XX_BLACK);
@@ -473,7 +483,7 @@ void updateMainDashboardUI() {
         printCentered(CENTER_X, CENTER_W, critY, "CRIT!", 3);
     } else {
         float dispAvg = config.isFahrenheit ? ((blendedAverageC * 9.0 / 5.0) + 32.0) : blendedAverageC;
-        uint16_t tempColor = (blendedAverageC > (config.tMax - 5.0)) ? ST77XX_RED : ST77XX_GREEN;
+        uint16_t tempColor = tempAlertColor();
         String numStr = String((int)round(dispAvg)); // integer only, no decimal
 
         int16_t bx, by;
@@ -590,16 +600,18 @@ static void drawTempProbeBars(int x0, int y0, int zoneWidth, int zoneHeight) {
 
     screenMain.fillRect(x0, y0, zoneWidth, zoneHeight, ST77XX_BLACK);
 
-    float dispLocalF = config.isFahrenheit ? ((localTempC * 9.0 / 5.0) + 32.0) : localTempC;
-    drawGaugeBar(barsStartX, y0, BAR_WIDTH, zoneHeight,
-                 localSensorHealthy ? ST77XX_ORANGE : ST77XX_RED,
-                 localSensorHealthy, dispLocalF, minDispF, maxDispF);
-
-    int x1 = barsStartX + BAR_WIDTH + BAR_SPACING;
+    // Network (HA) bar on the left, local probe on the right (user, 2026-10-04)
+    int xNet = barsStartX;
+    int xLocal = barsStartX + BAR_WIDTH + BAR_SPACING;
     float dispNetF = config.isFahrenheit ? ((networkTempC * 9.0 / 5.0) + 32.0) : networkTempC;
-    drawGaugeBar(x1, y0, BAR_WIDTH, zoneHeight,
+    drawGaugeBar(xNet, y0, BAR_WIDTH, zoneHeight,
                  networkSensorHealthy ? ST77XX_MAGENTA : ST77XX_RED,
                  networkSensorHealthy, dispNetF, minDispF, maxDispF);
+
+    float dispLocalF = config.isFahrenheit ? ((localTempC * 9.0 / 5.0) + 32.0) : localTempC;
+    drawGaugeBar(xLocal, y0, BAR_WIDTH, zoneHeight,
+                 localSensorHealthy ? ST77XX_ORANGE : ST77XX_RED,
+                 localSensorHealthy, dispLocalF, minDispF, maxDispF);
 
     // Value labels above each bar - bare rounded integer, no unit letter.
     // Repeating the unit on every value was redundant once the big average
@@ -608,11 +620,11 @@ static void drawTempProbeBars(int x0, int y0, int zoneWidth, int zoneHeight) {
     screenMain.fillRect(x0, VALUE_ROW_Y, zoneWidth, 10, ST77XX_BLACK);
     String localLabel = localSensorHealthy ? String((int)round(dispLocalF)) : "--";
     screenMain.setTextColor(ST77XX_ORANGE, ST77XX_BLACK);
-    printCentered(barsStartX, BAR_WIDTH, VALUE_ROW_Y, localLabel, 1);
+    printCentered(xLocal, BAR_WIDTH, VALUE_ROW_Y, localLabel, 1);
 
     String netLabel = networkSensorHealthy ? String((int)round(dispNetF)) : "--";
     screenMain.setTextColor(ST77XX_MAGENTA, ST77XX_BLACK);
-    printCentered(x1, BAR_WIDTH, VALUE_ROW_Y, netLabel, 1);
+    printCentered(xNet, BAR_WIDTH, VALUE_ROW_Y, netLabel, 1);
 }
 
 // ============================================================
@@ -837,11 +849,34 @@ static void updateSetupScreen() {
 
 bool isOverlayOpen() { return overlayOpen || infoOpen || setupOpen; }
 
+// ============================================================================
+// STANDBY: backlight off, everything else keeps running
+// ============================================================================
+
+static bool displayOn = true;
+
+bool isDisplayOn() { return displayOn; }
+
+void setDisplayOn(bool on, const char* source) {
+    if (on == displayOn) return;
+    displayOn = on;
+    digitalWrite(PIN_LCD_BL, on ? HIGH : LOW);
+    Serial.print("LCD display "); Serial.print(on ? "ON" : "OFF"); Serial.print(" via "); Serial.println(source);
+    sdLogEvent("DISPLAY", String("source=") + source + " action=" + (on ? "ON" : "OFF"));
+}
+
 void handleTouchInput() {
     static bool wasPressed = false;
 
     int tx, ty;
     bool pressed = getTouchPoint(tx, ty);
+
+    // Dark screen: a tap only wakes it (never reaches a button underneath)
+    if (!displayOn) {
+        if (pressed && !wasPressed) setDisplayOn(true, "LCD");
+        wasPressed = pressed;
+        return;
+    }
 
     if (setupOpen) {
         if (pressed && !wasPressed) {

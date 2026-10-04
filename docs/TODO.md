@@ -12,12 +12,10 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-- `[Web]` Manual Override slider does not change speed
-
-- `[LCD]` Need to move the clock and main temperature display UP a very small amount, maybe 1/2/3 pixels, but enough to clear the top of the Manual Control button
+(empty)
 
 ## Open
-
+ 
 - [ ] `[Board]` Touch-LCD-2: first flash of the current firmware and the checks in CLAUDE.md's
       success criteria, incl. the settings upgrade from version 4, the LCD override path and
       NTP (works on the ESP32-S3-ETH) (2026-09-27)
@@ -65,8 +63,33 @@ How this list works (agreed 2026-09-28):
 - [ ] `[LCD]` Setup screen: "no network" countdown and hotspot views UNTESTED; the hotspot
       turns off 30 s after a network works and drops a phone mid-setup (2026-09-29)
 
+- [ ] `[Net]` NTP sync on WiFi "extremely slow" (your note): not reproduced on 2026-10-04
+      (synced within 2 s of joining on two boots). Probably a side effect of the slow/failed
+      WiFi joins fixed today; note what the LCD and web page show if it happens again
+      (2026-10-04)
+- [ ] `[SD]` Some cards are recognised until the buffered (internal flash) data has been
+      written to them, then the card is lost and the dot flashes red again; only certain
+      cards (your note). Likely the same as the failing-card item above (2026-10-04)
+- [ ] `[Web]` Low priority: Manual Override slider sometimes doesn't change the speed (your
+      note, 2026-10-02). Has worked and not worked; can't be confirmed while the bench
+      hardware has network/connection problems. Re-check once wired for good (2026-10-04)
+
 ## Done
 
+- [x] `[LCD]` `[HA]` `[Web]` LCD standby (your note): backlight off/on from HA (switch
+      "LCD display"), the web page (button under the LCD view; the view dims) or a tap on the
+      dark screen (wakes it, nothing else). On after every boot. HA path tested via MQTT on
+      the COM14 board (Claude); web button and tap UNTESTED (2026-10-04, this commit)
+- [x] `[LCD]` `[Web]` Layout batch (your notes): status dots network, MQTT, SD (LCD and web
+      LCD view); temperature bars network left, local right; clock top level with the column
+      labels and the big temperature centred between clock and button; alert colour red from
+      75 % of fan curve start -> top (was top - 5 C). Network dot/MQTT now need an address,
+      not just a cable link (one cause of the LCD/web light mismatch). UNTESTED on the LCD
+      (web LCD view checked in demo) (2026-10-04, this commit)
+- [x] `[Net]` WiFi without Ethernet (your note: restart started the hotspot instead of the
+      saved WiFi): no W5500 = join WiFi at once (was 30 s); W5500 but no address at boot =
+      wait 10 s; the hotspot waits while a WiFi join is under way (up to 45 s). Boot log on
+      COM14: joined ~1 s after boot, no hotspot (Claude, 2026-10-04, this commit)
 - [x] `[Web]` Normal tabs' rough spots: closed by the user, the Setup page covers first-time
       setup (`1567e95`). Unchanged on the normal tabs (reopen if it bothers): each Save
       reloads every form and wipes other panels' unsaved fields; a node ID change reaches

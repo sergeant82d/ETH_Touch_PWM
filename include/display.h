@@ -38,4 +38,10 @@ void handleTouchInput();
 // doesn't need its own awareness of overlay state.
 bool isOverlayOpen();
 
+// LCD standby (user, 2026-10-04): backlight off/on; the controller, fans and
+// screen updates keep running. Switched from Home Assistant ("LCD display"),
+// the web page, or a tap on the dark screen (wakes it). On after every boot.
+void setDisplayOn(bool on, const char* source);
+bool isDisplayOn();
+
 #endif // DISPLAY_H

@@ -18,6 +18,9 @@
 // WiFi is only a backup for Ethernet (user decision 2026-09-27): joined when
 // the Ethernet link has been down for 30 s, left 60 s after it is back. The
 // setup hotspot starts when no network has worked for 60 s.
+// At boot (2026-10-04): no W5500 = join WiFi at once; W5500 but no address
+// yet = wait 10 s, not 30. The hotspot waits while a WiFi join is under way
+// (up to 45 s), so a slow join no longer ends up on the hotspot.
 
 NetworkServer server(80);
 
@@ -142,8 +145,13 @@ static unsigned long anyUpSince = 0;    // start of the current stretch with a n
 static bool lastEthUp = false;
 static bool lastAnyUp = false;
 static const char* lastActive = "";
+static bool ethPresent = false;         // W5500 answered at boot
+static bool ethEverUp = false;          // Ethernet has had an address since boot
+static unsigned long staStartedMs = 0;  // when the current WiFi join began
 
 static const unsigned long WIFI_AFTER_ETH_DOWN_MS = 30000;
+static const unsigned long WIFI_AFTER_BOOT_MS = 10000;  // Ethernet normally has its address within a few s
+static const unsigned long WIFI_JOIN_GRACE_MS = 45000;  // hotspot holds off this long for a WiFi join
 static const unsigned long WIFI_OFF_AFTER_ETH_UP_MS = 60000;
 static const unsigned long HOTSPOT_AFTER_MS = 60000;
 static const unsigned long HOTSPOT_OFF_AFTER_MS = 30000;
@@ -166,6 +174,7 @@ static void applyWifiMode() {
 
 static void startSta() {
     staActive = true;
+    staStartedMs = millis();
     applyWifiMode();
     if (config.wifiStatic) {
         WiFi.config(IPAddress(config.wifiIp), IPAddress(config.wifiGateway), IPAddress(config.wifiSubnet), IPAddress(config.wifiDns));
@@ -200,12 +209,20 @@ static void stopAp() {
 bool isEthernetConnected() { return ETH.linkUp(); }
 bool isWifiConnected() { return staActive && WiFi.status() == WL_CONNECTED; }
 bool isHotspotActive() { return apActive; }
-bool isNetworkConnected() { return isEthernetConnected() || isWifiConnected(); }
+// With an address, not just a link (the LCD dot, MQTT and the web page agree; 2026-10-04)
+bool isNetworkConnected() { return (isEthernetConnected() && ETH.hasIP()) || isWifiConnected(); }
+
+// Time left before the hotspot may start: a minute without a network, and not
+// while a WiFi join is still within its grace time
+static long hotspotWaitMs(unsigned long now) {
+    long wait = (long)HOTSPOT_AFTER_MS - (long)(now - lastAnyUpMs);
+    if (staActive && !isWifiConnected()) wait = max(wait, (long)WIFI_JOIN_GRACE_MS - (long)(now - staStartedMs));
+    return wait > 0 ? wait : 0;
+}
 
 long hotspotStartsInMs() {
     if (apActive || isNetworkConnected()) return -1;
-    unsigned long since = millis() - lastAnyUpMs;
-    return since >= HOTSPOT_AFTER_MS ? 0 : (long)(HOTSPOT_AFTER_MS - since);
+    return hotspotWaitMs(millis());
 }
 
 const char* activeNetwork() {
@@ -237,6 +254,7 @@ void networkLoop() {
 
     bool ethUp = isEthernetConnected() && ETH.hasIP();
     if (ethUp && !lastEthUp) ethUpSince = now;
+    if (ethUp) ethEverUp = true;
     if (!ethUp && lastEthUp) ethDownSince = now;
     lastEthUp = ethUp;
     bool wifiUp = isWifiConnected();
@@ -246,11 +264,12 @@ void networkLoop() {
     lastAnyUp = anyUp;
 
     // WiFi backup: only while Ethernet is down
-    if (!ethUp && !staActive && config.wifiSsid[0] && now - ethDownSince >= WIFI_AFTER_ETH_DOWN_MS) startSta();
+    unsigned long wifiWait = !ethPresent ? 0 : ethEverUp ? WIFI_AFTER_ETH_DOWN_MS : WIFI_AFTER_BOOT_MS;
+    if (!ethUp && !staActive && config.wifiSsid[0] && now - ethDownSince >= wifiWait) startSta();
     if (ethUp && staActive && now - ethUpSince >= WIFI_OFF_AFTER_ETH_UP_MS) stopSta("Ethernet is back");
 
     // Setup hotspot: after a minute without any network, off once one has held for 30 s
-    if (!apActive && !anyUp && now - lastAnyUpMs >= HOTSPOT_AFTER_MS) startAp();
+    if (!apActive && !anyUp && hotspotWaitMs(now) == 0) startAp();
     if (apActive && anyUp && now - anyUpSince >= HOTSPOT_OFF_AFTER_MS) stopAp();
 
     // Switched network: MQTT reconnects at once over the new one
@@ -328,8 +347,9 @@ void networkInit() {
     Serial.println("Initializing W5500 Ethernet (ESP32 ETH driver)...");
     SPI.begin(W5500_SCK, W5500_MISO, W5500_MOSI);
     // The driver pulses W5500_RST itself
-    if (!ETH.begin(ETH_PHY_W5500, 1, W5500_CS, W5500_INT, W5500_RST, SPI)) {
-        Serial.println("ERROR: W5500 not found - check wiring / pins.h.");
+    ethPresent = ETH.begin(ETH_PHY_W5500, 1, W5500_CS, W5500_INT, W5500_RST, SPI);
+    if (!ethPresent) {
+        Serial.println("ERROR: W5500 not found - check wiring / pins.h. Using WiFi only.");
     }
     if (config.ethDhcp) {
         ETH.config();  // DHCP: address from the router (find the board by its device name)

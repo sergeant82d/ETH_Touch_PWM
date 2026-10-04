@@ -5,6 +5,9 @@
 #include "fan_network.h"
 #include "mqtt.h"
 #include "sd_logger.h"
+#if HAS_LCD
+#include "display.h"
+#endif
 #include <TimeLib.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
@@ -192,6 +195,9 @@ static void handleStatus(NetworkClient &client) {
     doc["tz"] = config.tzName;
     doc["fahrenheit"] = config.isFahrenheit;
     doc["clock24"] = config.is24Hour;
+#if HAS_LCD
+    doc["display"] = isDisplayOn(); // LCD standby; absent on a board without an LCD
+#endif
     addTemp(doc["local"].to<JsonObject>(), localSensorHealthy, localTempC);
     addTemp(doc["network"].to<JsonObject>(), networkSensorHealthy, networkTempC);
     addTemp(doc["blended"].to<JsonObject>(), localSensorHealthy || networkSensorHealthy, blendedAverageC);
@@ -453,6 +459,19 @@ static void handleOverride(NetworkClient &client, const Request &req) {
     }
     sendResult(client, 200);
 }
+
+#if HAS_LCD
+// /api/display  {"on": bool}: LCD standby (backlight)
+static void handleDisplay(NetworkClient &client, const Request &req) {
+    JsonDocument in;
+    if (deserializeJson(in, readBody(client, req.contentLength)) || !in["on"].is<bool>()) {
+        sendResult(client, 400, "Bad JSON.");
+        return;
+    }
+    setDisplayOn(in["on"], "web");
+    sendResult(client, 200);
+}
+#endif
 
 // ============================================================================
 // /api/theme  {"preset": "...", "custom": {"bg": "#rrggbb", ...}}
@@ -978,6 +997,9 @@ void handleNativeWebTraffic(NetworkClient &client) {
     else if (post && req.path == "/api/setup") handleSetup(client, req);
     else if (post && req.path == "/api/config") { if (requireLogin(client, req)) handlePostConfig(client, req); }
     else if (post && req.path == "/api/override") { if (requireLogin(client, req)) handleOverride(client, req); }
+#if HAS_LCD
+    else if (post && req.path == "/api/display") { if (requireLogin(client, req)) handleDisplay(client, req); }
+#endif
     else if (post && req.path == "/api/theme") { if (requireLogin(client, req)) handlePostTheme(client, req); }
     else if (post && req.path == "/api/ota") { if (requireLogin(client, req)) handleOta(client, req); }
     else if (post && req.path == "/api/wifi") { if (requireLogin(client, req)) handlePostWifi(client, req); }

@@ -364,6 +364,8 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         <h2>LCD view</h2>
         <canvas id="lcd-view" class="lcd-view" width="960" height="720"></canvas>
         <div class="hint">The Touch-LCD-2 screen layout, drawn here from this controller's live values (fonts are close, not exact).</div>
+        <div class="actions" id="lcd-power-row" hidden><button class="btn ghost" id="lcd-power">Turn the LCD off</button><span class="msg" id="lcd-power-msg"></span></div>
+        <div class="hint" id="lcd-power-hint" hidden>Standby turns off the backlight only; the controller keeps running. A tap on the screen, or Home Assistant ("LCD display"), turns it back on.</div>
       </div>
       <div class="panel">
         <h2>Manual override</h2>
@@ -743,6 +745,9 @@ function renderStatus() {
   b.classList.toggle("on", s.override);
   b.textContent = s.override ? "Manual override: ON (tap to turn off)" : "Manual override: off (tap to turn on)";
   $("#ovr-row").hidden = !s.override;
+  const hasLcd = s.display !== undefined; // LCD standby: only boards with an LCD report it
+  $("#lcd-power-row").hidden = $("#lcd-power-hint").hidden = !hasLcd;
+  if (hasLcd) $("#lcd-power").textContent = s.display ? "Turn the LCD off" : "Turn the LCD on";
   if (!sliderBusy) { $("#ovr-slider").value = s.overridePct; $("#ovr-pct").textContent = s.overridePct + "%"; }
 
   $("#net-name").textContent = s.net;
@@ -779,6 +784,12 @@ function tickClock() {
 }
 const fmtUptime = (s) => { const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return (d ? d + "d " : "") + h + "h " + m + "m"; };
 const esc = (v) => String(v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// ---------- LCD standby ----------
+$("#lcd-power").onclick = async () => {
+  try { await api("/api/display", { on: !status.display }); await pollStatus(); }
+  catch (e) { showMsg($("#lcd-power-msg"), e.message, false); }
+};
 
 // ---------- Override ----------
 $("#ovr-btn").onclick = async () => {
@@ -830,7 +841,7 @@ function drawLcdView() {
   g.setTransform(K, 0, 0, K, 0, 0);
   g.fillStyle = C.black; g.fillRect(0, 0, 320, 240);
   const gs = (config && config.gauge) || { rpmMin: 300, rpmMax: 2200, tMinF: 60, tMaxF: 110 };
-  const tMaxC = config ? +config.tMaxC : 40;
+  const tMinC = config ? +config.tMinC : 27, tMaxC = config ? +config.tMaxC : 40;
   const F = s.fahrenheit;
 
   // Classic font, size n: 6n px per letter, 8n px tall, y = top of the text
@@ -846,6 +857,14 @@ function drawLcdView() {
     g.fillStyle = color; g.fillText(str, x0 + (w - bw) / 2 + m.actualBoundingBoxLeft, y0 + (h - bh) / 2 + m.actualBoundingBoxAscent);
     return true;
   };
+  // Big font with its top at y0 (the clock); returns the bottom, or 0 if it doesn't fit
+  const bigTop = (str, x0, w, y0, maxH, color, px) => {
+    g.font = `bold ${px}px Arial, Helvetica, sans-serif`; g.textBaseline = "alphabetic";
+    const m = g.measureText(str), bw = m.actualBoundingBoxLeft + m.actualBoundingBoxRight, bh = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
+    if (bw > w - 4 || bh > maxH) return 0;
+    g.fillStyle = color; g.fillText(str, x0 + (w - bw) / 2 + m.actualBoundingBoxLeft, y0 + m.actualBoundingBoxAscent);
+    return y0 + bh;
+  };
   const dot = (x, y, r, color) => { g.fillStyle = color; g.beginPath(); g.arc(x, y, r, 0, 2 * Math.PI); g.fill(); };
   const rrect = (x, y, w, h, r, color, fill) => {
     g.beginPath();
@@ -853,7 +872,7 @@ function drawLcdView() {
     else { g.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, r); g.strokeStyle = color; g.lineWidth = 1; g.stroke(); }
   };
 
-  // Title bar: node name, SD dot, network dot, gear
+  // Title bar: node name, dots (network, MQTT, SD), gear
   g.fillStyle = C.blue; g.fillRect(0, 0, 320, 26);
   text(0, 320, 5, s.node.replace(/_/g, " ").replace(/(^| )(\S)/g, (_, a, b) => a + b.toUpperCase()), 2, C.white);
   let sdc = C.green;
@@ -861,9 +880,9 @@ function drawLcdView() {
     const miss = s.sdState === "Missing";
     sdc = lcdBlink(miss ? 400 : 1200) ? (miss ? C.red : C.orange) : C.blue;
   }
-  dot(10, 13, 4, sdc);
-  dot(22, 13, 4, s.net === "Ethernet" || s.net === "WiFi" ? C.green : s.net === "Hotspot" ? C.orange : C.red);
-  dot(34, 13, 4, s.mqttOk ? C.green : C.orange);
+  dot(10, 13, 4, s.net === "Ethernet" || s.net === "WiFi" ? C.green : s.net === "Hotspot" ? C.orange : C.red);
+  dot(22, 13, 4, s.mqttOk ? C.green : C.orange);
+  dot(34, 13, 4, sdc);
   g.fillStyle = C.white;
   LCD_GEAR.forEach((row, y) => { for (let x = 0; x < 24; x++) if (row & (1 << (23 - x))) g.fillRect(290 + x, 1 + y, 1, 1); });
 
@@ -888,7 +907,7 @@ function drawLcdView() {
   [10, 58].forEach((x, i) => { bar(x, C.cyan, true, rpm[i], gs.rpmMin, gs.rpmMax); text(x, 28, 40, String(rpm[i]), 1, C.cyan); });
   const toDisp = (c) => (F ? c * 9 / 5 + 32 : c);
   const scaleMin = F ? gs.tMinF : (gs.tMinF - 32) * 5 / 9, scaleMax = F ? gs.tMaxF : (gs.tMaxF - 32) * 5 / 9;
-  [[234, s.local, C.orange], [282, s.network, C.magenta]].forEach(([x, t, color]) => {
+  [[234, s.network, C.magenta], [282, s.local, C.orange]].forEach(([x, t, color]) => {
     bar(x, t.ok ? color : C.red, t.ok, t.ok ? toDisp(t.c) : 0, scaleMin, scaleMax);
     text(x, 28, 40, t.ok ? String(Math.round(toDisp(t.c))) : "--", 1, color);
   });
@@ -899,18 +918,23 @@ function drawLcdView() {
     const d = new Date(timeBase.t * 1000 + (Date.now() - timeBase.at)), h = d.getUTCHours(), m = String(d.getUTCMinutes()).padStart(2, "0");
     tStr = s.clock24 ? `${String(h).padStart(2, "0")}:${m}` : `${h % 12 || 12}:${m} ${h < 12 ? "AM" : "PM"}`;
   }
-  if (!big(tStr, 100, 120, 32, 40, C.yellow, 34)) {
+  // Clock: top level with the column labels (y 30)
+  let clockBottom = bigTop(tStr, 100, 120, 30, 30, C.yellow, 34);
+  if (!clockBottom) {
     const size = tStr.length * 18 > 116 ? 2 : 3;
-    text(100, 120, 32 + (40 - 8 * size) / 2, tStr, size, C.yellow);
+    text(100, 120, 30, tStr, size, C.yellow);
+    clockBottom = 30 + 7 * size;
   }
 
-  // Big blended temperature (red above the fan curve top - 5 C), or CRIT! with both probes down
-  const tempColor = s.blended.c > tMaxC - 5 ? C.red : C.green;
-  if (!s.local.ok && !s.network.ok) text(100, 120, 72 + (78 - 24) / 2, "CRIT!", 3, C.red);
+  // Big blended temperature, centred between the clock and the button (red from 75 % of
+  // the fan curve start -> top), or CRIT! with both probes down
+  const tempColor = s.blended.c >= tMinC + 0.75 * (tMaxC - tMinC) ? C.red : C.green;
+  const ty = clockBottom + 3, th = 147 - ty;
+  if (!s.local.ok && !s.network.ok) text(100, 120, ty + (th - 24) / 2, "CRIT!", 3, C.red);
   else {
     const num = String(Math.round(toDisp(s.blended.c)));
-    if (!big(num, 100, 120, 72, 78, tempColor, 92, 8, 4) && !big(num, 100, 120, 72, 78, tempColor, 46, 8, 4)) {
-      text(100, 120, 72 + (78 - 48) / 2, num, 6, tempColor);
+    if (!big(num, 100, 120, ty, th, tempColor, 92, 8, 4) && !big(num, 100, 120, ty, th, tempColor, 46, 8, 4)) {
+      text(100, 120, ty + (th - 48) / 2, num, 6, tempColor);
     }
   }
 
@@ -941,6 +965,11 @@ function drawLcdView() {
   if (timeBase) { const d = new Date(timeBase.t * 1000 + (Date.now() - timeBase.at)); dStr = d.toISOString().slice(0, 10).replace(/-/g, "/"); }
   if (s.net === "Hotspot") text(228, 88, 226, "Hotspot on", 1, C.orange);
   else text(228, 88, 226, dStr, 1, C.yellow);
+
+  if (s.display === false) { // standby: the real screen is dark
+    g.fillStyle = "rgba(0, 0, 0, 0.75)"; g.fillRect(0, 0, 320, 240);
+    text(0, 320, 112, "Display off", 2, C.white);
+  }
 }
 setInterval(drawLcdView, 200); // the LCD redraws its bars every 200 ms, so flashing looks the same
 
@@ -1585,7 +1614,7 @@ function demoApi(path, body) {
       fahrenheit: true, clock24: false, tz: "America/Chicago",
       local: { ok: true, c: 31.8 + Math.sin(t / 30) / 2 }, network: { ok: true, c: 27.8 }, blended: { ok: true, c: 29.8 + Math.sin(t / 30) / 4 },
       fans: [{ rpm: 690, duty: 38, fault: false }, { rpm: 0, duty: 38, fault: true }], override: false, overridePct: 100,
-      sd: true, sdState: "OK", sdUsed: 23, eth: true, net: "Ethernet", mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true };
+      sd: true, sdState: "OK", sdUsed: 23, eth: true, net: "Ethernet", mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true, display: true };
   }
   if (path === "/api/config") return { fanCount: 2, channels: [{ pwm: 1, tach: 2 }, { pwm: 18, tach: 40 }, { pwm: -1, tach: -1 }, { pwm: -1, tach: -1 }], ethDhcp: false, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, gauge: { rpmMin: 300, rpmMax: 2200, tMinF: 60, tMaxF: 110 }, tzName: "America/Chicago", clock24: false,
     ip: "192.168.10.53", subnet: "255.255.255.0", gateway: "192.168.10.1", dns: "192.168.10.11", nodeId: "fanController_01",

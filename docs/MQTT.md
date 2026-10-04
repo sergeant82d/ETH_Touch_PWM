@@ -52,7 +52,8 @@ Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
 - Entity names sort into groups on HA's device page (it lists by name): "Air temperature
   blended/local/network", "Fan duty N", "Fan speed N", "Fault fan N / local probe /
   network probe"; IP address and Uptime under Diagnostic. Controls: "Fan curve start"
-  (tMin), "Fan curve top" (tMax), "Manual override", "Manual override speed".
+  (tMin), "Fan curve top" (tMax), "LCD display" (LCD boards), "Manual override",
+  "Manual override speed".
 - Discovery: `homeassistant/<component>/<nodeID>/<object>/config`, retained.
 - Availability: `<nodeID>/status` = `online` / `offline` (Last Will), retained.
 
@@ -76,9 +77,10 @@ them in its own unit system. `None` = unknown (probe failed).
 | `sd_card` | sensor "SD card" | `OK` / `Getting full` (>= 90 % used) / `Missing` (no card or a write failed) | (new, 2026-09-28) |
 | `sd_used` | sensor "SD card used", %, diagnostic | `23` / `None` without a card | (new, 2026-09-28) |
 | `sd_fault` | binary_sensor "Fault SD card", problem | `ON` unless the card is OK | (new, 2026-09-28) |
+| `display` | switch "LCD display" (LCD boards only) | `ON` / `OFF`: LCD standby, backlight only; a tap on the screen also turns it on; on after every boot | (new, 2026-10-04) |
 
 HA to device (not retained): `t_min/set`, `t_max/set`, `override/set`, `override_speed/set`,
-`network_temp/set`.
+`display/set`, `network_temp/set`.
 
 Rules:
 - `override/set ON` starts at 100 %, like the web page and LCD. `override_speed/set` is

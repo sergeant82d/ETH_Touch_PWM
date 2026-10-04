@@ -3,6 +3,10 @@
 #include "sensors.h"
 #include "fan_network.h"
 #include "sd_logger.h"
+#include "pins.h"
+#if HAS_LCD
+#include "display.h"
+#endif
 #include <math.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
@@ -86,6 +90,9 @@ static int buildEntities(EntityDef *out) {
     out[n++] = {"number", "t_max", "Fan curve top", "temperature", DEG_C, "mdi:thermometer-high", false, false, 0, 100, 0.1, "box"};
     out[n++] = {"switch", "override", "Manual override", nullptr, nullptr, "mdi:hand-back-right", false, false};
     out[n++] = {"number", "override_speed", "Manual override speed", nullptr, "%", "mdi:fan", false, false, 0, 100, 1, "slider"};
+#if HAS_LCD
+    out[n++] = {"switch", "display", "LCD display", nullptr, nullptr, "mdi:monitor", false, false}; // standby
+#endif
     for (int i = 1; i <= NUM_FANS; i++) {
         String f = "fan" + String(i);
         out[n++] = {"sensor", f + "_rpm", "Fan speed " + String(i), nullptr, "RPM", "mdi:fan", true, false};
@@ -95,7 +102,7 @@ static int buildEntities(EntityDef *out) {
     return n;
 }
 
-static const int MAX_ENTITIES = 15 + 3 * 4;
+static const int MAX_ENTITIES = 16 + 3 * 4;
 
 // Fan entities beyond config.fanCount are unwanted
 static bool entityWanted(const EntityDef &e) {
@@ -167,7 +174,8 @@ static void publishDiscovery(const String &node, bool removeAll) {
 // Slots: 0-4 fixed sensors, 5-12 duty/fault per fan, 13-16 controls, 17-19 SD card
 static const int SLOT_T_MIN = 13, SLOT_T_MAX = 14, SLOT_OVERRIDE = 15, SLOT_OVERRIDE_SPEED = 16;
 static const int SLOT_SD = 17, SLOT_SD_USED = 18, SLOT_SD_FAULT = 19;
-static const int SLOT_COUNT = 20;
+static const int SLOT_DISPLAY = 20;
+static const int SLOT_COUNT = 21;
 static String lastSent[SLOT_COUNT];
 static long lastRpm[4] = {-1, -1, -1, -1};
 static unsigned long lastRpmMs[4] = {0, 0, 0, 0};
@@ -216,6 +224,9 @@ static void publishState(bool force) {
     publishIfChanged(SLOT_T_MAX, "t_max", String(config.tMax, 1), force);
     publishIfChanged(SLOT_OVERRIDE, "override", manualOverrideActive ? "ON" : "OFF", force);
     publishIfChanged(SLOT_OVERRIDE_SPEED, "override_speed", String((manualOverrideDutyCycle * 100 + 127) / 255), force);
+#if HAS_LCD
+    publishIfChanged(SLOT_DISPLAY, "display", isDisplayOn() ? "ON" : "OFF", force);
+#endif
 
     // SD card health (sd_logger.cpp)
     publishIfChanged(SLOT_SD, "sd_card", sdStateText(), force);
@@ -330,6 +341,10 @@ static void onMessage(char *t, byte *payload, unsigned int len) {
             Serial.println("Override DEACTIVATED via HA");
             sdLogEvent("OVERRIDE", "source=HA action=OFF");
         }
+#if HAS_LCD
+    } else if (object == "display") {
+        if (msg == "ON" || msg == "OFF") setDisplayOn(msg == "ON", "HA");
+#endif
     } else if (object == "override_speed") {
         // Ignored while the override is off (as before); the state
         // republished below snaps HA's slider back.
