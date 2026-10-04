@@ -119,10 +119,41 @@ void calculateFanCurve(float targetTemp) {
         targetDuty = (int)lroundf(autoDuty);
     }
 
+    // Per-fan offset (user, 2026-10-04): fan N is held at fan 1's measured RPM
+    // + config.fanOffsetRpm[N] by a slow integral trim on its duty, once a
+    // second (this function's rate), on RPMs averaged over ~10 s (below). Not in the failsafe (all at full speed),
+    // nor while fan 1 is off; no trim without a tach reading (fan stopped or
+    // no tach wire), so a missing tach can't drive a fan to full speed.
+    static float trim[4] = {0, 0, 0, 0};          // duty units, per fan
+    const float TRIM_PER_RPM = 0.02;              // duty per RPM of error per second
+    bool failsafe = !localSensorHealthy && !networkSensorHealthy;
+
+    // Each fan's RPM averaged over ~10 s for the comparison: a tach read
+    // once a second jumps by 60-120 RPM at a steady duty (fan 1 read
+    // 595-720 RPM at 24-25 %, 2026-10-04), so the offset wandered with it.
+    static float avgRpm[4] = {0, 0, 0, 0};
+    const float RPM_AVG_SAMPLES = 10.0;
+    for (int i = 0; i < 4 && i < NUM_FANS; i++) {
+        float r = (float)currentRPMs[i];
+        if (r <= 0 || avgRpm[i] <= 0) avgRpm[i] = r;   // stopped / just started: follow at once
+        else avgRpm[i] += (r - avgRpm[i]) / RPM_AVG_SAMPLES;
+    }
+
     for (int i = 0; i < NUM_FANS; i++) {
         if (i < config.fanCount && pwmPins[i] >= 0) {
-            currentDutyCycles[i] = targetDuty;
-            ledcWrite(pwmPins[i], targetDuty);
+            int duty = targetDuty;
+            if (i > 0 && i < 4 && config.fanOffsetRpm[i] != 0 && !failsafe && targetDuty > 0) {
+                if (avgRpm[0] > 0 && avgRpm[i] > 0) {
+                    float error = avgRpm[0] + config.fanOffsetRpm[i] - avgRpm[i];
+                    trim[i] += TRIM_PER_RPM * error;
+                }
+                trim[i] = constrain(trim[i], (float)(51 - targetDuty), (float)(255 - targetDuty)); // stay 20-100 %
+                duty = constrain(targetDuty + (int)lroundf(trim[i]), 0, 255);
+            } else if (i < 4 && config.fanOffsetRpm[i] == 0) {
+                trim[i] = 0;
+            }
+            currentDutyCycles[i] = duty;
+            ledcWrite(pwmPins[i], duty);
         } else {
             currentDutyCycles[i] = 0;
             if (pwmPins[i] >= 0) ledcWrite(pwmPins[i], 0);

@@ -19,9 +19,6 @@ How this list works (agreed 2026-09-28):
 - [ ] `[LCD]` Screen flicker: every redraw clears everything; dirty-checking or an off-screen
       buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
 
-- [ ] `[Web]` Per-fan speed offset: fan 1 is the reference, each other fan +/- in 10 RPM steps,
-      in the Fan Channels table on the Fan Control tab; an LCD page for it later (your note,
-      2026-09-28)
 
 - [ ] `[Board]` Boot log on the Touch-LCD-2 shows "GPIO isr service already installed" and one
       I2C read error (touch bus) at ~4 s; touch works. Look into it. Seen on both Lite boards, so it's the firmware (2026-09-29)
@@ -55,6 +52,16 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Web]` Per-fan speed offset (your note): Fan channels table, - / + / Reset, 10 RPM steps,
+      +/-500; fan N held at fan 1's RPM + offset by a trim on its duty, on RPMs averaged over
+      ~10 s; 20-100 % limits, none in the failsafe or while fan 1 is off, no trim without a tach
+      reading. Settings version 10 (v9 file upgraded on COM15, all settings kept). Tested on
+      COM15: +200 held at +191..+214 (30 s averages), -200 at -173..-227; a 400 RPM jump
+      overshoots once and settles in ~90 s; below ~25 % fan 2 can't go 200 under fan 1 (20 %
+      floor). LCD page for it: later (2026-10-04, this commit)
+- [x] `[Net]` Clock after a power cut took ~5 min to be set: main.cpp's setSyncInterval(300)
+      overrode the 5 s retry. Now set ~12 s after a cold start (user power-cycled COM15,
+      2026-10-04, this commit)
 - [x] `[Board]` W5500 Lite build pins (fans, tach, DS18B20, W5500): in use, work (user,
       2026-10-04). You'll edit the pins yourself from here (docs/BOARDS.md, "Changing pins")
 - [x] `[Board]` Both-probes-failed failsafe (both fans full speed): tested, good (user, 2026-10-04)

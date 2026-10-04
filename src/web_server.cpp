@@ -232,6 +232,7 @@ static void handleGetConfig(NetworkClient &client) {
         JsonObject c = chans.add<JsonObject>();
         c["pwm"] = pwmPins[i];
         c["tach"] = tachPins[i];
+        c["offset"] = i < 4 ? config.fanOffsetRpm[i] : 0; // RPM vs fan 1 (fan 1: always 0)
     }
     doc["fahrenheit"] = config.isFahrenheit;
     doc["tMinC"] = serialized(String(config.tMin, 1));
@@ -287,6 +288,15 @@ static const char* applyConfigJson(JsonDocument &in, SystemConfig &next) {
         while (wired < NUM_FANS && pwmPins[wired] >= 0) wired++;
         if (n < 1 || n > wired) return "That fan channel isn't wired on this board.";
         next.fanCount = n;
+    }
+    if (in["fanOffsets"].is<JsonArrayConst>()) { // RPM vs fan 1, +/-500 in 10 RPM steps
+        JsonArrayConst a = in["fanOffsets"];
+        for (int i = 1; i < 4 && i < (int)a.size(); i++) {
+            if (!a[i].is<int>()) return "Fan offsets must be numbers.";
+            int v = a[i];
+            if (v < -500 || v > 500) return "Fan offsets: -500 to +500 RPM.";
+            next.fanOffsetRpm[i] = (v / 10) * 10;
+        }
     }
     if (in["fahrenheit"].is<bool>()) next.isFahrenheit = in["fahrenheit"];
     if (in["tMinC"].is<float>() || in["tMaxC"].is<float>()) {

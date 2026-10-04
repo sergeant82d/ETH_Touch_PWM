@@ -160,6 +160,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
 .fan-table tr.off td { color: var(--muted); opacity: .55; }
 .fan-table input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 .fan-table input[type=checkbox]:disabled { cursor: not-allowed; }
+.fan-table .off-btn { padding: 2px 10px; min-width: 0; font-family: var(--mono); }
 .notes { min-height: 170px; max-height: 420px; resize: vertical; overflow: auto; line-height: 1.45;
   white-space: pre-wrap; font-family: var(--font); }
 .emoji-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
@@ -446,10 +447,10 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       <form class="panel" id="form-fans">
         <h2>Fan channels</h2>
         <table class="fan-table">
-          <thead><tr><th>Use</th><th>Channel</th><th>PWM pin</th><th>Tach pin</th><th>Speed</th></tr></thead>
+          <thead><tr><th>Use</th><th>Channel</th><th>PWM pin</th><th>Tach pin</th><th>Speed</th><th>Offset vs fan 1</th></tr></thead>
           <tbody id="fan-rows"></tbody>
         </table>
-        <div class="hint" style="margin: -8px 0 18px">Tick the fans that are connected, in order: the next channel becomes available once the one before it is ticked; only the last ticked one can be unticked. Grey = not available (or not wired on this board).</div>
+        <div class="hint" style="margin: -8px 0 18px">Offset: each other fan is held at fan 1's speed plus or minus this many RPM (10 RPM steps, up to 500), by adjusting its own speed a little every second. Needs both fans' tach wires; not used at full speed in the failsafe, or while fan 1 is off. Saved with the Save button below.<br>Tick the fans that are connected, in order: the next channel becomes available once the one before it is ticked; only the last ticked one can be unticked. Grey = not available (or not wired on this board).</div>
         <h2>Fan curve</h2>
         <div class="form">
           <div class="field"><span class="label">Temperature unit (web page and LCD)</span>
@@ -819,6 +820,7 @@ $("#ovr-slider").onchange = async (e) => {
 
 // ---------- Fan channel table ----------
 let fanCount = 1;
+let fanOffsets = [0, 0, 0, 0]; // RPM vs fan 1, edited here until Save (like fanCount)
 function renderFanRows() {
   if (!config) return;
   const ch = config.channels, rows = $("#fan-rows");
@@ -833,9 +835,16 @@ function renderFanRows() {
       <td>Fan ${i + 1}</td>
       <td class="mono">${wired ? "GPIO " + c.pwm : "not wired"}</td>
       <td class="mono">${c.tach >= 0 ? "GPIO " + c.tach : "--"}</td>
-      <td class="mono">${on && live ? live.rpm + " RPM" : "--"}</td></tr>`;
+      <td class="mono">${on && live ? live.rpm + " RPM" : "--"}</td>
+      <td class="mono">${i === 0 ? "reference" : !on ? "--" :
+        `<button type="button" class="btn ghost off-btn" data-i="${i}" data-d="-10">&minus;</button> ${fanOffsets[i] > 0 ? "+" : ""}${fanOffsets[i]} RPM <button type="button" class="btn ghost off-btn" data-i="${i}" data-d="10">+</button> <button type="button" class="btn ghost off-btn" data-i="${i}" data-reset="1" ${fanOffsets[i] ? "" : "disabled"}>Reset</button>`}</td></tr>`;
   }).join("");
   rows.querySelectorAll("input").forEach((cb) => cb.onchange = () => { fanCount = cb.checked ? +cb.dataset.i + 1 : +cb.dataset.i; renderFanRows(); });
+  rows.querySelectorAll(".off-btn").forEach((b) => b.onclick = () => {
+    const i = +b.dataset.i;
+    fanOffsets[i] = b.dataset.reset ? 0 : Math.max(-500, Math.min(500, fanOffsets[i] + +b.dataset.d));
+    renderFanRows();
+  });
 }
 
 // ---------- LCD view (Dashboard): the Touch-LCD-2 screen, redrawn from live data ----------
@@ -1040,6 +1049,7 @@ async function loadConfig() {
   config = await api("/api/config");
   const c = config, f = c.fahrenheit;
   fanCount = c.fanCount;
+  fanOffsets = c.channels.map((ch) => ch.offset || 0);
   renderFanRows();
   setRadio($("#form-net"), "ethMode", c.ethDhcp ? "dhcp" : "static");
   $("#eth-static").hidden = c.ethDhcp;
@@ -1062,7 +1072,7 @@ $("#form-fans").querySelectorAll("input[name=unit]").forEach((r) => r.onchange =
 });
 
 $("#form-fans").onsubmit = (e) => { e.preventDefault(); const f = e.target, F = radio(f, "unit") === "F";
-  save(f, { fanCount, fahrenheit: F, tMinC: +toC(+$("#tMin").value, F).toFixed(2), tMaxC: +toC(+$("#tMax").value, F).toFixed(2) }, pollStatus); };
+  save(f, { fanCount, fanOffsets, fahrenheit: F, tMinC: +toC(+$("#tMin").value, F).toFixed(2), tMaxC: +toC(+$("#tMax").value, F).toFixed(2) }, pollStatus); };
 $("#form-ha").onsubmit = (e) => { e.preventDefault();
   const body = { nodeId: $("#nodeId").value.trim(), mqttBroker: $("#mqttBroker").value.trim(), mqttPort: +$("#mqttPort").value, mqttUser: $("#mqttUser").value };
   if ($("#mqttPass").value) body.mqttPass = $("#mqttPass").value;
@@ -1643,7 +1653,7 @@ function demoApi(path, body) {
       fans: [{ rpm: 690, duty: 38, fault: false }, { rpm: 0, duty: 38, fault: true }], override: false, overridePct: 100,
       sd: true, sdState: "OK", sdUsed: 23, eth: true, net: "Ethernet", mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true, display: true };
   }
-  if (path === "/api/config") return { fanCount: 2, channels: [{ pwm: 1, tach: 2 }, { pwm: 18, tach: 40 }, { pwm: -1, tach: -1 }, { pwm: -1, tach: -1 }], ethDhcp: false, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, gauge: { rpmMin: 300, rpmMax: 2200, tMinF: 60, tMaxF: 110 }, tzName: "America/Chicago", clock24: false,
+  if (path === "/api/config") return { fanCount: 2, channels: [{ pwm: 1, tach: 2, offset: 0 }, { pwm: 18, tach: 40, offset: -50 }, { pwm: -1, tach: -1 }, { pwm: -1, tach: -1 }], ethDhcp: false, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, gauge: { rpmMin: 300, rpmMax: 2200, tMinF: 60, tMaxF: 110 }, tzName: "America/Chicago", clock24: false,
     ip: "192.168.10.53", subnet: "255.255.255.0", gateway: "192.168.10.1", dns: "192.168.10.11", nodeId: "fanController_01",
     defaultNodeId: "fanController_xx", suggestedNodeId: "fanController_5386", mqttBroker: "192.168.10.85", mqttPort: 1883, mqttUser: "Brad", mqttPassSet: true, loginSet: true, webUser: "admin" };
   if (path === "/api/theme") return theme;

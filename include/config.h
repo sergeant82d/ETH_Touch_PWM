@@ -7,7 +7,7 @@
 // Bump this whenever the SystemConfig struct's fields/layout change.
 // loadSettings() checks this and falls back to defaults on a mismatch,
 // so a firmware update never reads a stale/misaligned raw-byte blob.
-#define CONFIG_STRUCT_VERSION 9
+#define CONFIG_STRUCT_VERSION 10
 
 // Factory nodeID. MQTT stays off until the user changes it on the web page,
 // so two unconfigured boards can't share one name on the broker / in HA.
@@ -75,6 +75,11 @@ struct SystemConfig {
     // Ethernet address by DHCP (version 9). Factory default true; a board
     // upgraded from an older version keeps its static address (loadSettings).
     bool ethDhcp;
+
+    // Per-fan speed offset (version 10, user 2026-10-04): fan N runs at fan 1's
+    // measured RPM + this many RPM (+/-500, 10 RPM steps), held by a trim on its
+    // duty (sensors.cpp). Index 0 (fan 1, the reference) is always 0. 4 = NUM_FANS.
+    int32_t fanOffsetRpm[4];
 };
 
 extern SystemConfig config;

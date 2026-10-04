@@ -96,8 +96,10 @@ void setup() {
 #endif
 
     applyTimeZone();
+    // getNtpTime() sets the interval itself: 5 s until SNTP has the time,
+    // then 300 s. A setSyncInterval(300) here overrode the first 5 s, so
+    // after a power cut the clock waited 5 minutes (found 2026-10-04).
     setSyncProvider(getNtpTime);
-    setSyncInterval(300);
 
     // Must come after displayInit() (shared SPI bus with MISO configured)
     // and after setSyncProvider() (so the boot-event log's timestamp can
