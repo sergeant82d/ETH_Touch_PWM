@@ -19,7 +19,7 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active. 
 
-- [ ] `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot. Move the Time Zone and Device Name cards to the System page. Keep them  just under the Firmware information card. 
+- [ ] `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot. Move the Time Zone and Device Name cards to the System page. Make the new order Header, Appearance, Time Zone, OTA, Device Name, Web Login, and Reset. 
 
 - [ ] `[LCD]` Add this item to the LVGL project; Use standard web page icons for Ethernet/Network, Wifi, and Hotspot in the top bar of the display. Left side, replacing the current status dots. Same for the MQTT and SD Card. Grayed out if not active, with the current connection colored/lit up. If Hotspot is active, make it flash, possibly with an Orange back color. 
 
