@@ -16,6 +16,8 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[LCD]` Replace Override slider with large plus/minus (+/-) buttons on either side of value number. 
 
+- [ ] `[Web]` Web remote display of the LCD - after the LCD display backlight was turned off by HA, the website still shows the live screen, without the "Display Off" transparent label. 
+
 - [ ] Mark the Web slider and the two NET and SD Open issues tentatively completed, with notes for future reference in case they show up again. 
 
 - [ ] `[LCD]` Combine Screen flicker issue with the LVGL issue. 
