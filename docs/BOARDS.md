@@ -63,6 +63,23 @@ did (commit `59d3b9b`):
 4. Build all builds (`pio run -e <each>`); the first flash of a board onto the new build is
    over USB, since OTA refuses the other name.
 
+## Recovering a board after a wrong flash
+
+Firmware for the wrong board can make it crash and restart every few seconds; each restart
+drops the USB port, so there's no time to flash it. The download mode in the chip's ROM can't
+be broken by firmware:
+
+1. Unplug USB (and any external power), **hold BOOT, plug USB back in**, release BOOT after
+   ~2 s. The board stays on its COM port with a dark screen until it is flashed.
+2. Or, without touching it: retry the flash whenever the port appears (esptool resets it into
+   download mode over USB). From the repo, in Git Bash, with the right build already compiled:
+   ```
+   export PYTHONIOENCODING=utf-8
+   for i in $(seq 1 60); do ~/.platformio/penv/Scripts/python.exe ~/.platformio/packages/tool-esptoolpy/esptool.py      --chip esp32s3 --port COM15 write_flash 0x0 .pio/build/waveshare_s3_lcd2_lite/firmware.factory.bin      && break; sleep 1; done
+   ```
+   `firmware.factory.bin` holds bootloader, partition table and app (written at 0x0).
+   Used 2026-10-04 on the COM15 board; settings were kept.
+
 ## Web page, login, OTA (both boards)
 
 - Page: `web/index.html` (compiled in), API under `/api` (`src/web_server.cpp`). Tabs:
