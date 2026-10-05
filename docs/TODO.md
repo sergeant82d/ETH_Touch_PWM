@@ -14,6 +14,9 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[Board]` Board locked up overnight at 05:05:43. Unknown reasons. Stopped reporting data, unresponsive to web or HA commands. Required a board reset button press to recover. 
 
+- [ ] `[LCD]` Replace Override slider with large plus/minus (+/-) buttons on either side of value number. 
+
+
 ## Open
  
 - [ ] `[LCD]` Screen flicker: every redraw clears everything; dirty-checking or an off-screen
