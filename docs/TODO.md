@@ -18,6 +18,7 @@ How this list works (agreed 2026-09-28):
 
 - [ ] Mark the Web slider and the two NET and SD Open issues tentatively completed, with notes for future reference in case they show up again. 
 
+- [ ] `[LCD]` Combine Screen flicker issue with the LVGL issue. 
 
 ## Open
  
