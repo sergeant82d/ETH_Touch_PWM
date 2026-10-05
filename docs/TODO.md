@@ -14,9 +14,9 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[Board]` Board locked up overnight at 05:05:43. Unknown reasons. Stopped reporting data, unresponsive to web or HA commands. Required a board reset button press to recover. 
 
-- [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active. 
+- [ ] `[Web]` Web remote display of the LCD - after the LCD display backlight was turned off by HA, the website still shows the live screen, without the "Display Off" transparent label.  
 
-- [ ] `[Web]` Web remote display of the LCD - after the LCD display backlight was turned off by HA, the website still shows the live screen, without the "Display Off" transparent label. 
+- [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active. 
 
 - [ ] `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot. Move the Time Zone and Device Name cards to the System page. Keep them  just under the Firmware information card. 
 
