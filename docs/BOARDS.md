@@ -78,7 +78,8 @@ be broken by firmware:
    for i in $(seq 1 60); do ~/.platformio/penv/Scripts/python.exe ~/.platformio/packages/tool-esptoolpy/esptool.py      --chip esp32s3 --port COM15 write_flash 0x0 .pio/build/waveshare_s3_lcd2_lite/firmware.factory.bin      && break; sleep 1; done
    ```
    `firmware.factory.bin` holds bootloader, partition table and app (written at 0x0).
-   Used 2026-10-04 on the COM15 board; settings were kept.
+   Used 2026-10-04 on the COM15 board. The flash itself doesn't touch the settings, but the
+   wrong firmware may have: check the name, network and fan settings afterwards.
 
 ## Web page, login, OTA (both boards)
 
