@@ -14,7 +14,7 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[Board]` Board locked up overnight at 05:05:43. Unknown reasons. Stopped reporting data, unresponsive to web or HA commands. Required a board reset button press to recover. 
 
-- [ ] `[LCD]` Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. 
+- [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active. 
 
 - [ ] `[Web]` Web remote display of the LCD - after the LCD display backlight was turned off by HA, the website still shows the live screen, without the "Display Off" transparent label. 
 
