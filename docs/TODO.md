@@ -12,7 +12,7 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-(empty)
+- [ ] `[Board]` Board locked up overnight at 05:05:43. Unknown reasons. Stopped reporting data, unresponsive to web or HA commands. Required a board reset button press to recover. 
 
 ## Open
  
