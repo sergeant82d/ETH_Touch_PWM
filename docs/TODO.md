@@ -23,7 +23,7 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot. Move the Time Zone and Device Name cards to the System page. On the System page, make the new card order: Header, Appearance, Time Zone, OTA, Device Name, Web Login, and Factory Reset. 
 
-- [ ] `[LCD]` Add this item to the LVGL project; Use standard web page icons for Ethernet/Network, Wifi, and Hotspot in the top bar of the display. Left side, replacing the current status dots. Same for the MQTT and SD Card. Grayed out if not active, with the current connection colored/lit up. If Hotspot is active, make it flash, possibly with an Orange back color. 
+- [ ] `[LCD]` Add this item to the LVGL project; Use standard web page icons for Ethernet/Network, Wifi, and Hotspot in the top bar of the display. Left side, replacing the current status dots. Same for the MQTT and SD Card, except they go on the right side of the name. Grayed out if not active, with the current connection colored/lit up. If Hotspot is active, make it flash, possibly with an Orange back color. Discuss industry display standards. 
 
 - [ ] Mark the Web slider and the two NET and SD Open issues tentatively completed, with notes for future reference in case they show up again. 
 
