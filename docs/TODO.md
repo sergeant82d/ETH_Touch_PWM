@@ -19,11 +19,11 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[Web]` Main page - Move the Remote Display card to the top of the page on mobile devices. 
 
-- [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active. 
+- [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active. On both, add a RESET button (power reset, not firmware). 
 
 - [ ] `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot.
 
-    - Move the Time Zone and Device Name cards to the System page. On the System page, make the new card order: Header, Appearance, Time Zone, OTA, Device Name, Web Login, and Factory Reset. 
+- [ ] `[Web]` Move the Time Zone and Device Name cards to the System page. On the System page, make the new card order: Header, Appearance, Time Zone, OTA, Device Name, Web Login, and Factory Reset. 
 
 - [ ] `[LCD]` Cancel the LVGL conversion. Address the Screen flicker issue.
 
