@@ -18,7 +18,7 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[Web]` Web remote display of the LCD - after the LCD display backlight was turned off by HA, the website still shows the live screen, without the "Display Off" transparent label. 
 
-- `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot. Move the Time Zone and Device Name cards to the System page. Keep them  just under the Firmware information card. 
+- [ ] `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot. Move the Time Zone and Device Name cards to the System page. Keep them  just under the Firmware information card. 
 
 - [ ] Mark the Web slider and the two NET and SD Open issues tentatively completed, with notes for future reference in case they show up again. 
 
