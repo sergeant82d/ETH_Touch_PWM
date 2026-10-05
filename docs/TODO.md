@@ -16,7 +16,7 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[LCD]` Replace Override slider with large plus/minus (+/-) buttons on either side of value number. 
 
-- Mark the Web slider and the two NET and SD Open issues tentatively completed, with notes for future reference in case they show up again. 
+- [ ] Mark the Web slider and the two NET and SD Open issues tentatively completed, with notes for future reference in case they show up again. 
 
 
 ## Open
