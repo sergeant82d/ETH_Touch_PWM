@@ -12,8 +12,6 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-- [ ] `[SD]` Do we currently log all changes in settings? Like when an HA automation turns off the LCD's backlight? Or I change the Fan Curve limits? We should be if not. 
-
 - [ ] `[Web]` Main page - Mobile devices - Move the Manual Control button up, to just below the Remote LCD Viewer. 
 
 - [ ] `[Web]` History page - Move to just before the Systems page, next-to-last in the page/tab order. 
@@ -36,9 +34,28 @@ How this list works (agreed 2026-09-28):
       MQTT and SD card right of the name; greyed out when inactive, the connection in use
       coloured; the hotspot flashing, perhaps on orange. Plus a short discussion of display
       conventions (your note, 2026-10-05)
+- [ ] `[Net]` Reopened 2026-10-06: Ethernet without an address after a drop, now on COM15 too.
+      2026-10-06 05:57 the board told HA "offline" (HA and Mosquitto logs clean, so the board
+      decided it had no network) and stayed off MQTT 73 min until a restart; it kept running
+      and logging. Same as COM9 on 2026-09-29. The NET events (this commit) will show link /
+      address changes; then: restart DHCP, then the W5500, when the link is up with no
+      address. The 15-min self-heal restart is the backstop until then
+- [ ] `[Board]` `[HA]` 2026-10-06 03:15: the watchdog caught a hang in the network step
+      (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
+      unavailable 03:15:50, back 03:16:17). The finer stage names (`net:...`, `mqtt:...`) will
+      say which call next time
 
 ## Done
 
+- [x] `[Board]` `[HA]` Event log: NET (Ethernet link/address, WiFi, hotspot, network in use)
+      and MQTT (connected, lost, failed + reason, network temperature, HA status) events;
+      finer watchdog stages (`net:wifi+/-`, `net:ap+/-`, `net:dns`, `mqtt:conn/loop/pub`);
+      History filter buttons for them. Every web settings change logged per field (your
+      question: before, only the fan curve, override, display, setup, login, reset were).
+      Fixed: a needless MQTT reconnect at every boot (its retry failed, 15 s lost).
+      Self-heal: MQTT wanted but off for 15 min = restart, logged with the reason (UNTESTED).
+      COM15: boot events clean (Claude); settings lines on the board and the web (user)
+      (2026-10-06, this commit)
 - [x] `[Docs]` Status report 04; notes turned into items (2026-10-05, this commit)
 - [x] `[LCD]` Screen flicker: every part of the dashboard redraws only when what it shows
       changes (bars and their numbers were wiped every 200 ms, the rest every 2 s); bars no

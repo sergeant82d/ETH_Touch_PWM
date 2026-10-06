@@ -10,6 +10,7 @@
 #include <math.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <LittleFS.h>
 
 // Topics: <nodeID>/<object>, e.g. fanController_02/local_temp (retained).
 // Availability: <nodeID>/status = online | offline (Last Will, retained).
@@ -279,6 +280,7 @@ static unsigned long lastNetworkMs = 0;
 static void setNetworkHealthy(bool healthy, const char* why) {
     if (healthy != networkSensorHealthy) {
         Serial.print("Network temperature: "); Serial.println(why);
+        sdLogEvent("MQTT", String("network temperature: ") + why);
     }
     networkSensorHealthy = healthy;
 }
@@ -318,6 +320,7 @@ static void onMessage(char *t, byte *payload, unsigned int len) {
     msg.trim();
 
     if (tp == "homeassistant/status") { // HA (re)started: announce everything again
+        sdLogEvent("MQTT", "HA status: " + msg);
         if (msg == "online") {
             publishDiscovery(activeNode, false);
             publishState(true);
@@ -374,6 +377,22 @@ static void onMessage(char *t, byte *payload, unsigned int len) {
 
 static String announcedFor;   // node/fanCount whose discovery was last sent
 
+// Text for a PubSubClient state, for the event log
+static const char* mqttStateText(int st) {
+    switch (st) {
+        case MQTT_CONNECTION_TIMEOUT:      return "broker did not answer";
+        case MQTT_CONNECTION_LOST:         return "connection lost";
+        case MQTT_CONNECT_FAILED:          return "broker unreachable";
+        case MQTT_DISCONNECTED:            return "disconnected";
+        case MQTT_CONNECT_BAD_PROTOCOL:    return "bad protocol";
+        case MQTT_CONNECT_BAD_CLIENT_ID:   return "client ID refused";
+        case MQTT_CONNECT_UNAVAILABLE:     return "broker unavailable";
+        case MQTT_CONNECT_BAD_CREDENTIALS:
+        case MQTT_CONNECT_UNAUTHORIZED:    return "login refused";
+        default:                           return "other";
+    }
+}
+
 static void tryConnect() {
     activeNode = config.nodeID;
     mqtt.setServer(config.mqttBroker, config.mqttPort);
@@ -387,6 +406,7 @@ static void tryConnect() {
             Serial.print("MQTT: connect to "); Serial.print(config.mqttBroker);
             Serial.print(":"); Serial.print(config.mqttPort);
             Serial.print(" failed (state "); Serial.print(mqtt.state()); Serial.println("), retrying every 15 s.");
+            sdLogEvent("MQTT", String("connect failed: ") + mqttStateText(mqtt.state()) + " (state " + String(mqtt.state()) + "), retrying every 15 s");
         }
         lastConnectState = mqtt.state();
         return;
@@ -394,6 +414,7 @@ static void tryConnect() {
     lastConnectState = MQTT_CONNECTED;
     Serial.print("MQTT: connected to "); Serial.print(config.mqttBroker);
     Serial.print(" as "); Serial.println(activeNode);
+    sdLogEvent("MQTT", String("connected to ") + config.mqttBroker + " over " + activeNetwork());
 
     mqtt.publish(will.c_str(), "online", true);
     // Discovery is retained on the broker: resend it only when it changed
@@ -409,8 +430,9 @@ static void tryConnect() {
     publishState(true);
 }
 
-static void disconnectCleanly(bool removeFromHA) {
+static void disconnectCleanly(bool removeFromHA, const char* why) {
     if (!mqtt.connected()) return;
+    sdLogEvent("MQTT", String("disconnected: ") + why);
     if (removeFromHA) {
         publishDiscovery(activeNode, true);
         announcedFor = ""; // removed from HA: announce again on the next connect
@@ -423,40 +445,69 @@ static void disconnectCleanly(bool removeFromHA) {
 void mqttInit() {
     mqtt.setBufferSize(1024); // discovery payloads exceed the 256-byte default
     mqtt.setSocketTimeout(5); // seconds to wait for the broker's reply
-    net.setConnectionTimeout(1000); // the broker is on the LAN: it answers fast or not at all (was 3 s)
-    net.setConnectionTimeout(2000); // a dead broker blocks loop() at most this long
+    net.setConnectionTimeout(2000); // a dead broker blocks loop() at most this long (LAN broker)
     mqtt.setCallback(onMessage);
+}
+
+// Self-heal (user, 2026-10-06): MQTT wanted but not connected for 15 minutes,
+// for whatever reason (no Ethernet address, broker not answering), restarts
+// the board. 2026-10-06 05:57 it dropped and stayed off 73 min until a manual
+// restart. The events before it (NET, MQTT) say what went wrong.
+static const unsigned long SELF_HEAL_MS = 15UL * 60 * 1000;
+
+static void selfHealCheck() {
+    static unsigned long okSinceMs = 0;   // last moment MQTT was connected or not wanted
+    if (!mqttWanted() || mqtt.connected()) { okSinceMs = millis(); return; }
+    if (millis() - okSinceMs < SELF_HEAL_MS) return;
+    String why = "MQTT not connected for 15 min (" + mqttStatusText() + ", network " + activeNetwork() + ")";
+    Serial.println("Self-heal restart: " + why);
+    sdLogEvent("RESTART", "source=self-heal " + why);
+    delay(500);
+    LittleFS.end();
+    delay(200);
+    ESP.restart();
 }
 
 void mqttLoop() {
     checkNetworkStale();
+    selfHealCheck();
 
     if (reconfigureRequested) {
         reconfigureRequested = false;
         // nodeID changed (or MQTT turned off): take the old device out of HA
         bool nodeGone = activeNode != config.nodeID || !mqttWanted();
-        disconnectCleanly(nodeGone);
+        disconnectCleanly(nodeGone, nodeGone ? "node ID changed or MQTT off" : "settings or network changed");
         attemptNow = true;
     }
 
     if (!mqttWanted() || !isNetworkConnected()) {
-        disconnectCleanly(false);
+        disconnectCleanly(false, !mqttWanted() ? "MQTT off" : "no network");
         return;
+    }
+
+    // A connection that dropped by itself (broker gone, network stalled)
+    if (lastConnectState == MQTT_CONNECTED && !mqtt.connected()) {
+        lastConnectState = mqtt.state();
+        Serial.print("MQTT: connection lost (state "); Serial.print(lastConnectState); Serial.println(")");
+        sdLogEvent("MQTT", String("connection lost: ") + mqttStateText(lastConnectState) + " (state " + String(lastConnectState) + ")");
     }
 
     if (!mqtt.connected()) {
         if (attemptNow || millis() - lastAttemptMs >= RETRY_MS) {
             attemptNow = false;
             lastAttemptMs = millis();
+            sdLoggerMarkStage("mqtt:conn");
             tryConnect();
         }
         return;
     }
 
+    sdLoggerMarkStage("mqtt:loop");
     mqtt.loop();
     static unsigned long lastStateMs = 0;
     if (millis() - lastStateMs >= 1000) { // sensors update once a second
         lastStateMs = millis();
+        sdLoggerMarkStage("mqtt:pub");
         publishState(false);
     }
 }

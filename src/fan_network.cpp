@@ -12,6 +12,7 @@
 #include <esp_netif.h>
 #include <lwip/dns.h>
 #include "mqtt.h"
+#include "sd_logger.h"
 
 // The W5500 runs on the core's ETH driver (lwIP) rather than the Arduino
 // Ethernet library (its own socket stack, 8 sockets), so web server, MQTT
@@ -210,6 +211,7 @@ static void startSta() {
     }
     WiFi.begin(config.wifiSsid, config.wifiPass);
     Serial.print("WiFi: joining "); Serial.println(config.wifiSsid);
+    sdLogEvent("NET", String("WiFi backup: joining ") + config.wifiSsid);
 }
 
 static void stopSta(const char* why) {
@@ -217,6 +219,7 @@ static void stopSta(const char* why) {
     staActive = false;
     applyWifiMode();
     Serial.print("WiFi: backup off ("); Serial.print(why); Serial.println(")");
+    sdLogEvent("NET", String("WiFi backup off: ") + why);
 }
 
 static String currentDns() {
@@ -252,6 +255,7 @@ static void startAp() {
     applyWifiMode();
     WiFi.softAP(hotspotSsid().c_str(), config.apPass);
     Serial.print("Hotspot: "); Serial.print(hotspotSsid()); Serial.print(" on, page at http://"); Serial.println(WiFi.softAPIP());
+    sdLogEvent("NET", "hotspot on: " + hotspotSsid());
     restoreDnsAndTime("hotspot on");
 }
 
@@ -260,6 +264,7 @@ static void stopAp() {
     apActive = false;
     applyWifiMode();
     Serial.println("Hotspot: off (a network is back)");
+    sdLogEvent("NET", "hotspot off: a network is back");
     restoreDnsAndTime("hotspot off");
 }
 
@@ -309,6 +314,28 @@ void networkLoop() {
     lastRun = millis();
     unsigned long now = millis();
 
+    // Event log (2026-10-06, the overnight hang in this function): every
+    // change of the Ethernet link, its address and WiFi, polled here because
+    // the network event callback runs in another task and the SD card
+    // shares the LCD's SPI bus with loop().
+    static int loggedLink = -1, loggedEthIp = -1, loggedWifi = -1;
+    int link = isEthernetConnected() ? 1 : 0;
+    if (link != loggedLink) {
+        if (loggedLink != -1) sdLogEvent("NET", link ? "Ethernet link up" : "Ethernet link down");
+        loggedLink = link;
+    }
+    int ethIp = (link && ETH.hasIP()) ? 1 : 0;
+    if (ethIp != loggedEthIp) {
+        if (loggedEthIp != -1 || ethIp) sdLogEvent("NET", ethIp ? "Ethernet address " + ETH.localIP().toString() : String("Ethernet address lost"));
+        loggedEthIp = ethIp;
+    }
+    int wifiNow = isWifiConnected() ? 1 : 0;
+    if (wifiNow != loggedWifi) {
+        if (loggedWifi != -1) sdLogEvent("NET", wifiNow ? "WiFi joined " + WiFi.SSID() + ", address " + WiFi.localIP().toString() + ", " + String(WiFi.RSSI()) + " dBm"
+                                                         : String("WiFi lost"));
+        loggedWifi = wifiNow;
+    }
+
     bool ethUp = isEthernetConnected() && ETH.hasIP();
     if (ethUp && !lastEthUp) ethUpSince = now;
     if (ethUp) ethEverUp = true;
@@ -322,20 +349,26 @@ void networkLoop() {
 
     // WiFi backup: only while Ethernet is down
     unsigned long wifiWait = !ethPresent ? 0 : ethEverUp ? WIFI_AFTER_ETH_DOWN_MS : WIFI_AFTER_BOOT_MS;
-    if (!ethUp && !staActive && config.wifiSsid[0] && now - ethDownSince >= wifiWait) startSta();
-    if (ethUp && staActive && now - ethUpSince >= WIFI_OFF_AFTER_ETH_UP_MS) stopSta("Ethernet is back");
+    // Watchdog stage names (sd_logger.h) for the steps that can block
+    if (!ethUp && !staActive && config.wifiSsid[0] && now - ethDownSince >= wifiWait) { sdLoggerMarkStage("net:wifi+"); startSta(); }
+    if (ethUp && staActive && now - ethUpSince >= WIFI_OFF_AFTER_ETH_UP_MS) { sdLoggerMarkStage("net:wifi-"); stopSta("Ethernet is back"); }
 
     // Setup hotspot: after a minute without any network, off once one has held for 30 s
-    if (!apActive && !anyUp && hotspotWaitMs(now) == 0) startAp();
-    if (apActive && anyUp && now - anyUpSince >= HOTSPOT_OFF_AFTER_MS) stopAp();
+    if (!apActive && !anyUp && hotspotWaitMs(now) == 0) { sdLoggerMarkStage("net:ap+"); startAp(); }
+    if (apActive && anyUp && now - anyUpSince >= HOTSPOT_OFF_AFTER_MS) { sdLoggerMarkStage("net:ap-"); stopAp(); }
 
     // Switched network: MQTT reconnects at once over the new one
     const char* active = activeNetwork();
     if (strcmp(active, lastActive) != 0) {
         Serial.print("Network in use: "); Serial.println(active);
+        sdLogEvent("NET", String("in use: ") + active);
         if (lastActive[0]) {
+            sdLoggerMarkStage("net:dns");
             restoreDnsAndTime("network switch");
-            mqttReconfigure();
+            // Reconnect MQTT only when moving from one working network to the
+            // other; from none/hotspot it connects by itself, and a reconnect
+            // right after that connect failed and cost 15 s at every boot (2026-10-06)
+            if (strcmp(lastActive, "Ethernet") == 0 || strcmp(lastActive, "WiFi") == 0) mqttReconfigure();
         }
         Serial.print("Network: "); Serial.println(networkDiagText());
         lastActive = active;

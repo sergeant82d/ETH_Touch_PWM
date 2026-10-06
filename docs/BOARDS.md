@@ -118,10 +118,15 @@ be broken by firmware:
 - **Watchdog** (2026-10-05): if loop() hasn't come round for 30 s the board restarts itself.
   Every restart logs a BOOT event with the reason; after anything but a cold boot it adds the
   last known state, including `stage=` (the part of loop() that was running: probe,
-  dashboard, web, network, mqtt, touch, sd, loop, setup) and `heap=` / `minHeap=`.
+  dashboard, web, network, mqtt, touch, sd, loop, setup; inside those since 2026-10-06
+  `net:wifi+`, `net:wifi-`, `net:ap+`, `net:ap-`, `net:dns`, `mqtt:conn`, `mqtt:loop`,
+  `mqtt:pub`) and `heap=` / `minHeap=`.
   `reason=TASK_WDT ... stage=mqtt` = stuck in MQTT for 30 s. The reset button and power-up
   read `POWERON` (no state). Opening the USB serial port can reset the board (`reason=USB`);
   a reader that sets DTR and RTS low before opening doesn't.
+- **Self-heal** (2026-10-06): MQTT set up but not connected for 15 minutes (no network, broker
+  not answering) = restart, logged as `RESTART source=self-heal` with the reason. The NET and
+  MQTT events before it show what went wrong.
 
 ## SD card files (both boards)
 
@@ -133,7 +138,7 @@ adds it to older files). The web page's History tab reads them (`/api/history/..
 | `/logs/YYYY-MM.csv` | every minute: `timestamp, local, network, blended` (°C; empty = probe failed, since 2026-09-28), `fan 1 RPM, fan 2 RPM`, then since 2026-09-28 `fan duty %, override (1/0)` |
 | `/rollups/daily.csv` | per day (30 days kept): `date, local min/max, network min/max, blended min/max, fan 1 min/max, fan 2 min/max` |
 | `/rollups/alltime.csv` | one row `ALL, ...`: the all-time highs and lows, same columns |
-| `/events.csv` | `timestamp, category, description`: BOOT, CONFIG, OVERRIDE, OTA, DISPLAY, RESTART, SD |
+| `/events.csv` | `timestamp, category, description`: BOOT, CONFIG, OVERRIDE, OTA, DISPLAY, RESTART, SD, NET (Ethernet link/address, WiFi, hotspot, network in use), MQTT (connected, lost, failed, network temperature, HA status) |
 
 Without a card, rows go to an internal buffer (LittleFS, 200 KB) and are written into the
 current month's file when a card is back; those rows are out of time order at the end of the

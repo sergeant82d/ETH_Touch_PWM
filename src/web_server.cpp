@@ -262,10 +262,43 @@ static void handleGetConfig(NetworkClient &client) {
     sendJson(client, 200, doc);
 }
 
-static void logThreshold(const char* name, float oldC, float newC) {
-    if (fabs(newC - oldC) > 0.05) {
-        sdLogEvent("CONFIG", String("source=web field=") + name + " old=" + String(oldC, 1) + "C new=" + String(newC, 1) + "C");
-    }
+// Every settings change from the web page goes to the event log, one CONFIG
+// line per field (user, 2026-10-06). Passwords: only that they changed.
+static void logConfigChanges(const SystemConfig &a, const SystemConfig &b) {
+    String src = "source=web user=" + String(config.webUser) + " field=";
+    auto chg = [&](const char* f, const String &o, const String &n) {
+        if (o != n) sdLogEvent("CONFIG", src + f + " old=" + o + " new=" + n);
+    };
+    auto secret = [&](const char* f, const char* o, const char* n) {
+        if (strcmp(o, n) != 0) sdLogEvent("CONFIG", src + f + " changed");
+    };
+    auto ip = [](uint32_t v) { return v ? IPAddress(v).toString() : String("none"); };
+    if (fabs(a.tMin - b.tMin) > 0.05) chg("tMin", String(a.tMin, 1) + "C", String(b.tMin, 1) + "C");
+    if (fabs(a.tMax - b.tMax) > 0.05) chg("tMax", String(a.tMax, 1) + "C", String(b.tMax, 1) + "C");
+    chg("fanCount", String(a.fanCount), String(b.fanCount));
+    for (int i = 1; i < 4; i++) chg(("fan" + String(i + 1) + "Offset").c_str(), String(a.fanOffsetRpm[i]) + "rpm", String(b.fanOffsetRpm[i]) + "rpm");
+    chg("units", a.isFahrenheit ? "F" : "C", b.isFahrenheit ? "F" : "C");
+    chg("clock", a.is24Hour ? "24h" : "12h", b.is24Hour ? "24h" : "12h");
+    chg("timeZone", a.tzName, b.tzName);
+    chg("ethernet", a.ethDhcp ? "DHCP" : "static", b.ethDhcp ? "DHCP" : "static");
+    chg("ethIp", a.ip.toString(), b.ip.toString());
+    chg("ethSubnet", a.subnet.toString(), b.subnet.toString());
+    chg("ethGateway", a.gateway.toString(), b.gateway.toString());
+    chg("ethDns", a.dns.toString(), b.dns.toString());
+    chg("nodeId", a.nodeID, b.nodeID);
+    chg("mqttBroker", a.mqttBroker, b.mqttBroker);
+    chg("mqttPort", String(a.mqttPort), String(b.mqttPort));
+    chg("mqttUser", a.mqttUser, b.mqttUser);
+    secret("mqttPass", a.mqttPass, b.mqttPass);
+    chg("wifiSsid", a.wifiSsid, b.wifiSsid);
+    secret("wifiPass", a.wifiPass, b.wifiPass);
+    chg("wifiAddress", a.wifiStatic ? "static" : "DHCP", b.wifiStatic ? "static" : "DHCP");
+    chg("wifiIp", ip(a.wifiIp), ip(b.wifiIp));
+    chg("wifiSubnet", ip(a.wifiSubnet), ip(b.wifiSubnet));
+    chg("wifiGateway", ip(a.wifiGateway), ip(b.wifiGateway));
+    chg("wifiDns", ip(a.wifiDns), ip(b.wifiDns));
+    chg("deviceName", a.hostname, b.hostname);
+    secret("hotspotPass", a.apPass, b.apPass);
 }
 
 // Restart after a settings save that needs one. Margin for the settings write to
@@ -375,8 +408,7 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
     bool networkChanged = next.ethDhcp != config.ethDhcp ||
                           (!next.ethDhcp && (next.ip != config.ip || next.subnet != config.subnet ||
                                              next.gateway != config.gateway || next.dns != config.dns));
-    logThreshold("tMin", config.tMin, next.tMin);
-    logThreshold("tMax", config.tMax, next.tMax);
+    logConfigChanges(config, next);
     config = next;
     saveSettings();
     mqttReconfigure(); // node ID / broker / fan count may have changed
@@ -569,6 +601,7 @@ static void handlePostTheme(NetworkClient &client, const Request &req) {
     if (!f) { sendResult(client, 500, "Could not save the theme."); return; }
     serializeJson(out, f);
     f.close();
+    sdLogEvent("CONFIG", "source=web user=" + String(config.webUser) + " field=theme new=" + preset);
     sendResult(client, 200);
 }
 
@@ -800,6 +833,7 @@ static void handlePostWifi(NetworkClient &client, const Request &req) {
         if (!validHostname(h)) { sendResult(client, 400, "Device name: letters, digits and hyphens."); return; }
         strlcpy(next.hostname, h.c_str(), sizeof(next.hostname));
     }
+    logConfigChanges(config, next);
     config = next;
     saveSettings();
     wifiReconfigure();
@@ -807,6 +841,7 @@ static void handlePostWifi(NetworkClient &client, const Request &req) {
 }
 
 static void handleForgetWifi(NetworkClient &client) {
+    sdLogEvent("CONFIG", "source=web user=" + String(config.webUser) + " field=wifiSsid old=" + config.wifiSsid + " new= (forgotten)");
     memset(config.wifiSsid, 0, sizeof(config.wifiSsid));
     memset(config.wifiPass, 0, sizeof(config.wifiPass));
     saveSettings();
@@ -842,6 +877,9 @@ static void handleHotspot(NetworkClient &client, const Request &req) {
     if (deserializeJson(in, readBody(client, req.contentLength))) { sendResult(client, 400, "Bad JSON."); return; }
     String pass = in["pass"] | "";
     if (pass.length() < 8 || pass.length() > 63) { sendResult(client, 400, "Hotspot password: 8-63 characters."); return; }
+    SystemConfig next = config;
+    strlcpy(next.apPass, pass.c_str(), sizeof(next.apPass));
+    logConfigChanges(config, next);
     strlcpy(config.apPass, pass.c_str(), sizeof(config.apPass));
     saveSettings();
     sendResult(client, 200);
