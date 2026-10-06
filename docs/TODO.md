@@ -12,10 +12,6 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-- [ ] `[Web]` Main page - Mobile devices - Move the Manual Control button up, to just below the Remote LCD Viewer. 
-
-- [ ] `[Web]` History page - Move to just before the Systems page, next-to-last in the page/tab order. 
-
 ## Open
 
 - [ ] `[Board]` Low priority: one I2C read error (touch bus) at ~4 s after boot; touch works
@@ -47,6 +43,10 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Web]` `[HA]` Phones: Manual override right below the LCD view; History tab moved to
+      next-to-last (before System). A settings save reconnects MQTT only when the name,
+      broker, port, MQTT login or fan count changed (every save did). Checked by the user
+      (2026-10-06, this commit)
 - [x] `[Board]` `[HA]` Event log: NET (Ethernet link/address, WiFi, hotspot, network in use)
       and MQTT (connected, lost, failed + reason, network temperature, HA status) events;
       finer watchdog stages (`net:wifi+/-`, `net:ap+/-`, `net:dns`, `mqtt:conn/loop/pub`);

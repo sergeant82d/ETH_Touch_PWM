@@ -409,9 +409,13 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
                           (!next.ethDhcp && (next.ip != config.ip || next.subnet != config.subnet ||
                                              next.gateway != config.gateway || next.dns != config.dns));
     logConfigChanges(config, next);
+    // MQTT reconnects only for what it depends on (every save used to drop it, 2026-10-06)
+    bool mqttChanged = strcmp(next.nodeID, config.nodeID) || strcmp(next.mqttBroker, config.mqttBroker) ||
+                       next.mqttPort != config.mqttPort || strcmp(next.mqttUser, config.mqttUser) ||
+                       strcmp(next.mqttPass, config.mqttPass) || next.fanCount != config.fanCount;
     config = next;
     saveSettings();
-    mqttReconfigure(); // node ID / broker / fan count may have changed
+    if (mqttChanged) mqttReconfigure(); // node ID / broker / login / fan count (discovery)
 
     JsonDocument out;
     out["ok"] = true;

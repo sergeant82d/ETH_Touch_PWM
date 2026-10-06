@@ -84,7 +84,7 @@ be broken by firmware:
 ## Web page, login, OTA (both boards)
 
 - Page: `web/index.html` (compiled in), API under `/api` (`src/web_server.cpp`). Tabs:
-  Dashboard, History, Fan Control, Home Assistant, Network (Ethernet, WiFi, hotspot), System
+  Dashboard, Fan Control, Home Assistant, Network (Ethernet, WiFi, hotspot), History, System
   (firmware info, theme, time, OTA, device name, login, restart, factory reset).
   Opened from disk it shows a demo with made-up data. Tabs follow the URL (`/#system`).
 - Login: viewing is open; every change needs it. Until one is set, changes are refused

@@ -213,9 +213,10 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
   .tab.active { border-bottom-color: var(--accent); }
   .lights { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 16px; }
   .main { padding: 16px; }
-  /* The LCD view first on the Dashboard (user, 2026-10-05) */
+  /* The LCD view first on the Dashboard, Manual override right after it (user, 2026-10-05/06) */
   #page-dashboard.active { display: flex; flex-direction: column; }
-  #lcd-panel { order: -1; }
+  #lcd-panel { order: -2; }
+  #ovr-panel { order: -1; }
   #page-dashboard > * { min-width: 0; } /* or the canvas (960 px) sets the width */
 }
 </style>
@@ -237,9 +238,6 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       <button class="tab active" data-page="dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
         Dashboard</button>
-      <button class="tab" data-page="history">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 4 3 5-7"/></svg>
-        History</button>
       <button class="tab" data-page="fans">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7 2 0 3 2 2 4s-4 3-6 3zM14 12c4 0 7 1 7 4 0 2-2 3-4 2s-3-4-3-6zM12 14c0 4-1 7-4 7-2 0-3-2-2-4s4-3 6-3zM10 12c-4 0-7-1-7-4 0-2 2-3 4-2s3 4 3 6z"/></svg>
         Fan Control</button>
@@ -249,6 +247,9 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       <button class="tab" data-page="network">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="6"/><rect x="2" y="16" width="6" height="6"/><rect x="16" y="16" width="6" height="6"/><path d="M12 8v4M5 16v-4h14v4"/></svg>
         Network</button>
+      <button class="tab" data-page="history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 4 3 5-7"/></svg>
+        History</button>
       <button class="tab" data-page="system">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
         System</button>
@@ -371,7 +372,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         <div class="actions" id="lcd-power-row" hidden><button class="btn ghost" id="lcd-power">Turn the LCD off</button><span class="msg" id="lcd-power-msg"></span></div>
         <div class="hint" id="lcd-power-hint" hidden>Standby turns off the backlight only; the controller keeps running. A tap on the screen, or Home Assistant ("LCD display"), turns it back on.</div>
       </div>
-      <div class="panel">
+      <div class="panel" id="ovr-panel">
         <h2>Manual override</h2>
         <button class="btn override-btn" id="ovr-btn">Manual override: off (tap to turn on)</button>
         <div class="slider-row" id="ovr-row" hidden>
