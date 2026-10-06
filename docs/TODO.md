@@ -12,7 +12,7 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-(empty)
+- `[LCD]` `[Web]` Need a new LCD Page - swipe up & down - a RESET button, to re-start the system when it's non-responsive or changing hardware/etc. Same button, on the SYSTEM page of the website.
 
 ## Open
  
