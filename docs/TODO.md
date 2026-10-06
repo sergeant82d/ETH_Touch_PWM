@@ -13,6 +13,25 @@ How this list works (agreed 2026-09-28):
 ## Your notes
 
 - `[LCD]` `[Web]` Need a new LCD Page - swipe up & down - a RESET button, to re-start the system when it's non-responsive or changing hardware/etc. Same button, on the SYSTEM page of the website.
+- [ ] `[Board]` Board locked up overnight at 05:05:43. Unknown reasons. Stopped reporting data, unresponsive to web or HA commands. Required a board reset button press to recover. 
+
+- [ ] `[Web]` Web remote display of the LCD - after the LCD display backlight was turned off by HA, the website still shows the live screen, without the "Display Off" transparent label.
+    - Tested - HA toggle does turn off the backlight, but it is turned back on by some other process. 
+
+- [ ] `[Web]` Main page - Move the Remote Display card to the top of the page on mobile devices. 
+
+- [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active. On both, add a RESET button (power reset, not firmware). 
+
+- [ ] `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot.
+
+- [ ] `[Web]` Move the Time Zone and Device Name cards to the System page. On the System page, make the new card order: Header, Appearance, Time Zone, OTA, Device Name, Web Login, and Factory Reset. 
+
+- [ ] `[LCD]` Cancel the LVGL conversion. Address the Screen flicker issue.
+
+    - Archive the LVGL project, but edit it for future reference to use standard web page icons for Ethernet/Network, Wifi, and Hotspot in the top bar of the display. Left side, replacing the current status dots. Same for the MQTT and SD Card, except they go on the right side of the name. Grayed out if not active, with the current connection colored/lit up. If Hotspot is active, make it flash, possibly with an Orange back color. Discuss industry display standards. 
+
+- [ ] Mark the Web slider and the two NET and SD Open issues tentatively completed, with notes for future reference in case they show up again. 
+
 
 ## Open
  
