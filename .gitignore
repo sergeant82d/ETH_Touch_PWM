@@ -8,3 +8,6 @@
 # Secrets: keep tokens and passwords here, never in the source
 secrets.h
 tools/mqtt_secrets.json
+
+# Home Assistant history exports (user, for troubleshooting)
+docs/HA_Data/
