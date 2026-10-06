@@ -83,6 +83,7 @@ void calculateFanCurve(float targetTemp) {
     static float smoothC = 0;
     static bool curveOn = false;
     static float autoDuty = 0;      // the duty actually applied, with fractions
+    static bool afterOverride = false;
     int targetDuty = 0;
 
     // Manual override takes priority over the auto curve, per spec - but
@@ -93,9 +94,12 @@ void calculateFanCurve(float targetTemp) {
     if (!localSensorHealthy && !networkSensorHealthy) {
         targetDuty = 255;
         autoDuty = 0;   // afterwards the curve starts again from 20 % (also the first second after boot)
+        afterOverride = false;
     } else if (manualOverrideActive) {
         targetDuty = manualOverrideDutyCycle;
-        autoDuty = targetDuty; // afterwards the curve eases on from the speed chosen
+        // Afterwards straight to the curve's speed, not eased down from the
+        // override's: Cancel at 100 % kept the fans loud ~2.5 min (user, 2026-10-05)
+        afterOverride = true;
     } else if (config.tMax <= config.tMin) {
         targetDuty = 255; // corrupt thresholds -> fail safe to full power
     } else {
@@ -109,7 +113,10 @@ void calculateFanCurve(float targetTemp) {
         else if (smoothC >= config.tMax) want = 255;
         else want = 51.0 + max(0.0f, (smoothC - config.tMin) / (config.tMax - config.tMin)) * 204.0;
 
-        if (want == 0) {
+        if (afterOverride) {
+            autoDuty = want;                               // override ended: at once
+            afterOverride = false;
+        } else if (want == 0) {
             autoDuty = 0;                                  // off: at once
         } else {
             if (autoDuty < 51) autoDuty = 51;              // off -> on: 20 %, then ramp

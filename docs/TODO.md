@@ -50,6 +50,11 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` `[Board]` Cancel on the Manual Override panel seemed not to work unless the slider
+      had been moved (your note): the override did end, but since the fan smoothing
+      (`ea3557e`) the curve eased down from the override's speed at 0.5 %/s (100 % -> ~2.5 min
+      loud). Now the curve's speed applies at once when an override ends. COM15: MQTT test
+      100 % -> 34 % at once, RPM back in ~5 s (Claude); LCD Cancel (user, 2026-10-05, this commit)
 - [x] `[LCD]` `[Web]` LCD turned itself back on after HA/web turned it off (your note; the web
       view was right, the board really was on again): 16-25 s after the backlight goes off the
       touch panel reports bursts of phantom taps (0.2-0.6 s, mostly one row, ~19 in 2 min; none
