@@ -12,6 +12,7 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
+- [ ] `[SD]` Do we currently log all changes in settings? Like when an HA automation turns off the LCD's backlight? Or I change the Fan Curve limits? We should be if not. 
 
 ## Open
 
