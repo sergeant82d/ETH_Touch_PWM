@@ -611,6 +611,15 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         <div class="actions"><button class="btn" type="submit">Save login</button><span class="msg"></span></div>
       </form>
 
+      <form class="panel" id="form-restart">
+        <h2>Restart</h2>
+        <div class="hint" style="margin-bottom: 12px">Restarts the controller, the same as its reset button. Nothing is
+          changed or lost: settings, logs and notes stay. Use it after changing hardware, or when something has stopped
+          responding. The fans run on the fan curve again about 5 seconds later; this page reconnects by itself in about
+          20 seconds. On the LCD: gear icon, then hold Restart for 2 seconds.</div>
+        <div class="actions"><button class="btn" type="submit">Restart</button><span class="msg"></span></div>
+      </form>
+
       <form class="panel" id="form-reset">
         <h2>Factory reset</h2>
         <div class="hint" style="margin-bottom: 12px">All settings go back to the factory values: login, name, MQTT, network (DHCP),
@@ -1123,6 +1132,18 @@ $("#form-login").onsubmit = async (e) => {
     $("#newPass").value = $("#newPass2").value = "";
     showMsg(msg, "Login saved. You're logged in.", true);
     pollStatus();
+  } catch (err) { showMsg(msg, err.message, false); }
+};
+
+// ---------- Restart ----------
+$("#form-restart").onsubmit = async (e) => {
+  e.preventDefault();
+  const msg = e.target.querySelector(".msg");
+  if (!confirm("Restart the controller now?")) return;
+  try {
+    await api("/api/restart", {});
+    msg.className = "msg ok";
+    msg.textContent = "Restarting. This page reconnects in about 20 seconds.";
   } catch (err) { showMsg(msg, err.message, false); }
 };
 

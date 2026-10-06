@@ -17,8 +17,6 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active.
 
-- `[LCD]` `[Web]` Need a new LCD Page - swipe up & down - a RESET button, to re-start the system when it's non-responsive or changing hardware/etc. Same button, on the SYSTEM page of the website.
-
 - [ ] `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot.
 
 - [ ] `[Web]` Move the Time Zone and Device Name cards to the System page. On the System page, make the new card order: Header, Appearance, Time Zone, OTA, Device Name, Web Login, and Factory Reset. 
@@ -50,6 +48,11 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` `[Web]` Restart button (your note): System tab, panel "Restart" just above Factory
+      reset (asks to confirm, needs the login, nothing changed or lost); LCD on the QR page
+      (gear), held 2 s with a filling button, so phantom taps can't trigger it (instead of a
+      new swipe page, agreed with the user). Both log a RESTART event. Tested by the user on
+      COM15 (2026-10-05, this commit)
 - [x] `[LCD]` `[Board]` Cancel on the Manual Override panel seemed not to work unless the slider
       had been moved (your note): the override did end, but since the fan smoothing
       (`ea3557e`) the curve eased down from the override's speed at 0.5 %/s (100 % -> ~2.5 min

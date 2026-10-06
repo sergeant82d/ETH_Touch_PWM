@@ -12,6 +12,7 @@
 #include <TimeLib.h> // same clock source as web_server.cpp - see note in updateMainDashboardUI()
 #include <math.h>
 #include <qrcode.h>
+#include <LittleFS.h>
 #include <Fonts/FreeSansBold24pt7b.h> // bundled with Adafruit_GFX - smoother/proportional, used for the big temp number
 #include <Fonts/FreeSansBold18pt7b.h> // smaller sibling, same family - used for the clock/F-C/button (a real size step down from the temp number)
 
@@ -701,6 +702,20 @@ static bool pointInRect(int px, int py, int rx, int ry, int rw, int rh) {
 
 static unsigned long infoOpenedMs = 0;
 
+// Restart button on the info page (user, 2026-10-05). Held 2 s, not tapped:
+// the panel reports phantom taps now and then (see handleTouchInput()).
+static int restartBtnX, restartBtnY;
+static const int RESTART_BTN_W = 96, RESTART_BTN_H = 30;
+static const unsigned long RESTART_HOLD_MS = 2000;
+
+static void drawRestartButton(float filled) {
+    screenMain.fillRoundRect(restartBtnX, restartBtnY, RESTART_BTN_W, RESTART_BTN_H, 4, ST77XX_BLACK);
+    if (filled > 0) screenMain.fillRoundRect(restartBtnX, restartBtnY, (int)(RESTART_BTN_W * min(filled, 1.0f)), RESTART_BTN_H, 4, ST77XX_ORANGE);
+    screenMain.drawRoundRect(restartBtnX, restartBtnY, RESTART_BTN_W, RESTART_BTN_H, 4, ST77XX_ORANGE);
+    screenMain.setTextColor(filled > 0 ? ST77XX_BLACK : ST77XX_ORANGE);
+    printCentered(restartBtnX, RESTART_BTN_W, restartBtnY + 11, filled > 0 ? "Keep holding" : "Restart", 1);
+}
+
 // Smallest QR version holding `len` bytes at ECC_MEDIUM (byte mode), 0 if too long
 static uint8_t qrVersionFor(size_t len) {
     static const uint8_t cap[] = {0, 14, 26, 42, 62, 84, 106, 122, 152};
@@ -760,8 +775,16 @@ static void drawInfoPage() {
         printCentered(tx, tw, 80, deviceHostname() + ".local", 1);
         printCentered(tx, tw, 100, String("(") + activeNetwork() + ")", 1);
     }
+    // Restart: bottom right without the hotspot, bottom centre with it (two QRs)
+    restartBtnX = hotspot ? (LCD_WIDTH - RESTART_BTN_W) / 2 : 210 + (LCD_WIDTH - 218 - RESTART_BTN_W) / 2;
+    restartBtnY = hotspot ? 186 : 160;
+    drawRestartButton(0);
+    if (!hotspot) {
+        screenMain.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+        printCentered(210, LCD_WIDTH - 218, restartBtnY + RESTART_BTN_H + 6, "hold 2 s", 1);
+    }
     screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-    printCentered(0, LCD_WIDTH, LCD_HEIGHT - 16, "Tap anywhere to close", 1);
+    printCentered(0, LCD_WIDTH, LCD_HEIGHT - 16, hotspot ? "Tap to close - hold Restart 2 s" : "Tap anywhere else to close", 1);
     infoOpenedMs = millis();
 }
 
@@ -912,8 +935,36 @@ void handleTouchInput() {
     if (pressed && setupNeeded()) setupAwaySince = millis(); // still using the dashboard
 
     if (infoOpen) {
-        // Any tap closes the info page; so does 60 s without one
-        if ((pressed && !wasPressed) || millis() - infoOpenedMs > 60000) closeInfoPage();
+        // A press on Restart held 2 s restarts; a tap anywhere else closes the
+        // page, and so does 60 s without one
+        static bool holdingRestart = false;
+        static unsigned long holdStartMs = 0;
+        // Generous: 10 px around the button, the panel's readings wander
+        bool onRestart = pressed && pointInRect(tx, ty, restartBtnX - 10, restartBtnY - 10, RESTART_BTN_W + 20, RESTART_BTN_H + 20);
+        if (pressed && !wasPressed) {
+            if (onRestart) { holdingRestart = true; holdStartMs = millis(); drawRestartButton(0.01); }
+            else closeInfoPage();
+        } else if (holdingRestart) {
+            if (!pressed) {                                   // let go early: nothing happens
+                holdingRestart = false;
+                drawRestartButton(0);
+                infoOpenedMs = millis();
+            } else if (millis() - holdStartMs >= RESTART_HOLD_MS) {
+                screenMain.fillScreen(ST77XX_BLACK);
+                screenMain.setTextColor(ST77XX_ORANGE, ST77XX_BLACK);
+                printCentered(0, LCD_WIDTH, LCD_HEIGHT / 2 - 8, "Restarting...", 2);
+                Serial.println("Restart from the LCD.");
+                sdLogEvent("RESTART", "source=LCD");
+                delay(500);
+                LittleFS.end();
+                delay(200);
+                ESP.restart();
+            } else {
+                drawRestartButton((float)(millis() - holdStartMs) / RESTART_HOLD_MS);
+            }
+        } else if (millis() - infoOpenedMs > 60000) {
+            closeInfoPage();
+        }
         wasPressed = pressed;
         return;
     }

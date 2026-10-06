@@ -400,6 +400,17 @@ static void handlePostConfig(NetworkClient &client, const Request &req) {
 // Deletes /settings.cfg (no file = the factory values at boot) and restarts
 // into the Setup page. Theme, notes and the SD card logs are kept.
 
+// /api/restart: restart only, nothing changed (user, 2026-10-05: a stuck board,
+// hardware changes). The page asks to confirm first.
+static void handleRestart(NetworkClient &client) {
+    sdLogEvent("RESTART", "source=web user=" + String(config.webUser));
+    Serial.println("Restart from the web page.");
+    JsonDocument out;
+    out["ok"] = true;
+    sendJson(client, 200, out);
+    restartAfterSave(client);
+}
+
 static void handleFactoryReset(NetworkClient &client, const Request &req) {
     JsonDocument in;
     if (deserializeJson(in, readBody(client, req.contentLength)) || String(in["confirm"] | "") != "RESET") {
@@ -1058,6 +1069,7 @@ void handleNativeWebTraffic(NetworkClient &client) {
     }
     else if (post && req.path == "/api/login") handleSetLogin(client, req);
     else if (post && req.path == "/api/setup") handleSetup(client, req);
+    else if (post && req.path == "/api/restart") { if (requireLogin(client, req)) handleRestart(client); }
     else if (post && req.path == "/api/factory-reset") { if (requireLogin(client, req)) handleFactoryReset(client, req); }
     else if (post && req.path == "/api/config") { if (requireLogin(client, req)) handlePostConfig(client, req); }
     else if (post && req.path == "/api/override") { if (requireLogin(client, req)) handleOverride(client, req); }
