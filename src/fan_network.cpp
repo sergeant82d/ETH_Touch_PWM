@@ -271,6 +271,7 @@ static void stopAp() {
 bool isEthernetConnected() { return ETH.linkUp(); }
 bool isWifiConnected() { return staActive && WiFi.status() == WL_CONNECTED; }
 bool isHotspotActive() { return apActive; }
+bool isWifiJoining() { return staActive && WiFi.status() != WL_CONNECTED; }
 // With an address, not just a link (the LCD dot, MQTT and the web page agree; 2026-10-04)
 bool isNetworkConnected() { return (isEthernetConnected() && ETH.hasIP()) || isWifiConnected(); }
 

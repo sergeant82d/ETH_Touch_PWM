@@ -119,6 +119,43 @@ static const unsigned char PROGMEM icon_settings_24x24[] = {
     0x00, 0x00, 0x00,
 };
 
+// Status icons in the title bar (user's design, approved 2026-10-06,
+// docs/LCD_DESIGN.md and docs/images/icon_preview.png): 16 x 16, 1 bit.
+// Ethernet, WiFi, hotspot left of the name; MQTT, SD card right of it.
+static const unsigned char PROGMEM ICON_ETHERNET[] = { // Ethernet
+    0x00, 0x00, 0x00, 0x00, 0x7F, 0xFE, 0x40, 0x02,
+    0x55, 0x52, 0x55, 0x52, 0x40, 0x02, 0x40, 0x02,
+    0x40, 0x02, 0x78, 0x1E, 0x08, 0x10, 0x0F, 0xF0,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+static const unsigned char PROGMEM ICON_WIFI[] = { // WiFi
+    0x00, 0x00, 0x07, 0xE0, 0x18, 0x18, 0x60, 0x06,
+    0x80, 0x01, 0x07, 0xE0, 0x18, 0x18, 0x20, 0x04,
+    0x00, 0x00, 0x03, 0xC0, 0x04, 0x20, 0x00, 0x00,
+    0x01, 0x80, 0x01, 0x80, 0x00, 0x00, 0x00, 0x00,
+};
+static const unsigned char PROGMEM ICON_HOTSPOT[] = { // Hotspot
+    0x00, 0x00, 0x20, 0x04, 0x48, 0x12, 0x90, 0x09,
+    0x91, 0x89, 0x93, 0xC9, 0x91, 0x89, 0x49, 0x92,
+    0x21, 0x84, 0x01, 0x80, 0x01, 0x80, 0x03, 0xC0,
+    0x07, 0xE0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+static const unsigned char PROGMEM ICON_MQTT[] = { // MQTT
+    0x01, 0x80, 0x03, 0xC0, 0x06, 0x60, 0x0C, 0x30,
+    0x18, 0x18, 0x30, 0x0C, 0x61, 0x86, 0xC3, 0xC3,
+    0x41, 0x82, 0x41, 0x82, 0x49, 0x92, 0x45, 0xA2,
+    0x43, 0xC2, 0x7F, 0xFE, 0x00, 0x00, 0x00, 0x00,
+};
+static const unsigned char PROGMEM ICON_SD[] = { // SD card
+    0x3F, 0xC0, 0x2A, 0xA0, 0x2A, 0x90, 0x2A, 0x88,
+    0x20, 0x04, 0x20, 0x04, 0x20, 0x04, 0x20, 0x04,
+    0x20, 0x04, 0x20, 0x04, 0x20, 0x04, 0x20, 0x04,
+    0x3F, 0xFC, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+};
+static const uint16_t ICON_GREY = 0x6B71;   // inactive (RGB 110,110,140)
+static const int ICON_Y = 5;
+static const int ICON_X_ETH = 4, ICON_X_WIFI = 24, ICON_X_AP = 44, ICON_X_MQTT = 248, ICON_X_SD = 268;
+
 // Flash timing for near-limit gauge bars (independent of the 2s dashboard
 // refresh - see refreshBarsOnly()).
 static const unsigned long BLINK_PERIOD_MS = 500; // ~1Hz flash
@@ -364,56 +401,67 @@ static String titleCaseFromNodeId(const char* nodeId) {
     return s;
 }
 
-// SD card dot, third in the title bar (sdState(), user decision
-// 2026-09-28): green = OK; orange, slow flash = getting full (>= 90 %);
-// red, fast flash = missing or failing (logging spills to internal flash).
-// Also redrawn from refreshBarsOnly() every 200 ms, so it can flash.
-static void drawSdDot(bool force = false) {
+// One icon, redrawn only when its colours change. bg is the title bar blue
+// except the hotspot's orange box. The box is 2 px wider than the icon all round.
+struct IconCache { uint32_t gen = 0; uint16_t fg = 0, bg = 0; };
+static void drawIcon(IconCache &cache, bool force, int x, const unsigned char *bmp, uint16_t fg, uint16_t bg) {
+    if (!force && cache.gen == dashGen && cache.fg == fg && cache.bg == bg) return;
+    cache.gen = dashGen; cache.fg = fg; cache.bg = bg;
+    screenMain.fillRect(x - 2, ICON_Y - 2, 20, 20, ST77XX_BLUE);
+    if (bg != ST77XX_BLUE) screenMain.fillRoundRect(x - 2, ICON_Y - 2, 20, 20, 3, bg);
+    screenMain.drawBitmap(x, ICON_Y, bmp, 16, 16, fg);
+}
+
+// Status icons (states in docs/LCD_DESIGN.md). Called from drawTitleBar()
+// and every 200 ms from refreshBarsOnly() for the flashing ones.
+//   Ethernet / WiFi: green = in use, grey = not; WiFi flashes while joining
+//   Hotspot: grey = off; on = flashing, black on orange
+//   MQTT: grey = off (not set up), green = connected, orange = not connected
+//   SD card: green = OK; orange, slow flash = getting full (>= 90 %); red,
+//   fast flash = missing or failing (user decision 2026-09-28)
+static void drawStatusIcons(bool force = false) {
+    static IconCache eth, wifi, ap, mq, sd;
+    bool slow = (millis() % 1200) < 600, fast = (millis() % 400) < 200;
+    const char* net = activeNetwork();
+    drawIcon(eth, force, ICON_X_ETH, ICON_ETHERNET, strcmp(net, "Ethernet") == 0 ? ST77XX_GREEN : ICON_GREY, ST77XX_BLUE);
+    uint16_t wifiC = strcmp(net, "WiFi") == 0 ? ST77XX_GREEN : (isWifiJoining() && slow) ? ST77XX_GREEN : ICON_GREY;
+    drawIcon(wifi, force, ICON_X_WIFI, ICON_WIFI, wifiC, ST77XX_BLUE);
+    if (isHotspotActive() && slow) drawIcon(ap, force, ICON_X_AP, ICON_HOTSPOT, ST77XX_BLACK, ST77XX_ORANGE);
+    else drawIcon(ap, force, ICON_X_AP, ICON_HOTSPOT, isHotspotActive() ? ST77XX_ORANGE : ICON_GREY, ST77XX_BLUE);
+    String mqtt = mqttStatusText();
+    drawIcon(mq, force, ICON_X_MQTT, ICON_MQTT,
+             mqtt.startsWith("Connected") ? ST77XX_GREEN : mqtt.startsWith("Off") ? ICON_GREY : ST77XX_ORANGE, ST77XX_BLUE);
     SdState st = sdState();
-    uint16_t c = ST77XX_GREEN;
-    if (st != SD_STATE_OK) {
-        unsigned long period = st == SD_STATE_MISSING ? 400 : 1200;
-        bool on = (millis() % period) < period / 2;
-        c = on ? (st == SD_STATE_MISSING ? ST77XX_RED : ST77XX_ORANGE) : ST77XX_BLUE; // off = title bar colour
-    }
-    static uint32_t drawnGen = 0;
-    static uint16_t drawnColor = 0;
-    if (!force && drawnGen == dashGen && drawnColor == c) return;
-    drawnGen = dashGen; drawnColor = c;
-    screenMain.fillCircle(34, TITLE_H / 2, 4, c); // third dot (network, MQTT, SD)
+    uint16_t sdC = st == SD_STATE_OK ? ST77XX_GREEN
+                 : st == SD_STATE_MISSING ? (fast ? ST77XX_RED : ST77XX_BLUE)
+                 : (slow ? ST77XX_ORANGE : ST77XX_BLUE);           // off phase = title bar colour
+    drawIcon(sd, force, ICON_X_SD, ICON_SD, sdC, ST77XX_BLUE);
 }
 
 // Redraws the blue title bar with the current Home Assistant node name
 // and the settings gear icon (top-right).
 // Only what changed is redrawn: the whole bar when the name changes (or after
-// a full clear), otherwise just a dot whose colour changed.
+// a full clear), otherwise just an icon whose colour changed.
 static void drawTitleBar() {
     static uint32_t drawnGen = 0;
     static String drawnTitle;
-    static uint16_t drawnNet = 0, drawnMqtt = 0;
     String title = titleCaseFromNodeId(config.nodeID);
     bool full = drawnGen != dashGen || title != drawnTitle;
     if (full) {
         drawnGen = dashGen; drawnTitle = title;
         screenMain.fillRect(0, 0, LCD_WIDTH, TITLE_H, ST77XX_BLUE);
         screenMain.setTextColor(ST77XX_WHITE);
-        printCentered(0, LCD_WIDTH, 5, title, 2);
-        drawSdDot(true); // the bar fill just covered it
+        // Between the icons there's room for ~14 letters at size 2 (12 px
+        // each); a longer name uses size 1 rather than run into them
+        // Centred in the space between the icons (x 62-246)
+        int left = ICON_X_AP + 18, room = ICON_X_MQTT - 2 - left;
+        bool fits = (int)title.length() * 12 <= room - 4;
+        printCentered(left, room, fits ? 5 : 9, title, fits ? 2 : 1);
         int iconX = LCD_WIDTH - ICON_SETTINGS_SIZE - 6;
         int iconY = (TITLE_H - ICON_SETTINGS_SIZE) / 2;
         screenMain.drawBitmap(iconX, iconY, icon_settings_24x24, ICON_SETTINGS_SIZE, ICON_SETTINGS_SIZE, ST77XX_WHITE);
     }
-
-    // Status dots, left to right: network, MQTT, SD (user, 2026-10-04; the
-    // web page's sidebar has the same order and colours).
-    // Network: green on Ethernet or WiFi with an address, orange while only
-    // the setup hotspot is on, red with none.
-    uint16_t netColor = isNetworkConnected() ? ST77XX_GREEN : isHotspotActive() ? ST77XX_ORANGE : ST77XX_RED;
-    if (full || netColor != drawnNet) { screenMain.fillCircle(10, TITLE_H / 2, 4, netColor); drawnNet = netColor; }
-
-    // MQTT (Home Assistant): green when connected, orange when not.
-    uint16_t mqttColor = mqttStatusText().startsWith("Connected") ? ST77XX_GREEN : ST77XX_ORANGE;
-    if (full || mqttColor != drawnMqtt) { screenMain.fillCircle(22, TITLE_H / 2, 4, mqttColor); drawnMqtt = mqttColor; }
+    drawStatusIcons(full); // the bar fill covered them
 }
 
 // Static labels for the bar gauge zones, centered over the actual bar span
@@ -624,7 +672,7 @@ void refreshBarsOnly() {
     drawFanRpmBars(LEFT_ZONE_X, BARS_TOP, LEFT_ZONE_W, barsHeight());
     drawTempProbeBars(RIGHT_ZONE_X, BARS_TOP, RIGHT_ZONE_W, barsHeight());
     drawManualControlButton(CENTER_X, MANUAL_BTN_Y, CENTER_W, MANUAL_BTN_H); // redraws only on a change
-    drawSdDot();
+    drawStatusIcons();
 }
 
 // Value label above a bar, redrawn only when its text or colour changes. The

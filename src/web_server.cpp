@@ -217,6 +217,8 @@ static void handleStatus(NetworkClient &client) {
     else doc["sdUsed"] = nullptr;
     doc["eth"] = isEthernetConnected();
     doc["net"] = activeNetwork();
+    doc["wifiJoining"] = isWifiJoining(); // LCD view: WiFi icon flashes
+    doc["hotspot"] = isHotspotActive();   // LCD view: hotspot icon (also on for 30 s after a network is back)
     doc["netName"] = activeNetworkName(); // WiFi SSID or hotspot name; "" on Ethernet
     doc["mqtt"] = mqttStatusText();
     doc["mqttOk"] = mqttStatusText().startsWith("Connected");

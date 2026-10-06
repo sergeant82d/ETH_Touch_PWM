@@ -37,6 +37,13 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` `[Web]` Top-bar status icons (your design, `docs/LCD_DESIGN.md`): Ethernet,
+      WiFi, hotspot left of the name; MQTT, SD card right of it; grey = inactive, green = in
+      use, WiFi flashes while joining, hotspot flashes black on orange, MQTT orange when not
+      connected, SD as before. Names over 15 letters use the small font. Web LCD view the
+      same (`/api/status` gains `hotspot`, `wifiJoining`). Standby hint on the web page
+      fixed (1 s press). Checked by the user on COM15, normal and cable-out (2026-10-06,
+      this commit)
 - [x] `[LCD]` `[Docs]` LVGL archive note: `docs/LCD_DESIGN.md` (why cancelled, your mock-ups,
       top-bar icon design and states, display conventions, what each style would take);
       icons drawn and approved, `docs/images/icon_preview.png` (2026-10-06, this commit)

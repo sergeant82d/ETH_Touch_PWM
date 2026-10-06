@@ -370,7 +370,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         <canvas id="lcd-view" class="lcd-view" width="960" height="720"></canvas>
         <div class="hint">The Touch-LCD-2 screen layout, drawn here from this controller's live values (fonts are close, not exact).</div>
         <div class="actions" id="lcd-power-row" hidden><button class="btn ghost" id="lcd-power">Turn the LCD off</button><span class="msg" id="lcd-power-msg"></span></div>
-        <div class="hint" id="lcd-power-hint" hidden>Standby turns off the backlight only; the controller keeps running. A tap on the screen, or Home Assistant ("LCD display"), turns it back on.</div>
+        <div class="hint" id="lcd-power-hint" hidden>Standby turns off the backlight only; the controller keeps running. Pressing the screen for 1 second, or Home Assistant ("LCD display"), turns it back on.</div>
       </div>
       <div class="panel" id="ovr-panel">
         <h2>Manual override</h2>
@@ -887,6 +887,13 @@ const LCD_C = { blue: "#0000ff", white: "#ffffff", cyan: "#00ffff", orange: "#ff
   red: "#ff0000", green: "#00ff00", yellow: "#ffff00", black: "#000000" };
 const LCD_GEAR = [0x000000, 0x001800, 0x001800, 0x037EC0, 0x03FFC0, 0x03C1C0, 0x1FC0F8, 0x1EE078, 0x0C6030, 0x187C18, 0x187E18, 0x7867FE,
   0x7867FE, 0x187E18, 0x187C18, 0x0C6030, 0x1EE078, 0x1FC0F8, 0x03C1C0, 0x03FFC0, 0x037EC0, 0x001800, 0x001800, 0x000000];
+const LCD_ICONS = {
+  eth: [0x0000, 0x0000, 0x7FFE, 0x4002, 0x5552, 0x5552, 0x4002, 0x4002, 0x4002, 0x781E, 0x0810, 0x0FF0, 0x0000, 0x0000, 0x0000, 0x0000],
+  wifi: [0x0000, 0x07E0, 0x1818, 0x6006, 0x8001, 0x07E0, 0x1818, 0x2004, 0x0000, 0x03C0, 0x0420, 0x0000, 0x0180, 0x0180, 0x0000, 0x0000],
+  ap: [0x0000, 0x2004, 0x4812, 0x9009, 0x9189, 0x93C9, 0x9189, 0x4992, 0x2184, 0x0180, 0x0180, 0x03C0, 0x07E0, 0x0000, 0x0000, 0x0000],
+  mqtt: [0x0180, 0x03C0, 0x0660, 0x0C30, 0x1818, 0x300C, 0x6186, 0xC3C3, 0x4182, 0x4182, 0x4992, 0x45A2, 0x43C2, 0x7FFE, 0x0000, 0x0000],
+  sd: [0x3FC0, 0x2AA0, 0x2A90, 0x2A88, 0x2004, 0x2004, 0x2004, 0x2004, 0x2004, 0x2004, 0x2004, 0x2004, 0x3FFC, 0x0000, 0x0000, 0x0000],
+};
 const lcdBlink = (period) => Date.now() % period < period / 2;
 
 function drawLcdView() {
@@ -928,17 +935,23 @@ function drawLcdView() {
     else { g.roundRect(x + 0.5, y + 0.5, w - 1, h - 1, r); g.strokeStyle = color; g.lineWidth = 1; g.stroke(); }
   };
 
-  // Title bar: node name, dots (network, MQTT, SD), gear
+  // Title bar: node name, status icons (drawStatusIcons()), gear
   g.fillStyle = C.blue; g.fillRect(0, 0, 320, 26);
-  text(0, 320, 5, nodeTitle(s.node), 2, C.white);
-  let sdc = C.green;
-  if (s.sdState === "Missing" || s.sdState === "Getting full") {
-    const miss = s.sdState === "Missing";
-    sdc = lcdBlink(miss ? 400 : 1200) ? (miss ? C.red : C.orange) : C.blue;
-  }
-  dot(10, 13, 4, s.net === "Ethernet" || s.net === "WiFi" ? C.green : s.net === "Hotspot" ? C.orange : C.red);
-  dot(22, 13, 4, s.mqttOk ? C.green : C.orange);
-  dot(34, 13, 4, sdc);
+  const title = nodeTitle(s.node), fits = title.length * 12 <= 184 - 4;
+  text(62, 184, fits ? 5 : 9, title, fits ? 2 : 1, C.white);
+  const grey = "#6e6e8c", slow = lcdBlink(1200), fast = lcdBlink(400);
+  const icon = (x, rows, fg, bg) => {
+    if (bg) rrect(x - 2, 3, 20, 20, 3, bg, true);
+    g.fillStyle = fg;
+    rows.forEach((row, y) => { for (let i = 0; i < 16; i++) if (row & (1 << (15 - i))) g.fillRect(x + i, 5 + y, 1, 1); });
+  };
+  icon(4, LCD_ICONS.eth, s.net === "Ethernet" ? C.green : grey);
+  icon(24, LCD_ICONS.wifi, s.net === "WiFi" || (s.wifiJoining && slow) ? C.green : grey);
+  if (s.hotspot && slow) icon(44, LCD_ICONS.ap, C.black, C.orange);
+  else icon(44, LCD_ICONS.ap, s.hotspot ? C.orange : grey);
+  icon(248, LCD_ICONS.mqtt, s.mqttOk ? C.green : String(s.mqtt || "").startsWith("Off") ? grey : C.orange);
+  const sdc = s.sdState === "Missing" ? (fast ? C.red : C.blue) : s.sdState === "Getting full" ? (slow ? C.orange : C.blue) : C.green;
+  icon(268, LCD_ICONS.sd, sdc);
   g.fillStyle = C.white;
   LCD_GEAR.forEach((row, y) => { for (let x = 0; x < 24; x++) if (row & (1 << (23 - x))) g.fillRect(290 + x, 1 + y, 1, 1); });
 

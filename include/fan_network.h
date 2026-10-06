@@ -40,6 +40,7 @@ void applyTimeZone();
 bool isEthernetConnected();
 bool isWifiConnected();       // backup WiFi joined
 bool isHotspotActive();
+bool isWifiJoining();         // backup WiFi wanted, not joined yet
 bool isNetworkConnected();    // Ethernet or WiFi (the hotspot doesn't count)
 
 // "Ethernet", "WiFi", "Hotspot" or "None", and its address
