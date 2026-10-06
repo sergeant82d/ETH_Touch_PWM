@@ -16,6 +16,7 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[Web]` Main page - Mobile devices - Move the Manual Control button up, to just below the Remote LCD Viewer. 
 
+- [ ] `[Web]` History page - Move to just before the Systems page, next-to-last in the page/tab order. 
 
 ## Open
 
