@@ -14,6 +14,9 @@ How this list works (agreed 2026-09-28):
 
 - [ ] `[SD]` Do we currently log all changes in settings? Like when an HA automation turns off the LCD's backlight? Or I change the Fan Curve limits? We should be if not. 
 
+- [ ] `[Web]` Main page - Mobile devices - Move the Manual Control button up, to just below the Remote LCD Viewer. 
+
+
 ## Open
 
 - [ ] `[Board]` Low priority: one I2C read error (touch bus) at ~4 s after boot; touch works
