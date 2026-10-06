@@ -796,9 +796,11 @@ function renderStatus() {
   tickClock();
 }
 
+// Missed polls in a row, and when the last one worked (LCD view: "No connection")
+let statusFails = 0, statusOkAt = 0;
 async function pollStatus() {
-  try { status = await api("/api/status"); renderStatus(); }
-  catch (e) { $("#dot-eth").className = "dot bad"; }
+  try { status = await api("/api/status"); statusFails = 0; statusOkAt = Date.now(); renderStatus(); }
+  catch (e) { statusFails++; $("#dot-eth").className = "dot bad"; }
 }
 
 function tickClock() {
@@ -1035,7 +1037,16 @@ function drawLcdView() {
   if (s.net === "Hotspot") text(228, 88, 226, "Hotspot on", 1, C.orange);
   else text(228, 88, 226, dStr, 1, C.yellow);
 
-  if (s.display === false) { // standby: the real screen is dark
+  // Two missed updates (~4-6 s): the picture is old, say so (user, 2026-10-06). The
+  // board may have moved to another address (Ethernet <-> WiFi): reload by name.
+  // Shown instead of "Display off": that is an old value too by then.
+  if (statusFails >= 2) {
+    g.fillStyle = "rgba(0, 0, 0, 0.75)"; g.fillRect(0, 0, 320, 240);
+    const t = statusOkAt ? new Date(statusOkAt).toLocaleTimeString() : "--";
+    text(0, 320, 92, "No connection", 2, C.orange);
+    text(0, 320, 120, "showing the values from " + t, 1, C.white);
+    text(0, 320, 136, "reload the page if it doesn't come back", 1, C.white);
+  } else if (s.display === false) { // standby: the real screen is dark
     g.fillStyle = "rgba(0, 0, 0, 0.75)"; g.fillRect(0, 0, 320, 240);
     text(0, 320, 112, "Display off", 2, C.white);
   }

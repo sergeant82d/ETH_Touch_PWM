@@ -37,6 +37,11 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Web]` LCD view "No connection" overlay: after two missed status updates (~4-6 s) the
+      view dims and shows the time of the last good values; clears by itself. Takes the place
+      of "Display off" while shown (your question: they would have overlapped). Background
+      tabs update slower (browser timer throttling). Checked by the user, cable out and back
+      (2026-10-06, this commit)
 - [x] `[LCD]` `[Web]` Top-bar status icons (your design, `docs/LCD_DESIGN.md`): Ethernet,
       WiFi, hotspot left of the name; MQTT, SD card right of it; grey = inactive, green = in
       use, WiFi flashes while joining, hotspot flashes black on orange, MQTT orange when not
