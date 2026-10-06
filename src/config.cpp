@@ -34,7 +34,7 @@ SystemConfig config = {
     false,        // wifiStatic: DHCP
     0, 0, 0, 0,   // wifiIp, wifiGateway, wifiSubnet, wifiDns
     "",           // hostname: derived from the node ID
-    "12345678",   // apPass (as on Wifi_Fan_Knob; change it on the WiFi tab)
+    "12345678",   // apPass (as on Wifi_Fan_Knob; change it on the Network tab)
     true,         // ethDhcp: new boards take an address from the router
     {0, 0, 0, 0}  // fanOffsetRpm: no offsets
 };

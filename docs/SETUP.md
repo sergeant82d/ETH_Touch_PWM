@@ -43,8 +43,8 @@ place); only a new or erased board starts from this table.
    The controller restarts once. The page says where to find it and moves there after 20 s
    (by IP for static, by `.local` name for DHCP). On the hotspot it says to rejoin the normal
    network first. Log in there with the new login.
-4. **Afterwards, on the tabs:** the fan curve (Fan Control), the WiFi address, device name and
-   hotspot password (WiFi), theme (System). Each panel has its own Save.
+4. **Afterwards, on the tabs:** the fan curve (Fan Control), the WiFi address and hotspot
+   password (Network), device name, time zone and theme (System). Each panel has its own Save.
 5. **Home Assistant (in HA):** the device appears by itself once MQTT is connected. Add the
    network-temperature automation from `docs/MQTT.md` with the controller name in the topic
    (`<name>/network_temp/set`; the Setup page shows it). Until it runs, the page shows "No
@@ -57,6 +57,6 @@ place); only a new or erased board starts from this table.
 - On the normal tabs, each Save reloads every form, which wipes other panels' unsaved fields,
   and nothing warns about unsaved fields.
 - A node ID change on the Home Assistant tab changes the `.local` name only from the next
-  restart or WiFi-tab save.
+  restart or a Save in the Device name panel (System tab).
 - The hotspot turns itself off 30 s after a network works, which drops a phone mid-step.
 - No factory reset on the web page yet (only the USB erase, `docs/BOARDS.md`).

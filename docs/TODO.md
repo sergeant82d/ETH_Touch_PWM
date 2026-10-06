@@ -13,13 +13,7 @@ How this list works (agreed 2026-09-28):
 ## Your notes
 
 
-- [ ] `[Web]` Main page - Move the Remote Display card to the top of the page on mobile devices. 
-
 - [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active.
-
-- [ ] `[Web]` Network and WiFi pages - Combine into one Network page. Keep the header info that is on the current WiFi page. Ethernet first, then WiFi, then Hotspot.
-
-- [ ] `[Web]` Move the Time Zone and Device Name cards to the System page. On the System page, make the new card order: Header, Appearance, Time Zone, OTA, Device Name, Web Login, and Factory Reset. 
 
 - [ ] `[LCD]` Cancel the LVGL conversion. Address the Screen flicker issue.
 
@@ -48,6 +42,11 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Web]` Page layout (your notes): WiFi tab merged into Network (status header, Ethernet,
+      WiFi network, WiFi address, hotspot; `#wifi` links open it); System tab order Firmware,
+      Appearance, Time, OTA, Device name, Web login, Restart, Factory reset; on phones the LCD
+      view is the Dashboard's first card. Docs updated. Checked by the user on PC and phone
+      (2026-10-05, this commit)
 - [x] `[LCD]` `[Web]` Restart button (your note): System tab, panel "Restart" just above Factory
       reset (asks to confirm, needs the login, nothing changed or lost); LCD on the QR page
       (gear), held 2 s with a filling button, so phantom taps can't trigger it (instead of a

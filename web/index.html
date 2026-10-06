@@ -211,6 +211,10 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
   .tab.active { border-bottom-color: var(--accent); }
   .lights { display: flex; flex-wrap: wrap; gap: 14px; padding: 10px 16px; }
   .main { padding: 16px; }
+  /* The LCD view first on the Dashboard (user, 2026-10-05) */
+  #page-dashboard.active { display: flex; flex-direction: column; }
+  #lcd-panel { order: -1; }
+  #page-dashboard > * { min-width: 0; } /* or the canvas (960 px) sets the width */
 }
 </style>
 </head>
@@ -243,9 +247,6 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       <button class="tab" data-page="network">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="6"/><rect x="2" y="16" width="6" height="6"/><rect x="16" y="16" width="6" height="6"/><path d="M12 8v4M5 16v-4h14v4"/></svg>
         Network</button>
-      <button class="tab" data-page="wifi">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0114.08 0M1.42 9a16 16 0 0121.16 0M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>
-        WiFi</button>
       <button class="tab" data-page="system">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
         System</button>
@@ -309,7 +310,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
           </div>
           <div class="actions" style="margin-top: 10px"><button class="btn ghost" type="button" id="su-scan">Scan networks</button></div>
           <div class="scan-list" id="su-scan-list"></div>
-          <div class="hint">WiFi is used only while Ethernet is down (more options on the WiFi tab).</div>
+          <div class="hint">WiFi is used only while Ethernet is down (more options on the Network tab).</div>
           <div class="form" style="margin-top: 14px">
             <div class="field"><label for="su-tz-filter">Time zone</label>
               <input type="text" id="su-tz-filter" placeholder="Search, e.g. London, Tokyo, Chicago">
@@ -361,7 +362,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         <div class="panel" id="t-blended"><div class="stat-label">Blended</div><div class="stat-value">--</div><div class="stat-note">Drives the fan curve</div></div>
       </div>
       <div class="grid" id="fan-cards"></div>
-      <div class="panel">
+      <div class="panel" id="lcd-panel">
         <h2>LCD view</h2>
         <canvas id="lcd-view" class="lcd-view" width="960" height="720"></canvas>
         <div class="hint">The Touch-LCD-2 screen layout, drawn here from this controller's live values (fonts are close, not exact).</div>
@@ -483,6 +484,12 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
 
     <!-- ===== Network ===== -->
     <section class="page" id="page-network">
+      <div class="panel">
+        <h2>Networks</h2>
+        <dl class="kv" id="wifi-status"></dl>
+        <div class="hint">WiFi is a backup: joined when the Ethernet link has been down for 30 s, left 60 s after Ethernet is back. While on WiFi the page is at the WiFi address (or the device name, System tab).</div>
+      </div>
+
       <form class="panel" id="form-net">
         <h2>Ethernet address</h2>
         <div class="radios"><label><input type="radio" name="ethMode" value="dhcp"> Automatic (DHCP)</label><label><input type="radio" name="ethMode" value="static"> Static</label></div>
@@ -492,31 +499,9 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
           <div class="field"><label for="gateway">Gateway</label><input type="text" id="gateway"></div>
           <div class="field"><label for="dns">DNS server</label><input type="text" id="dns"></div>
         </div>
-        <div class="hint">Changing this restarts the controller. With DHCP the router picks the address: open the page by the device name (WiFi tab), e.g. http://fancontroller-01.local.</div>
+        <div class="hint">Changing this restarts the controller. With DHCP the router picks the address: open the page by the device name (System tab), e.g. http://fancontroller-01.local.</div>
         <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
       </form>
-      <form class="panel" id="form-time">
-        <h2>Time</h2>
-        <div class="form">
-          <div class="field"><label for="tz-filter">Time zone</label>
-            <input type="text" id="tz-filter" placeholder="Search, e.g. London, Tokyo, Chicago">
-            <select id="time-zone" required></select>
-            <button type="button" class="btn ghost" id="tz-browser">Use this browser's time zone</button></div>
-          <div class="field"><span class="label">Clock</span>
-            <div class="radios"><label><input type="radio" name="clock" value="12"> 12-hour</label><label><input type="radio" name="clock" value="24"> 24-hour</label></div></div>
-        </div>
-        <div class="hint">Time comes from pool.ntp.org. Daylight saving switches automatically (checked at every 5-minute time sync).</div>
-        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
-      </form>
-    </section>
-
-    <!-- ===== WiFi ===== -->
-    <section class="page" id="page-wifi">
-      <div class="panel">
-        <h2>Networks</h2>
-        <dl class="kv" id="wifi-status"></dl>
-        <div class="hint">WiFi is a backup: joined when the Ethernet link has been down for 30 s, left 60 s after Ethernet is back. While on WiFi the page is at the WiFi address (or the device name below).</div>
-      </div>
 
       <form class="panel" id="form-wifi">
         <h2>Backup WiFi network</h2>
@@ -547,16 +532,6 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
       </form>
 
-      <form class="panel" id="form-hostname">
-        <h2>Device name</h2>
-        <div class="form">
-          <div class="field"><label for="hostname">Name (letters, digits, hyphens)</label>
-            <input type="text" id="hostname" maxlength="31" pattern="[A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?"></div>
-        </div>
-        <div class="hint">Open the page at <b>http://<span id="hostname-shown">--</span>.local</b> on Ethernet or WiFi (most computers and iPhones; some Android phones don't support .local names). Empty = made from the node ID.</div>
-        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
-      </form>
-
       <form class="panel" id="form-hotspot">
         <h2>Setup hotspot</h2>
         <div class="hint" id="hotspot-state" style="margin-bottom: 12px"></div>
@@ -571,14 +546,6 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
     <!-- ===== System ===== -->
     <section class="page" id="page-system">
       <div class="panel"><h2>Firmware</h2><dl class="kv" id="sys-info"></dl></div>
-
-      <div class="panel">
-        <h2>Firmware update (OTA)</h2>
-        <label class="drop" id="ota-drop"><input type="file" id="ota-file" accept=".bin" hidden><span id="ota-drop-text">Drop firmware.bin here, or click to choose</span></label>
-        <div class="hint">Use <code>.pio/build/&lt;board&gt;/firmware.bin</code>. The controller refuses firmware built for the other board, then restarts with the new one (about 30 s). Settings are kept.</div>
-        <progress id="ota-progress" value="0" max="100" hidden></progress>
-        <div class="actions"><button class="btn" id="ota-btn" disabled>Upload and install</button><span class="msg" id="ota-msg"></span></div>
-      </div>
 
       <div class="panel">
         <h2>Appearance</h2>
@@ -598,6 +565,38 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         </div>
         <div class="actions"><button class="btn" id="theme-save">Save</button><span class="msg" id="theme-msg"></span></div>
       </div>
+
+      <form class="panel" id="form-time">
+        <h2>Time</h2>
+        <div class="form">
+          <div class="field"><label for="tz-filter">Time zone</label>
+            <input type="text" id="tz-filter" placeholder="Search, e.g. London, Tokyo, Chicago">
+            <select id="time-zone" required></select>
+            <button type="button" class="btn ghost" id="tz-browser">Use this browser's time zone</button></div>
+          <div class="field"><span class="label">Clock</span>
+            <div class="radios"><label><input type="radio" name="clock" value="12"> 12-hour</label><label><input type="radio" name="clock" value="24"> 24-hour</label></div></div>
+        </div>
+        <div class="hint">Time comes from pool.ntp.org. Daylight saving switches automatically (checked at every 5-minute time sync).</div>
+        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
+      </form>
+
+      <div class="panel">
+        <h2>Firmware update (OTA)</h2>
+        <label class="drop" id="ota-drop"><input type="file" id="ota-file" accept=".bin" hidden><span id="ota-drop-text">Drop firmware.bin here, or click to choose</span></label>
+        <div class="hint">Use <code>.pio/build/&lt;board&gt;/firmware.bin</code>. The controller refuses firmware built for the other board, then restarts with the new one (about 30 s). Settings are kept.</div>
+        <progress id="ota-progress" value="0" max="100" hidden></progress>
+        <div class="actions"><button class="btn" id="ota-btn" disabled>Upload and install</button><span class="msg" id="ota-msg"></span></div>
+      </div>
+
+      <form class="panel" id="form-hostname">
+        <h2>Device name</h2>
+        <div class="form">
+          <div class="field"><label for="hostname">Name (letters, digits, hyphens)</label>
+            <input type="text" id="hostname" maxlength="31" pattern="[A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?"></div>
+        </div>
+        <div class="hint">Open the page at <b>http://<span id="hostname-shown">--</span>.local</b> on Ethernet or WiFi (most computers and iPhones; some Android phones don't support .local names). Empty = made from the node ID.</div>
+        <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
+      </form>
 
       <form class="panel" id="form-login">
         <h2>Web login</h2>
@@ -718,6 +717,7 @@ $("#btn-login").onclick = () => { if (auth) { auth = ""; sessionStorage.removeIt
 
 // ---------- Tabs (the URL #hash keeps the tab over a reload / bookmark) ----------
 function showTab(name) {
+  if (name === "wifi") name = "network"; // WiFi merged into Network (2026-10-05)
   const t = document.querySelector(`.tab[data-page="${name}"]:not([hidden])`) || document.querySelector(".tab:not([hidden])");
   document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === t));
   document.querySelectorAll(".page").forEach((p) => p.classList.toggle("active", p.id === "page-" + t.dataset.page));
@@ -1162,7 +1162,7 @@ $("#form-reset").onsubmit = async (e) => {
 
 // ---------- WiFi ----------
 let wifi = null;
-const wifiTabShown = () => $("#page-wifi").classList.contains("active");
+const wifiTabShown = () => $("#page-network").classList.contains("active");
 
 function renderWifiStatus() {
   const st = wifi.status, e = st.ethernet, w = st.wifi, h = st.hotspot;
@@ -1214,7 +1214,7 @@ $("#wifi-forget").onclick = () => {
   if (!confirm("Forget the saved WiFi network? The WiFi backup stops.")) return;
   postWifi($("#form-wifi"), "/api/wifi/forget", {});
 };
-// Scan (no login needed); a tap on a network fills in the SSID box. WiFi tab and Setup page.
+// Scan (no login needed); a tap on a network fills in the SSID box. Network tab and Setup page.
 async function scanWifi(btn, list, ssidBox, passBox) {
   btn.disabled = true; list.innerHTML = `<div class="hint">Scanning (a few seconds)...</div>`;
   try {

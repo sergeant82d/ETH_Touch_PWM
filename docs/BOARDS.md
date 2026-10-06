@@ -100,15 +100,15 @@ be broken by firmware:
 
 ## WiFi backup, hotspot, device name (both boards)
 
-- WiFi (WiFi tab) is only a backup: joined when the Ethernet link has been down for 30 s,
+- WiFi (Network tab; one tab with Ethernet since 2026-10-05) is only a backup: joined when the Ethernet link has been down for 30 s,
   left 60 s after Ethernet is back; DHCP or a static WiFi address. At boot (2026-10-04):
   no W5500 found = WiFi at once; W5500 without an address = after 10 s. MQTT reconnects at once
   when the network in use changes.
 - Setup hotspot `FanController-XXXX` (last MAC bytes), page at http://192.168.4.1: starts
   after 60 s without Ethernet or WiFi (and not while a WiFi join is under way, up to 45 s), stops once one has worked for 30 s. Default password
-  `12345678`; change it on the WiFi tab.
-- Device name (mDNS): http://<name>.local on Ethernet and WiFi; default from the node ID
-  (`fancontroller-01`).
+  `12345678`; change it on the Network tab.
+- Device name (mDNS, System tab): http://<name>.local on Ethernet and WiFi; default from the
+  node ID (`fancontroller-01`).
 
 ## SD card files (both boards)
 
