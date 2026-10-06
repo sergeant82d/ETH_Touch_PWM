@@ -642,10 +642,15 @@ static const int OVERLAY_BOX_Y = 40;
 static const int OVERLAY_BOX_W = 260;
 static const int OVERLAY_BOX_H = 160;
 
-static const int OVERLAY_SLIDER_X = OVERLAY_BOX_X + 10;
-static const int OVERLAY_SLIDER_Y = OVERLAY_BOX_Y + 60;
-static const int OVERLAY_SLIDER_W = OVERLAY_BOX_W - 20;
-static const int OVERLAY_SLIDER_H = 16;
+// - and + either side of the speed (user, 2026-10-05; replaced the slider):
+// a tap is 1 %, held they repeat (1 % steps, then 5 % after 2 s)
+static const int OVERLAY_STEP_W = 64;
+static const int OVERLAY_STEP_H = 56;
+static const int OVERLAY_STEP_Y = OVERLAY_BOX_Y + 30;
+static const int OVERLAY_MINUS_X = OVERLAY_BOX_X + 10;
+static const int OVERLAY_PLUS_X = OVERLAY_BOX_X + OVERLAY_BOX_W - 10 - OVERLAY_STEP_W;
+static const int OVERLAY_VALUE_X = OVERLAY_MINUS_X + OVERLAY_STEP_W;
+static const int OVERLAY_VALUE_W = OVERLAY_PLUS_X - OVERLAY_VALUE_X;
 
 static const int OVERLAY_BTN_W = (OVERLAY_BOX_W - 30) / 2;
 static const int OVERLAY_BTN_H = 26;
@@ -653,19 +658,27 @@ static const int OVERLAY_BTN_Y = OVERLAY_BOX_Y + OVERLAY_BOX_H - 36;
 static const int OVERLAY_CANCEL_X = OVERLAY_BOX_X + 10;
 static const int OVERLAY_KEEPON_X = OVERLAY_CANCEL_X + OVERLAY_BTN_W + 10;
 
-// Redraws just the percentage readout + slider fill - called on every
-// touch-drag update, so it's kept cheap (no box/button redraw needed).
-static void drawOverlaySliderOnly() {
-    int pct = (manualOverrideDutyCycle * 100) / 255;
-    String pctStr = "Fan Speed: " + String(pct) + "%";
-    screenMain.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    // Inside the box only: the full box width wiped its border at this height (user, 2026-10-04)
-    screenMain.fillRect(OVERLAY_BOX_X + 2, OVERLAY_BOX_Y + 28, OVERLAY_BOX_W - 4, 12, ST77XX_BLACK);
-    printCentered(OVERLAY_BOX_X, OVERLAY_BOX_W, OVERLAY_BOX_Y + 28, pctStr, 1);
+static int overridePct() { return (int)lroundf(manualOverrideDutyCycle * 100.0f / 255); }
 
-    screenMain.fillRect(OVERLAY_SLIDER_X + 1, OVERLAY_SLIDER_Y + 1, OVERLAY_SLIDER_W - 2, OVERLAY_SLIDER_H - 2, ST77XX_BLACK);
-    int fillW = (OVERLAY_SLIDER_W - 2) * manualOverrideDutyCycle / 255;
-    screenMain.fillRect(OVERLAY_SLIDER_X + 1, OVERLAY_SLIDER_Y + 1, fillW, OVERLAY_SLIDER_H - 2, ST77XX_CYAN);
+// Redraws just the speed between the - and + buttons (each step)
+static void drawOverlayValue() {
+    screenMain.fillRect(OVERLAY_VALUE_X + 2, OVERLAY_STEP_Y, OVERLAY_VALUE_W - 4, OVERLAY_STEP_H, ST77XX_BLACK);
+    screenMain.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+    printCentered(OVERLAY_VALUE_X, OVERLAY_VALUE_W, OVERLAY_STEP_Y + 4, "Fan speed", 1);
+    printCentered(OVERLAY_VALUE_X, OVERLAY_VALUE_W, OVERLAY_STEP_Y + 22, String(overridePct()) + "%", 3);
+}
+
+static void drawStepButton(int x, const char* sign, bool held) {
+    screenMain.fillRoundRect(x, OVERLAY_STEP_Y, OVERLAY_STEP_W, OVERLAY_STEP_H, 6, held ? ST77XX_CYAN : ST77XX_BLACK);
+    screenMain.drawRoundRect(x, OVERLAY_STEP_Y, OVERLAY_STEP_W, OVERLAY_STEP_H, 6, ST77XX_CYAN);
+    screenMain.setTextColor(held ? ST77XX_BLACK : ST77XX_CYAN);
+    printCentered(x, OVERLAY_STEP_W, OVERLAY_STEP_Y + 17, sign, 3);
+}
+
+static void stepOverride(int deltaPct) {
+    int pct = constrain(overridePct() + deltaPct, 0, 100);
+    manualOverrideDutyCycle = (int)lroundf(pct * 255.0f / 100);
+    drawOverlayValue();
 }
 
 // Full overlay draw - called once when it opens.
@@ -676,8 +689,9 @@ static void drawOverrideOverlay() {
     screenMain.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
     printCentered(OVERLAY_BOX_X, OVERLAY_BOX_W, OVERLAY_BOX_Y + 10, "MANUAL OVERRIDE", 1);
 
-    screenMain.drawRoundRect(OVERLAY_SLIDER_X, OVERLAY_SLIDER_Y, OVERLAY_SLIDER_W, OVERLAY_SLIDER_H, 6, ST77XX_WHITE);
-    drawOverlaySliderOnly();
+    drawStepButton(OVERLAY_MINUS_X, "-", false);
+    drawStepButton(OVERLAY_PLUS_X, "+", false);
+    drawOverlayValue();
 
     screenMain.drawRoundRect(OVERLAY_CANCEL_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_H, 4, ST77XX_RED);
     screenMain.setTextColor(ST77XX_RED, ST77XX_BLACK);
@@ -970,18 +984,32 @@ void handleTouchInput() {
     }
 
     if (overlayOpen) {
-        if (pressed) {
-            // Generous vertical tolerance around the slider track makes it
-            // easier to grab with a fingertip than the visual track height alone.
-            bool inSliderZone = pointInRect(tx, ty - 10, OVERLAY_SLIDER_X, OVERLAY_SLIDER_Y, OVERLAY_SLIDER_W, OVERLAY_SLIDER_H + 20);
-
-            if (inSliderZone) {
-                int rel = constrain(tx - OVERLAY_SLIDER_X, 0, OVERLAY_SLIDER_W);
-                manualOverrideDutyCycle = map(rel, 0, OVERLAY_SLIDER_W, 0, 255);
-                drawOverlaySliderOnly();
-            } else if (!wasPressed) {
-                // Buttons only fire on the initial press edge, not every
-                // poll while held, so a lingering finger doesn't double-fire.
+        // - / +: a tap steps 1 %; held, they repeat every 90 ms after 0.5 s,
+        // in 5 % steps after 2 s
+        static int stepDir = 0;
+        static unsigned long stepPressMs = 0, lastStepMs = 0;
+        if (stepDir != 0 && !pressed) {                 // let go
+            drawStepButton(stepDir < 0 ? OVERLAY_MINUS_X : OVERLAY_PLUS_X, stepDir < 0 ? "-" : "+", false);
+            stepDir = 0;
+        } else if (stepDir != 0) {                      // still held
+            unsigned long held = millis() - stepPressMs;
+            if (held >= 500 && millis() - lastStepMs >= 90) {
+                stepOverride(stepDir * (held >= 2000 ? 5 : 1));
+                lastStepMs = millis();
+            }
+        }
+        if (pressed && !wasPressed) {
+            // Buttons only fire on the initial press edge, not every
+            // poll while held, so a lingering finger doesn't double-fire.
+            // The step buttons get 6 px extra all round (the panel's readings wander).
+            bool onMinus = pointInRect(tx, ty, OVERLAY_MINUS_X - 6, OVERLAY_STEP_Y - 6, OVERLAY_STEP_W + 12, OVERLAY_STEP_H + 12);
+            bool onPlus = pointInRect(tx, ty, OVERLAY_PLUS_X - 6, OVERLAY_STEP_Y - 6, OVERLAY_STEP_W + 12, OVERLAY_STEP_H + 12);
+            if (onMinus || onPlus) {
+                stepDir = onMinus ? -1 : 1;
+                stepPressMs = lastStepMs = millis();
+                drawStepButton(onMinus ? OVERLAY_MINUS_X : OVERLAY_PLUS_X, onMinus ? "-" : "+", true);
+                stepOverride(stepDir);
+            } else {
                 if (pointInRect(tx, ty, OVERLAY_CANCEL_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_H)) {
                     manualOverrideActive = false; // revert to auto
                     overlayOpen = false;

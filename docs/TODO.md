@@ -13,8 +13,6 @@ How this list works (agreed 2026-09-28):
 ## Your notes
 
 
-- [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active.
-
 - [ ] `[LCD]` Cancel the LVGL conversion. Address the Screen flicker issue.
 
     - Archive the LVGL project, but edit it for future reference to use standard web page icons for Ethernet/Network, Wifi, and Hotspot in the top bar of the display. Left side, replacing the current status dots. Same for the MQTT and SD Card, except they go on the right side of the name. Grayed out if not active, with the current connection colored/lit up. If Hotspot is active, make it flash, possibly with an Orange back color. Discuss industry display standards. 
@@ -26,8 +24,9 @@ How this list works (agreed 2026-09-28):
       buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
 
 
-- [ ] `[Board]` Boot log on the Touch-LCD-2 shows "GPIO isr service already installed" and one
-      I2C read error (touch bus) at ~4 s; touch works. Look into it. Seen on both Lite boards, so it's the firmware (2026-09-29)
+- [ ] `[Board]` Low priority: one I2C read error (touch bus) at ~4 s after boot; touch works
+      afterwards. Probably the touch chip not ready yet after a reset. Only worth a look if
+      touch ever fails at startup (2026-09-29; kept by the user 2026-10-05)
 
 - [ ] `[Board]` Lowest free heap 153 KB while WiFi and Ethernet were both up (floor ~150 KB,
       CLAUDE.md success criteria) (2026-10-04)
@@ -42,6 +41,14 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` `[Web]` Override - / + (your note): LCD panel has big - and + either side of the
+      speed instead of the slider; web keeps the slider with - and + at its ends. A tap is 1 %;
+      held, they repeat after 0.5 s, in 5 % steps after 2 s; the web sends the speed on
+      release. Checked by the user on COM15, LCD and web (2026-10-05, this commit)
+- [x] `[Board]` "GPIO isr service already installed" in the boot log: harmless. ETH.begin()
+      installs the GPIO interrupt service, then the tach attachInterrupt() asks again; the core
+      treats the "already installed" answer as success. Not related to the touch problems
+      (touch is polled, no interrupt). Closed by the user (2026-10-05)
 - [x] `[Web]` Page layout (your notes): WiFi tab merged into Network (status header, Ethernet,
       WiFi network, WiFi address, hotspot; `#wifi` links open it); System tab order Firmware,
       Appearance, Time, OTA, Device name, Web login, Restart, Factory reset; on phones the LCD

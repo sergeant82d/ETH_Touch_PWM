@@ -136,6 +136,8 @@ input[type=range] { width: 100%; }
 @keyframes pulse { 50% { opacity: .65; } }
 .slider-row { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
 .slider-row span { font-family: var(--mono); min-width: 3.5em; text-align: right; }
+.slider-row input[type=range] { flex: 1; min-width: 0; }
+.step-btn { padding: 6px 0; width: 44px; flex: none; font-size: 1.2rem; font-family: var(--mono); touch-action: none; user-select: none; }
 
 /* --- Theme editor --- */
 .swatches { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin-top: 12px; }
@@ -373,7 +375,9 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         <h2>Manual override</h2>
         <button class="btn override-btn" id="ovr-btn">Manual override: off (tap to turn on)</button>
         <div class="slider-row" id="ovr-row" hidden>
+          <button type="button" class="btn ghost step-btn" id="ovr-minus" aria-label="Slower">&minus;</button>
           <input type="range" id="ovr-slider" min="0" max="100" step="1">
+          <button type="button" class="btn ghost step-btn" id="ovr-plus" aria-label="Faster">+</button>
           <span id="ovr-pct">100%</span>
         </div>
         <div class="hint">On: both fans at the set speed instead of the curve (starts at 100%). Never kept over a restart.</div>
@@ -821,11 +825,30 @@ $("#ovr-btn").onclick = async () => {
   catch (e) { showMsg($("#ovr-msg"), e.message, false); }
 };
 $("#ovr-slider").oninput = (e) => { sliderBusy = true; $("#ovr-pct").textContent = e.target.value + "%"; };
-$("#ovr-slider").onchange = async (e) => {
-  try { await api("/api/override", { pct: +e.target.value }); await pollStatus(); }
+async function sendOverridePct(pct) {
+  try { await api("/api/override", { pct }); await pollStatus(); }
   catch (err) { showMsg($("#ovr-msg"), err.message, false); }
   sliderBusy = false;
-};
+}
+$("#ovr-slider").onchange = (e) => sendOverridePct(+e.target.value);
+// - / + (user, 2026-10-05): a click is 1 %; held, they repeat after 0.5 s, in 5 % steps
+// after 2 s (like the LCD). The speed is sent once, on release.
+for (const [id, dir] of [["#ovr-minus", -1], ["#ovr-plus", 1]]) {
+  const b = $(id);
+  let timer = null, started = 0;
+  const step = (n) => {
+    const sl = $("#ovr-slider");
+    sl.value = Math.max(0, Math.min(100, +sl.value + dir * n));
+    $("#ovr-pct").textContent = sl.value + "%";
+  };
+  b.onpointerdown = (e) => {
+    e.preventDefault(); b.setPointerCapture(e.pointerId);
+    sliderBusy = true; started = Date.now(); step(1);
+    timer = setInterval(() => { const held = Date.now() - started; if (held >= 500) step(held >= 2000 ? 5 : 1); }, 90);
+  };
+  const stop = () => { if (!timer) return; clearInterval(timer); timer = null; sendOverridePct(+$("#ovr-slider").value); };
+  b.onpointerup = stop; b.onpointercancel = stop;
+}
 
 // ---------- Fan channel table ----------
 let fanCount = 1;
