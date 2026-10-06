@@ -20,10 +20,6 @@ How this list works (agreed 2026-09-28):
       ~4 s after boot; touch works afterwards. Touch read failures now go to the event log
       (TOUCH, the first and then at most one an hour); Claude checks it at the start of each
       session and picks this up only if it shows again (2026-09-29)
-- [ ] `[Decide]` Free-memory target in CLAUDE.md (~150 KB): measured 2026-10-06 on COM15, no
-      leak. Ethernet ~252-256 KB (web page loads dip ~16 KB); a WiFi scan ~30 KB while it
-      runs, all back afterwards; the WiFi backup joined: lows of 143-147 KB (the WiFi driver
-      and connection, ~110 KB). Suggested: about 120 KB on WiFi, 200 KB on Ethernet
 - [ ] `[Board]` Overnight freeze (your note): 2026-10-05 05:05 the board stopped (last log row
       05:05:16; no web, no HA) until the reset button at 09:52; no crash was logged, so it hung.
       Cause unknown. Since `b91c006` a 30 s watchdog restarts it; if a BOOT event with
@@ -42,6 +38,9 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Decide]` Free-memory target (CLAUDE.md success criteria): ~200 KB on Ethernet,
+      ~120 KB while the WiFi backup is joined (was ~150 KB for all; user, 2026-10-06, this
+      commit)
 - [x] `[Board]` `[Web]` Memory: the lowest free memory is now tracked with the part of loop()
       running then (serial "HEAP: new low", DIAGNOSTIC line with largest block and free
       PSRAM, System tab "Free memory ... lowest ... during ...", BOOT event `minHeap= during`).

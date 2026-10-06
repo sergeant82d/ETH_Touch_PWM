@@ -74,5 +74,7 @@ is no longer measured against it (the original port criteria and size baseline a
    - Network: Ethernet (static and DHCP), WiFi backup and back, hotspot, device name (.local).
    - SD logging; LCD and touch (Touch-LCD-2 only).
 3. Settings survive every firmware update (older settings files upgrade in place).
-4. Size: the app image stays under ~2.5 MB (80 % of the 3 MB OTA slot) and free heap at run
-   time above ~150 KB (System tab). 2026-09-27: 1.36 / 1.39 MB, heap ~255 KB (ESP32-S3-ETH).
+4. Size: the app image stays under ~2.5 MB (80 % of the 3 MB OTA slot). Free internal memory
+   (System tab, "lowest ... during ...") stays above ~200 KB on Ethernet and ~120 KB while
+   the WiFi backup is joined (its driver takes ~110 KB; agreed 2026-10-06). 2026-10-06:
+   1.48 MB; Ethernet ~252 KB, lows 143-147 KB on WiFi (COM15).
