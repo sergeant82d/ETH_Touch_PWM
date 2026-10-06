@@ -30,14 +30,39 @@ How this list works (agreed 2026-09-28):
       decided it had no network) and stayed off MQTT 73 min until a restart; it kept running
       and logging. Same as COM9 on 2026-09-29. The NET events (this commit) will show link /
       address changes; then: restart DHCP, then the W5500, when the link is up with no
-      address. The 15-min self-heal restart is the backstop until then
+      address. Since the audit commit: DHCP restarted after 20 s and every 3 min, board
+      restart (backed off) without WiFi; the W5500 Lite runs at 10 MHz as a test. UNTESTED:
+      close when it has recurred and healed, or after a quiet stretch
 - [ ] `[Board]` `[HA]` 2026-10-06 03:15: the watchdog caught a hang in the network step
       (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
       unavailable 03:15:50, back 03:16:17). The finer stage names (`net:...`, `mqtt:...`) will
       say which call next time
+- [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
+      agreed with the user 2026-10-06:
+  - [ ] `[SD]` Checked SD writes, and the buffer kept unless all of it reached the card (3.1,
+        3.2; one-go drain, not the audit's slices)
+  - [ ] `[SD]` `[HA]` Day's hi/lo kept through a restart, rollup not skipped over midnight (3.6)
+  - [ ] `[SD]` All-time record and daily rollups: temp file + rename; ignore a file without
+        its `ALL,` row (3.3)
+  - [ ] `[HA]` MQTT reply wait 2 s; a failed publish closes the connection, but not for a
+        message too big for the buffer (the audit's sketch would reconnect-loop) (4.1)
+  - [ ] `[Board]` `[SD]` Measure how long a no-card mount retry blocks before changing it (3.4)
+  - [ ] `[Web]` Web request limits: overall header deadline, line length cap, short writes in
+        downloads (5.1)
+  - [ ] Tidy-ups when those files are next edited: spillover size cached (5.2), uptime past
+        49.7 days (5.3)
+  - [ ] Skipped unless wanted: rows held until the clock is set (3.5), SD at 16 MHz; rule
+        kept in mind: no SD access inside an open LCD transaction (1.1)
 
 ## Done
 
+- [x] `[Net]` `[HA]` Audit, first batch (`docs/AUDIT_2026-10-06.md`): MQTT no longer reconnects
+      when Ethernet returns, only once when the WiFi backup goes off (2.1); the MQTT event
+      names the address the connection uses. Ethernet link without an address: DHCP
+      restarted, then a backed-off restart (2.2). Self-heal only with a working network,
+      backing off 15-240 min (2.3). SD writes are watchdog stage `sd:write`, DHCP `net:dhcp`
+      (2.4). W5500 Lite at 10 MHz (1.2). COM15, two cable pulls: one 1 s reconnect at WiFi
+      off (user + Claude). UNTESTED: 2.2, 2.3 (need the faults) (2026-10-06, this commit)
 - [x] `[Decide]` Free-memory target (CLAUDE.md success criteria): ~200 KB on Ethernet,
       ~120 KB while the WiFi backup is joined (was ~150 KB for all; user, 2026-10-06, this
       commit)

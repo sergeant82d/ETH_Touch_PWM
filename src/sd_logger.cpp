@@ -186,7 +186,7 @@ static File openForAppend(const String &path) {
 // (SD.open with FILE_APPEND creates the file if missing, but not parent
 // dirs - callers must mkdir once at init). Falls back to spillover if the
 // card is absent or low on space.
-static void appendLine(const char* sdPath, const String &line) {
+static void appendLineImpl(const char* sdPath, const String &line) {
     if (sdHasFreeSpace()) {
         File f = openForAppend(sdPath);
         if (f) {
@@ -203,6 +203,16 @@ static void appendLine(const char* sdPath, const String &line) {
         usedPercent = -1;
     }
     appendToSpillover(sdPath, line);
+}
+
+// SD writes are their own watchdog stage, then the caller's is put back: a
+// slow write from the network/MQTT/web step showed as that step (audit 2.4)
+static void appendLine(const char* sdPath, const String &line) {
+    char caller[sizeof(rtcSnapshot.stage)];
+    memcpy(caller, rtcSnapshot.stage, sizeof(caller));
+    sdLoggerMarkStage("sd:write");
+    appendLineImpl(sdPath, line);
+    sdLoggerMarkStage(caller);
 }
 
 void sdLogEvent(const String &category, const String &description) {

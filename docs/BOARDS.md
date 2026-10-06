@@ -119,14 +119,21 @@ be broken by firmware:
   Every restart logs a BOOT event with the reason; after anything but a cold boot it adds the
   last known state, including `stage=` (the part of loop() that was running: probe,
   dashboard, web, network, mqtt, touch, sd, loop, setup; inside those since 2026-10-06
-  `net:wifi+`, `net:wifi-`, `net:ap+`, `net:ap-`, `net:dns`, `mqtt:conn`, `mqtt:loop`,
-  `mqtt:pub`) and `heap=` / `minHeap=`.
+  `net:wifi+`, `net:wifi-`, `net:ap+`, `net:ap-`, `net:dns`, `net:dhcp`, `mqtt:conn`,
+  `mqtt:loop`, `mqtt:pub`, and `sd:write` for any SD card write) and `heap=` / `minHeap=`.
   `reason=TASK_WDT ... stage=mqtt` = stuck in MQTT for 30 s. The reset button and power-up
   read `POWERON` (no state). Opening the USB serial port can reset the board (`reason=USB`);
   a reader that sets DTR and RTS low before opening doesn't.
-- **Self-heal** (2026-10-06): MQTT set up but not connected for 15 minutes (no network, broker
-  not answering) = restart, logged as `RESTART source=self-heal` with the reason. The NET and
-  MQTT events before it show what went wrong.
+- **Self-heal** (2026-10-06, both logged as `RESTART source=self-heal` with the reason; the
+  NET and MQTT events before it show what went wrong):
+  - MQTT set up, Ethernet or WiFi working, but MQTT not connected for 15 minutes = restart.
+    In a row it waits longer each time: 15, 30, 60, 120, 240 min. Without any network it
+    doesn't restart (that wouldn't help).
+  - Ethernet link up but no address (DHCP): the DHCP request is restarted after 20 s and
+    every 3 min. If WiFi isn't carrying the traffic, the board restarts after 3 min, then 6,
+    12 ... up to ~3 h in a row.
+  - The W5500 Lite build runs the W5500 at 10 MHz (core default 20 MHz) since 2026-10-06,
+    a test for the "no address" cases, all seen on that build.
 
 ## SD card files (both boards)
 

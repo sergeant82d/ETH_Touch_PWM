@@ -414,7 +414,8 @@ static void tryConnect() {
     lastConnectState = MQTT_CONNECTED;
     Serial.print("MQTT: connected to "); Serial.print(config.mqttBroker);
     Serial.print(" as "); Serial.println(activeNode);
-    sdLogEvent("MQTT", String("connected to ") + config.mqttBroker + " over " + activeNetwork());
+    // The board's address actually used (both networks share one subnet, audit 2.1)
+    sdLogEvent("MQTT", String("connected to ") + config.mqttBroker + " from " + net.localIP().toString() + " (" + activeNetwork() + ")");
 
     mqtt.publish(will.c_str(), "online", true);
     // Discovery is retained on the broker: resend it only when it changed
@@ -449,17 +450,25 @@ void mqttInit() {
     mqtt.setCallback(onMessage);
 }
 
-// Self-heal (user, 2026-10-06): MQTT wanted but not connected for 15 minutes,
-// for whatever reason (no Ethernet address, broker not answering), restarts
-// the board. 2026-10-06 05:57 it dropped and stayed off 73 min until a manual
-// restart. The events before it (NET, MQTT) say what went wrong.
+// Self-heal (user, 2026-10-06): MQTT wanted, a network up, but not connected
+// for 15 minutes restarts the board. Without a network a restart doesn't help
+// (Ethernet without an address has its own check, fan_network.cpp). Backs off
+// 15, 30, 60, 120, 240 min in a row, so a broker down for maintenance doesn't
+// restart the board every 15 min (audit 2.3). The events before it say why.
 static const unsigned long SELF_HEAL_MS = 15UL * 60 * 1000;
+RTC_NOINIT_ATTR static uint32_t healMagic;
+RTC_NOINIT_ATTR static uint32_t healCount;   // self-heal restarts in a row
 
 static void selfHealCheck() {
-    static unsigned long okSinceMs = 0;   // last moment MQTT was connected or not wanted
-    if (!mqttWanted() || mqtt.connected()) { okSinceMs = millis(); return; }
-    if (millis() - okSinceMs < SELF_HEAL_MS) return;
-    String why = "MQTT not connected for 15 min (" + mqttStatusText() + ", network " + activeNetwork() + ")";
+    static unsigned long okSinceMs = 0;   // last moment MQTT was connected, not wanted, or had no network
+    if (healMagic != 0x5E1F4EA1) { healMagic = 0x5E1F4EA1; healCount = 0; } // power-up
+    if (mqtt.connected()) healCount = 0;
+    if (!mqttWanted() || mqtt.connected() || !isNetworkConnected()) { okSinceMs = millis(); return; }
+    unsigned long limit = SELF_HEAL_MS << min(healCount, (uint32_t)4);
+    if (millis() - okSinceMs < limit) return;
+    healCount++;
+    String why = "MQTT not connected for " + String(limit / 60000) + " min (" + mqttStatusText() + ", network " +
+                 activeNetwork() + ", " + String(healCount) + " in a row)";
     Serial.println("Self-heal restart: " + why);
     sdLogEvent("RESTART", "source=self-heal " + why);
     delay(500);

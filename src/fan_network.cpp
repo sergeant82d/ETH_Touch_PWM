@@ -11,6 +11,7 @@
 #include <esp_mac.h>
 #include <esp_netif.h>
 #include <lwip/dns.h>
+#include <LittleFS.h>
 #include "mqtt.h"
 #include "sd_logger.h"
 
@@ -216,11 +217,15 @@ static void startSta() {
 }
 
 static void stopSta(const char* why) {
+    bool wasJoined = isWifiConnected();
     WiFi.disconnect();
     staActive = false;
     applyWifiMode();
     Serial.print("WiFi: backup off ("); Serial.print(why); Serial.println(")");
     sdLogEvent("NET", String("WiFi backup off: ") + why);
+    // MQTT stayed on WiFi after Ethernet returned (both on one subnet, lwIP
+    // keeps the route): move it now, once (audit 2.1)
+    if (wasJoined) mqttReconfigure();
 }
 
 static String currentDns() {
@@ -310,6 +315,50 @@ IPAddress localIP() {
     return ETH.localIP(); // the static address it will have
 }
 
+// Ethernet link up but no DHCP address (audit 2.2; COM9 2026-09-29, COM15
+// 2026-10-06 05:57, 73 min off MQTT): restart the DHCP client after 20 s and
+// every 3 min after that. Without WiFi to carry the traffic, restart the board
+// after 3 min, then 6, 12 ... up to ~3 h in a row (the DHCP server may be down).
+RTC_NOINIT_ATTR static uint32_t ethHealMagic;
+RTC_NOINIT_ATTR static uint32_t ethHealCount;   // board restarts in a row for this
+static const unsigned long ETH_DHCP_FIRST_MS = 20000;
+static const unsigned long ETH_DHCP_AGAIN_MS = 180000;
+static const unsigned long ETH_RESTART_MS = 180000;
+
+static void ethNoAddressCheck(unsigned long now) {
+    static unsigned long since = 0;     // 0 = not in this state
+    static unsigned long lastDhcpMs = 0;
+    static int dhcpRestarts = 0;
+    if (ethHealMagic != 0xE7A0DD01) { ethHealMagic = 0xE7A0DD01; ethHealCount = 0; } // power-up
+    if (ETH.hasIP()) ethHealCount = 0;
+    if (!config.ethDhcp || !isEthernetConnected() || ETH.hasIP()) {
+        if (since && ETH.hasIP() && dhcpRestarts) sdLogEvent("NET", "Ethernet address after " + String(dhcpRestarts) + " DHCP restart(s)");
+        since = 0; dhcpRestarts = 0;
+        return;
+    }
+    if (since == 0) { since = now; lastDhcpMs = now; return; }
+
+    if (now - lastDhcpMs >= (dhcpRestarts ? ETH_DHCP_AGAIN_MS : ETH_DHCP_FIRST_MS)) {
+        lastDhcpMs = now;
+        dhcpRestarts++;
+        sdLoggerMarkStage("net:dhcp");
+        esp_netif_dhcpc_stop(ETH.netif());
+        esp_err_t e = esp_netif_dhcpc_start(ETH.netif());
+        sdLogEvent("NET", "Ethernet link up, no address for " + String((now - since) / 1000) +
+                          " s: DHCP restarted (" + esp_err_to_name(e) + ")");
+    }
+    unsigned long limit = ETH_RESTART_MS << min(ethHealCount, (uint32_t)6);
+    if (now - since >= limit && !isWifiConnected()) {
+        ethHealCount++;
+        sdLogEvent("RESTART", "source=self-heal Ethernet link up without an address for " +
+                              String((now - since) / 1000) + " s (" + String(ethHealCount) + " in a row)");
+        delay(500);
+        LittleFS.end();
+        delay(200);
+        ESP.restart();
+    }
+}
+
 void networkLoop() {
     static unsigned long lastRun = 0;
     if (millis() - lastRun < 500) return;
@@ -339,6 +388,7 @@ void networkLoop() {
     }
 
     bool ethUp = isEthernetConnected() && ETH.hasIP();
+    ethNoAddressCheck(now);
     if (ethUp && !lastEthUp) ethUpSince = now;
     if (ethUp) ethEverUp = true;
     if (!ethUp && lastEthUp) ethDownSince = now;
@@ -368,7 +418,7 @@ void networkLoop() {
     if (!apActive && !anyUp && hotspotWaitMs(now) == 0) { sdLoggerMarkStage("net:ap+"); startAp(); }
     if (apActive && anyUp && now - anyUpSince >= HOTSPOT_OFF_AFTER_MS) { sdLoggerMarkStage("net:ap-"); stopAp(); }
 
-    // Switched network: MQTT reconnects at once over the new one
+    // Switched network: MQTT reconnects at once when Ethernet went away
     const char* active = activeNetwork();
     if (strcmp(active, lastActive) != 0) {
         Serial.print("Network in use: "); Serial.println(active);
@@ -376,10 +426,12 @@ void networkLoop() {
         if (lastActive[0]) {
             sdLoggerMarkStage("net:dns");
             restoreDnsAndTime("network switch");
-            // Reconnect MQTT only when moving from one working network to the
-            // other; from none/hotspot it connects by itself, and a reconnect
-            // right after that connect failed and cost 15 s at every boot (2026-10-06)
-            if (strcmp(lastActive, "Ethernet") == 0 || strcmp(lastActive, "WiFi") == 0) mqttReconfigure();
+            // Reconnect MQTT only when Ethernet went away (its connection may
+            // have used the cable). WiFi -> Ethernet: WiFi stays up 60 s more and
+            // keeps carrying the connection; stopSta() moves it (audit 2.1).
+            // From none/hotspot it connects by itself, and a reconnect right
+            // after that connect failed and cost 15 s at every boot (2026-10-06)
+            if (strcmp(lastActive, "Ethernet") == 0) mqttReconfigure();
         }
         Serial.print("Network: "); Serial.println(networkDiagText());
         lastActive = active;
@@ -453,7 +505,13 @@ void networkInit() {
     Serial.println("Initializing W5500 Ethernet (ESP32 ETH driver)...");
     SPI.begin(W5500_SCK, W5500_MISO, W5500_MOSI);
     // The driver pulses W5500_RST itself
+#if defined(BOARD_LCD2_LITE)
+    // Jumper-wired W5500 Lite: half the core's 20 MHz SPI clock, a test for the
+    // "link up, no address" cases, all seen on this build so far (audit 1.2)
+    ethPresent = ETH.begin(ETH_PHY_W5500, 1, W5500_CS, W5500_INT, W5500_RST, SPI, 10);
+#else
     ethPresent = ETH.begin(ETH_PHY_W5500, 1, W5500_CS, W5500_INT, W5500_RST, SPI);
+#endif
     if (!ethPresent) {
         Serial.println("ERROR: W5500 not found - check wiring / pins.h. Using WiFi only.");
     }
