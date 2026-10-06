@@ -19,20 +19,16 @@ How this list works (agreed 2026-09-28):
 
 
 ## Open
- 
-- [ ] `[LCD]` Screen flicker: every redraw clears everything; dirty-checking or an off-screen
-      buffer. Needs the board (moved from "Decide" 2026-09-28) (2026-09-27)
-
 
 - [ ] `[Board]` Low priority: one I2C read error (touch bus) at ~4 s after boot; touch works
       afterwards. Probably the touch chip not ready yet after a reset. Only worth a look if
       touch ever fails at startup (2026-09-29; kept by the user 2026-10-05)
 
 - [ ] `[Board]` Lowest free heap 153 KB while WiFi and Ethernet were both up (floor ~150 KB,
-      CLAUDE.md success criteria) (2026-10-04)
+      CLAUDE.md success criteria) (2026-10-04); 143 KB on 2026-10-05 after ~4.7 h on WiFi
 - [ ] `[Board]` Overnight freeze (your note): 2026-10-05 05:05 the board stopped (last log row
       05:05:16; no web, no HA) until the reset button at 09:52; no crash was logged, so it hung.
-      Cause unknown. Since this commit a 30 s watchdog restarts it; if a BOOT event with
+      Cause unknown. Since `b91c006` a 30 s watchdog restarts it; if a BOOT event with
       `reason=TASK_WDT` appears in the event log, its `stage=` names the stuck part of loop()
       and `heap=`/`minHeap=` the memory just before (2026-10-05)
 - [ ] `[LCD]` `[Decide]` Discuss moving the LCD to LVGL (nicer gauges and fonts): high effort, low
@@ -41,6 +37,11 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` Screen flicker: every part of the dashboard redraws only when what it shows
+      changes (bars and their numbers were wiped every 200 ms, the rest every 2 s); bars no
+      longer go through black, only the part above the new fill is cleared. A full-screen
+      page closing redraws everything once. User: "screen looks great" (COM15, 2026-10-05,
+      this commit)
 - [x] `[LCD]` `[Web]` Override - / + (your note): LCD panel has big - and + either side of the
       speed instead of the slider; web keeps the slider with - and + at its ends. A tap is 1 %;
       held, they repeat after 0.5 s, in 5 % steps after 2 s; the web sends the speed on

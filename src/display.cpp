@@ -67,6 +67,16 @@ static int barsHeight() { return (FOOTER_Y - 6) - BARS_TOP; }
 // and refreshBarsOnly() no-op while this is true.
 static bool overlayOpen = false;
 static bool infoOpen = false;   // QR code info page (gear icon)
+
+// Flicker (2026-10-05): every part of the dashboard remembers what it last
+// drew and redraws only when that changes; before, the bars were wiped and
+// redrawn every 200 ms and everything else every 2 s. A full-screen clear
+// (clearScreen()) bumps dashGen, so each part draws in full once afterwards.
+static uint32_t dashGen = 1;
+static void clearScreen() {
+    screenMain.fillScreen(ST77XX_BLACK);
+    dashGen++;
+}
 static bool setupOpen = false;  // setup screen: shown while no web login is set
 static void updateSetupScreen();
 
@@ -146,37 +156,40 @@ static bool resolveBarFill(float value, float minV, float maxV, uint16_t identit
 static const int BAR_OUTLINE_INSET = 2;
 static const int BAR_CORNER_RADIUS = 10; // rounded pill-style outline
 
+// What a bar last showed, so it is redrawn only when that changes
+struct BarCache { uint32_t gen = 0; int fillH = -1; uint16_t fillColor = 0; uint16_t outline = 0; };
+
 // Draws one gauge bar: thin rounded outline (identityColor), black interior,
 // and - if hasValue is true - a single-color fill (identityColor normally;
 // flashes per resolveBarFill() near/at the configured max). Fill is drawn
 // with a small rounded radius of its own (clamped to fit) so it never has
 // square corners poking past the bar's own rounded outline.
-static void drawGaugeBar(int x, int y, int w, int h, uint16_t identityColor, bool hasValue, float value, float minV, float maxV) {
-    screenMain.fillRoundRect(x, y, w, h, BAR_CORNER_RADIUS, ST77XX_BLACK);
-
+// Flicker-free: nothing if unchanged; otherwise only the part above the new
+// fill is cleared and the fill drawn over the old one (no black frame).
+static void drawGaugeBar(BarCache &cache, int x, int y, int w, int h, uint16_t identityColor, bool hasValue, float value, float minV, float maxV) {
     int innerX = x + BAR_OUTLINE_INSET;
     int innerY = y + BAR_OUTLINE_INSET;
     int innerW = w - 2 * BAR_OUTLINE_INSET;
     int innerH = h - 2 * BAR_OUTLINE_INSET;
 
-    if (hasValue) {
-        uint16_t fillColor;
-        bool drawFillNow = resolveBarFill(value, minV, maxV, identityColor, fillColor);
-        if (drawFillNow) { // false = blink "off" phase - leave interior black
-            float clampedVal = constrain(value, minV, maxV);
-            int fillH = (maxV > minV) ? (int)map((long)(clampedVal * 100), (long)(minV * 100), (long)(maxV * 100), 0, innerH) : 0;
-            if (fillH > 0) {
-                // Rounded, not square, corners on the fill itself - a plain
-                // fillRect has sharp corners that poke past the bar's
-                // rounded outline right at the edges (redrawing the outline
-                // on top only masks a 1px stroke, not the whole notch).
-                // Radius is clamped to half the fill's own height so this
-                // stays safe even when the fill is very short.
-                int fillRadius = min(6, fillH / 2);
-                screenMain.fillRoundRect(innerX, innerY + (innerH - fillH), innerW, fillH, fillRadius, fillColor);
-            }
-        }
+    int fillH = 0;
+    uint16_t fillColor = identityColor;
+    if (hasValue && resolveBarFill(value, minV, maxV, identityColor, fillColor)) { // false = blink "off" phase
+        float clampedVal = constrain(value, minV, maxV);
+        fillH = (maxV > minV) ? (int)map((long)(clampedVal * 100), (long)(minV * 100), (long)(maxV * 100), 0, innerH) : 0;
     }
+    if (cache.gen == dashGen && cache.fillH == fillH && cache.fillColor == fillColor && cache.outline == identityColor) return;
+    cache.gen = dashGen; cache.fillH = fillH; cache.fillColor = fillColor; cache.outline = identityColor;
+
+    // Rounded, not square, corners on the fill itself - a plain fillRect has
+    // sharp corners that poke past the bar's rounded outline. Radius clamped
+    // to half the fill's height so a short fill stays safe.
+    int fillTop = innerY + innerH - fillH;
+    int fillRadius = min(6, fillH / 2);
+    // Black above the fill, down through its rounded top corners
+    int blackH = fillH > 0 ? min(innerH, fillTop - innerY + fillRadius) : innerH;
+    if (blackH > 0) screenMain.fillRect(innerX, innerY, innerW, blackH, ST77XX_BLACK);
+    if (fillH > 0) screenMain.fillRoundRect(innerX, fillTop, innerW, fillH, fillRadius, fillColor);
 
     // Outline drawn LAST, on top of the fill - its rounded corners then
     // correctly mask the fill's square corners underneath (the fill is a
@@ -255,6 +268,12 @@ static void drawManualControlButton(int x, int y, int w, int h) {
         bg = on ? ST77XX_RED : ST77XX_BLACK;
         fg = on ? ST77XX_BLACK : ST77XX_RED;
     }
+    // Redrawn only when its look changes (flash phase, colour, unit)
+    static uint32_t drawnGen = 0;
+    static uint32_t drawnKey = 0;
+    uint32_t key = ((uint32_t)bg << 16) ^ ((uint32_t)tempAlertColor() << 1) ^ (config.isFahrenheit ? 1 : 0);
+    if (drawnGen == dashGen && drawnKey == key) return;
+    drawnGen = dashGen; drawnKey = key;
     screenMain.fillRoundRect(x, y, w, h, radius, bg);
     screenMain.drawRoundRect(x, y, w, h, radius, ST77XX_RED);
 
@@ -349,7 +368,7 @@ static String titleCaseFromNodeId(const char* nodeId) {
 // 2026-09-28): green = OK; orange, slow flash = getting full (>= 90 %);
 // red, fast flash = missing or failing (logging spills to internal flash).
 // Also redrawn from refreshBarsOnly() every 200 ms, so it can flash.
-static void drawSdDot() {
+static void drawSdDot(bool force = false) {
     SdState st = sdState();
     uint16_t c = ST77XX_GREEN;
     if (st != SD_STATE_OK) {
@@ -357,32 +376,44 @@ static void drawSdDot() {
         bool on = (millis() % period) < period / 2;
         c = on ? (st == SD_STATE_MISSING ? ST77XX_RED : ST77XX_ORANGE) : ST77XX_BLUE; // off = title bar colour
     }
+    static uint32_t drawnGen = 0;
+    static uint16_t drawnColor = 0;
+    if (!force && drawnGen == dashGen && drawnColor == c) return;
+    drawnGen = dashGen; drawnColor = c;
     screenMain.fillCircle(34, TITLE_H / 2, 4, c); // third dot (network, MQTT, SD)
 }
 
 // Redraws the blue title bar with the current Home Assistant node name
 // and the settings gear icon (top-right).
+// Only what changed is redrawn: the whole bar when the name changes (or after
+// a full clear), otherwise just a dot whose colour changed.
 static void drawTitleBar() {
-    screenMain.fillRect(0, 0, LCD_WIDTH, TITLE_H, ST77XX_BLUE);
-    screenMain.setTextColor(ST77XX_WHITE);
-    printCentered(0, LCD_WIDTH, 5, titleCaseFromNodeId(config.nodeID), 2);
-
-    drawSdDot();
+    static uint32_t drawnGen = 0;
+    static String drawnTitle;
+    static uint16_t drawnNet = 0, drawnMqtt = 0;
+    String title = titleCaseFromNodeId(config.nodeID);
+    bool full = drawnGen != dashGen || title != drawnTitle;
+    if (full) {
+        drawnGen = dashGen; drawnTitle = title;
+        screenMain.fillRect(0, 0, LCD_WIDTH, TITLE_H, ST77XX_BLUE);
+        screenMain.setTextColor(ST77XX_WHITE);
+        printCentered(0, LCD_WIDTH, 5, title, 2);
+        drawSdDot(true); // the bar fill just covered it
+        int iconX = LCD_WIDTH - ICON_SETTINGS_SIZE - 6;
+        int iconY = (TITLE_H - ICON_SETTINGS_SIZE) / 2;
+        screenMain.drawBitmap(iconX, iconY, icon_settings_24x24, ICON_SETTINGS_SIZE, ICON_SETTINGS_SIZE, ST77XX_WHITE);
+    }
 
     // Status dots, left to right: network, MQTT, SD (user, 2026-10-04; the
     // web page's sidebar has the same order and colours).
     // Network: green on Ethernet or WiFi with an address, orange while only
     // the setup hotspot is on, red with none.
     uint16_t netColor = isNetworkConnected() ? ST77XX_GREEN : isHotspotActive() ? ST77XX_ORANGE : ST77XX_RED;
-    screenMain.fillCircle(10, TITLE_H / 2, 4, netColor);
+    if (full || netColor != drawnNet) { screenMain.fillCircle(10, TITLE_H / 2, 4, netColor); drawnNet = netColor; }
 
     // MQTT (Home Assistant): green when connected, orange when not.
     uint16_t mqttColor = mqttStatusText().startsWith("Connected") ? ST77XX_GREEN : ST77XX_ORANGE;
-    screenMain.fillCircle(22, TITLE_H / 2, 4, mqttColor);
-
-    int iconX = LCD_WIDTH - ICON_SETTINGS_SIZE - 6;
-    int iconY = (TITLE_H - ICON_SETTINGS_SIZE) / 2;
-    screenMain.drawBitmap(iconX, iconY, icon_settings_24x24, ICON_SETTINGS_SIZE, ICON_SETTINGS_SIZE, ST77XX_WHITE);
+    if (full || mqttColor != drawnMqtt) { screenMain.fillCircle(22, TITLE_H / 2, 4, mqttColor); drawnMqtt = mqttColor; }
 }
 
 // Static labels for the bar gauge zones, centered over the actual bar span
@@ -393,6 +424,9 @@ static void drawTitleBar() {
 static const int LABEL_X_NUDGE = 6; // one letter-width at size 1 - fixes a slight left-offset look
 
 static void drawColumnHeaders() {
+    static uint32_t drawnGen = 0;
+    if (drawnGen == dashGen) return;
+    drawnGen = dashGen;
     screenMain.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
     printCentered(LEFT_ZONE_X + LABEL_X_NUDGE, BAR_SPAN_W, TITLE_H + 4, "Fan RPM");
     printCentered(RIGHT_ZONE_X + LABEL_X_NUDGE, BAR_SPAN_W, TITLE_H + 4, "Temperature");
@@ -411,7 +445,7 @@ void displayInit() {
 
     screenMain.init(PANEL_NATIVE_W, PANEL_NATIVE_H);
     screenMain.setRotation(1); // landscape: 320 wide x 240 tall
-    screenMain.fillScreen(ST77XX_BLACK);
+    clearScreen();
 
     drawTitleBar();
     drawColumnHeaders();
@@ -445,6 +479,13 @@ void updateMainDashboardUI() {
     // centred between the clock's bottom and the Manual Control button.
     const int CLOCK_TOP = TITLE_H + 4;   // = drawColumnHeaders()' text top
     const int CLOCK_MAX_H = 30;
+    static uint32_t clockGen = 0;
+    static String clockShown;
+    static int clockBottom = CLOCK_TOP;
+    if (clockGen == dashGen && clockShown == tStr) {
+        cy = clockBottom;                 // unchanged: not redrawn
+    } else {
+    clockGen = dashGen; clockShown = tStr;
     screenMain.fillRect(CENTER_X, TITLE_H + 2, CENTER_W, CLOCK_MAX_H + 4, ST77XX_BLACK);
     int16_t tbx, tby;
     uint16_t tbw, tbh;
@@ -464,6 +505,8 @@ void updateMainDashboardUI() {
         cy = CLOCK_TOP + 7 * timeSize; // classic glyphs: 7 of their 8 rows are inked
     }
     screenMain.setFont(NULL);
+    clockBottom = cy;
+    }
 
     // --- Big blended-average temperature ---
     // Vertically centered in the space between the rows above and the
@@ -473,6 +516,14 @@ void updateMainDashboardUI() {
     // getTextBounds() and only used if it genuinely fits, so this
     // maximizes size without risking overflow regardless of exactly how
     // large the real compiled glyphs turn out to be.
+    bool crit = !localSensorHealthy && !networkSensorHealthy;
+    float dispAvgNow = config.isFahrenheit ? ((blendedAverageC * 9.0 / 5.0) + 32.0) : blendedAverageC;
+    String tempKey = crit ? String("CRIT") : String((int)round(dispAvgNow)) + " " + String(tempAlertColor());
+    tempKey += " " + String(cy);
+    static uint32_t tempGen = 0;
+    static String tempShown;
+    if (tempGen != dashGen || tempShown != tempKey) {
+    tempGen = dashGen; tempShown = tempKey;
     screenMain.fillRect(CENTER_X, cy, CENTER_W, MANUAL_BTN_Y - cy, ST77XX_BLACK);
     const int TEMP_GAP = 3; // clear of the clock above and the button's top edge below
     int tempAreaTop = cy + TEMP_GAP;
@@ -521,6 +572,7 @@ void updateMainDashboardUI() {
         }
         screenMain.setFont(NULL); // always revert - everything else uses the classic font
     }
+    }
 
     // --- Manual Control button ---
     // The Fan 1/Fan 2/Local/Net/Average label-value rows that used to live
@@ -536,21 +588,29 @@ void updateMainDashboardUI() {
 
     // --- Footer text: IP under Fan RPM column, date under Temperature column ---
     // Plain text, no labels, per spec.
-    screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-    screenMain.fillRect(LEFT_ZONE_X, FOOTER_Y, LEFT_ZONE_W, 10, ST77XX_BLACK);
-    printCentered(LEFT_ZONE_X, LEFT_ZONE_W, FOOTER_Y, localIP().toString(), 1);
-
-    screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-    screenMain.fillRect(RIGHT_ZONE_X, FOOTER_Y, RIGHT_ZONE_W, 10, ST77XX_BLACK);
-    if (isHotspotActive()) { // the IP on the left is the hotspot's: say so
-        screenMain.setTextColor(ST77XX_ORANGE, ST77XX_BLACK);
-        printCentered(RIGHT_ZONE_X, RIGHT_ZONE_W, FOOTER_Y, "Hotspot on", 1);
-    } else if (haveTime) {
+    static uint32_t footGen = 0;
+    static String footLeft, footRight;
+    String left = localIP().toString();
+    String right;
+    if (isHotspotActive()) right = "Hotspot on"; // the IP on the left is the hotspot's: say so
+    else if (haveTime) {
         char dStr[12];
         snprintf(dStr, sizeof(dStr), "%04d/%02d/%02d", year(), month(), day());
-        printCentered(RIGHT_ZONE_X, RIGHT_ZONE_W, FOOTER_Y, dStr, 1);
-    } else {
-        printCentered(RIGHT_ZONE_X, RIGHT_ZONE_W, FOOTER_Y, "----/--/--", 1);
+        right = dStr;
+    } else right = "----/--/--";
+    bool all = footGen != dashGen;
+    footGen = dashGen;
+    if (all || left != footLeft) {
+        footLeft = left;
+        screenMain.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
+        screenMain.fillRect(LEFT_ZONE_X, FOOTER_Y, LEFT_ZONE_W, 10, ST77XX_BLACK);
+        printCentered(LEFT_ZONE_X, LEFT_ZONE_W, FOOTER_Y, left, 1);
+    }
+    if (all || right != footRight) {
+        footRight = right;
+        screenMain.setTextColor(right == "Hotspot on" ? ST77XX_ORANGE : ST77XX_YELLOW, ST77XX_BLACK);
+        screenMain.fillRect(RIGHT_ZONE_X, FOOTER_Y, RIGHT_ZONE_W, 10, ST77XX_BLACK);
+        printCentered(RIGHT_ZONE_X, RIGHT_ZONE_W, FOOTER_Y, right, 1);
     }
 }
 
@@ -563,32 +623,35 @@ void refreshBarsOnly() {
 
     drawFanRpmBars(LEFT_ZONE_X, BARS_TOP, LEFT_ZONE_W, barsHeight());
     drawTempProbeBars(RIGHT_ZONE_X, BARS_TOP, RIGHT_ZONE_W, barsHeight());
-    if (manualOverrideActive) {
-        drawManualControlButton(CENTER_X, MANUAL_BTN_Y, CENTER_W, MANUAL_BTN_H);
-    }
+    drawManualControlButton(CENTER_X, MANUAL_BTN_Y, CENTER_W, MANUAL_BTN_H); // redraws only on a change
     drawSdDot();
 }
 
+// Value label above a bar, redrawn only when its text or colour changes. The
+// wipe is a little wider than the bar: a 4-digit RPM is 24 px of a 28 px bar.
+struct LabelCache { uint32_t gen = 0; String text; uint16_t color = 0; };
+static void drawBarLabel(LabelCache &cache, int x, const String &text, uint16_t color) {
+    if (cache.gen == dashGen && cache.text == text && cache.color == color) return;
+    cache.gen = dashGen; cache.text = text; cache.color = color;
+    screenMain.fillRect(x - BAR_SPACING / 2 + 1, VALUE_ROW_Y, BAR_WIDTH + BAR_SPACING - 2, 10, ST77XX_BLACK);
+    screenMain.setTextColor(color, ST77XX_BLACK);
+    printCentered(x, BAR_WIDTH, VALUE_ROW_Y, text, 1);
+}
+
 static void drawFanRpmBars(int x0, int y0, int zoneWidth, int zoneHeight) {
+    static BarCache bars[2];
+    static LabelCache labels[2];
     int barsStartX = x0 + (zoneWidth - BAR_SPAN_W) / 2;
     long gaugeMin = config.fanRpmGaugeMin;
     long gaugeMax = config.fanRpmGaugeMax;
 
-    screenMain.fillRect(x0, y0, zoneWidth, zoneHeight, ST77XX_BLACK);
-
     for (int i = 0; i < 2; i++) {
         int cx = barsStartX + i * (BAR_WIDTH + BAR_SPACING);
-        drawGaugeBar(cx, y0, BAR_WIDTH, zoneHeight, ST77XX_CYAN, true,
+        drawGaugeBar(bars[i], cx, y0, BAR_WIDTH, zoneHeight, ST77XX_CYAN, true,
                      (float)currentRPMs[i], (float)gaugeMin, (float)gaugeMax);
-    }
-
-    // Value labels above each bar - just the number, no "RPM" suffix, to
-    // fit within the narrow bar width.
-    screenMain.fillRect(x0, VALUE_ROW_Y, zoneWidth, 10, ST77XX_BLACK);
-    screenMain.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-    for (int i = 0; i < 2; i++) {
-        int cx = barsStartX + i * (BAR_WIDTH + BAR_SPACING);
-        printCentered(cx, BAR_WIDTH, VALUE_ROW_Y, String(currentRPMs[i]), 1);
+        // Value label above each bar - just the number, no "RPM" suffix, to
+        // fit within the narrow bar width.
+        drawBarLabel(labels[i], cx, String(currentRPMs[i]), ST77XX_CYAN);
     }
 }
 
@@ -599,18 +662,19 @@ static void drawTempProbeBars(int x0, int y0, int zoneWidth, int zoneHeight) {
     float minDispF = config.isFahrenheit ? config.tempGaugeMinF : (config.tempGaugeMinF - 32.0) * 5.0 / 9.0;
     float maxDispF = config.isFahrenheit ? config.tempGaugeMaxF : (config.tempGaugeMaxF - 32.0) * 5.0 / 9.0;
 
-    screenMain.fillRect(x0, y0, zoneWidth, zoneHeight, ST77XX_BLACK);
+    static BarCache barNet, barLocal;
+    static LabelCache labelNet, labelLocal;
 
     // Network (HA) bar on the left, local probe on the right (user, 2026-10-04)
     int xNet = barsStartX;
     int xLocal = barsStartX + BAR_WIDTH + BAR_SPACING;
     float dispNetF = config.isFahrenheit ? ((networkTempC * 9.0 / 5.0) + 32.0) : networkTempC;
-    drawGaugeBar(xNet, y0, BAR_WIDTH, zoneHeight,
+    drawGaugeBar(barNet, xNet, y0, BAR_WIDTH, zoneHeight,
                  networkSensorHealthy ? ST77XX_MAGENTA : ST77XX_RED,
                  networkSensorHealthy, dispNetF, minDispF, maxDispF);
 
     float dispLocalF = config.isFahrenheit ? ((localTempC * 9.0 / 5.0) + 32.0) : localTempC;
-    drawGaugeBar(xLocal, y0, BAR_WIDTH, zoneHeight,
+    drawGaugeBar(barLocal, xLocal, y0, BAR_WIDTH, zoneHeight,
                  localSensorHealthy ? ST77XX_ORANGE : ST77XX_RED,
                  localSensorHealthy, dispLocalF, minDispF, maxDispF);
 
@@ -618,14 +682,8 @@ static void drawTempProbeBars(int x0, int y0, int zoneWidth, int zoneHeight) {
     // Repeating the unit on every value was redundant once the big average
     // number (which does show it) is the dashboard's one clear reference,
     // and dropping it gives back real width in this narrow 28px column.
-    screenMain.fillRect(x0, VALUE_ROW_Y, zoneWidth, 10, ST77XX_BLACK);
-    String localLabel = localSensorHealthy ? String((int)round(dispLocalF)) : "--";
-    screenMain.setTextColor(ST77XX_ORANGE, ST77XX_BLACK);
-    printCentered(xLocal, BAR_WIDTH, VALUE_ROW_Y, localLabel, 1);
-
-    String netLabel = networkSensorHealthy ? String((int)round(dispNetF)) : "--";
-    screenMain.setTextColor(ST77XX_MAGENTA, ST77XX_BLACK);
-    printCentered(xNet, BAR_WIDTH, VALUE_ROW_Y, netLabel, 1);
+    drawBarLabel(labelLocal, xLocal, localSensorHealthy ? String((int)round(dispLocalF)) : "--", ST77XX_ORANGE);
+    drawBarLabel(labelNet, xNet, networkSensorHealthy ? String((int)round(dispNetF)) : "--", ST77XX_MAGENTA);
 }
 
 // ============================================================
@@ -683,7 +741,7 @@ static void stepOverride(int deltaPct) {
 
 // Full overlay draw - called once when it opens.
 static void drawOverrideOverlay() {
-    screenMain.fillScreen(ST77XX_BLACK);
+    clearScreen();
     screenMain.drawRoundRect(OVERLAY_BOX_X, OVERLAY_BOX_Y, OVERLAY_BOX_W, OVERLAY_BOX_H, 8, ST77XX_CYAN);
 
     screenMain.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
@@ -769,7 +827,7 @@ static String wifiEscape(const String &v) {
 }
 
 static void drawInfoPage() {
-    screenMain.fillScreen(ST77XX_BLACK);
+    clearScreen();
     screenMain.setFont(NULL);
     String url = "http://" + localIP().toString() + "/";
     bool hotspot = isHotspotActive();
@@ -805,7 +863,7 @@ static void drawInfoPage() {
 // Full-screen pages leave pieces behind in the gaps the dashboard's own
 // redraws don't cover, so closing one wipes the screen and redraws it all.
 static void redrawWholeDashboard() {
-    screenMain.fillScreen(ST77XX_BLACK);
+    clearScreen();
     updateMainDashboardUI();
     refreshBarsOnly();
 }
@@ -830,7 +888,7 @@ static String setupDrawnFor;               // network situation the screen was d
 static bool setupNeeded() { return config.webPass[0] == '\0'; }
 
 static void drawSetupScreen(const String &net) {
-    screenMain.fillScreen(ST77XX_BLACK);
+    clearScreen();
     screenMain.setFont(NULL);
     screenMain.fillRect(0, 0, LCD_WIDTH, TITLE_H, ST77XX_BLUE);
     screenMain.setTextColor(ST77XX_WHITE);
@@ -871,7 +929,7 @@ static void drawSetupScreen(const String &net) {
 
 // Called every 2 s from updateMainDashboardUI(): opens, redraws or keeps the screen
 static void updateSetupScreen() {
-    if (!setupNeeded()) { setupOpen = false; return; }
+    if (!setupNeeded()) { if (setupOpen) { setupOpen = false; clearScreen(); } return; }
     if (!setupOpen) {
         if (setupAwaySince && millis() - setupAwaySince < SETUP_AWAY_MS) return;
         setupOpen = true;
@@ -939,7 +997,7 @@ void handleTouchInput() {
         if (pressed && !wasPressed) {
             setupOpen = false;
             setupAwaySince = millis();
-            screenMain.fillScreen(ST77XX_BLACK);
+            clearScreen();
             updateMainDashboardUI();
             refreshBarsOnly();
         }
@@ -964,7 +1022,7 @@ void handleTouchInput() {
                 drawRestartButton(0);
                 infoOpenedMs = millis();
             } else if (millis() - holdStartMs >= RESTART_HOLD_MS) {
-                screenMain.fillScreen(ST77XX_BLACK);
+                clearScreen();
                 screenMain.setTextColor(ST77XX_ORANGE, ST77XX_BLACK);
                 printCentered(0, LCD_WIDTH, LCD_HEIGHT / 2 - 8, "Restarting...", 2);
                 Serial.println("Restart from the LCD.");
