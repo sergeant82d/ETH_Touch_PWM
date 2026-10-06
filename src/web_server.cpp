@@ -15,6 +15,7 @@
 #include <base64.h>
 #include <SD.h>
 #include <math.h>
+#include <esp_task_wdt.h>
 
 // The page is web/index.html, compiled in (platformio.ini embed_txtfiles);
 // everything else is JSON under /api. Viewing is open; every change needs
@@ -686,6 +687,7 @@ static void handleOta(NetworkClient &client, const Request &req) {
             tail = window.substring(max(0, (int)window.length() - 48));
         }
         if (Update.write(buf, n) != (size_t)n) { error = Update.errorString(); break; }
+        esp_task_wdt_reset(); // loop() watchdog (main.cpp): an upload takes longer than it
     }
 
     if (!error && foundBoard.length() == 0) error = "Not a firmware for this project (no board name found).";
@@ -971,6 +973,7 @@ static void handleHistoryFile(NetworkClient &client, const Request &req) {
         while (f.available()) {
             int n = f.read(buf, sizeof(buf));
             if (n <= 0 || client.write(buf, n) == 0) break;
+        esp_task_wdt_reset(); // loop() watchdog (main.cpp)
         }
         f.close();
         return;
@@ -992,6 +995,7 @@ static void handleHistoryFile(NetworkClient &client, const Request &req) {
     while (f.available()) {
         int n = f.read(buf, sizeof(buf));
         if (n <= 0 || client.write(buf, n) == 0) break;
+        esp_task_wdt_reset(); // loop() watchdog (main.cpp)
     }
     f.close();
 }

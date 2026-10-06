@@ -26,6 +26,11 @@ void sdLoggerLoop();
 // report on the next boot.
 void sdLoggerUpdateSnapshot();
 
+// Names the part of loop() that is running (kept in the RTC snapshot): after a
+// watchdog reset or crash the BOOT event says where the board was stuck
+// (overnight freeze 2026-10-05). Up to 11 characters.
+void sdLoggerMarkStage(const char* name);
+
 // Generic append-only event logger - "timestamp,category,description" to
 // /events.csv. This is the hook point for the manual-override and
 // config-change history logging described in the SD-logging spec; wire

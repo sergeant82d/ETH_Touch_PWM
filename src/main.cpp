@@ -37,6 +37,7 @@
 
 #include <LittleFS.h>
 #include <TimeLib.h>
+#include <esp_task_wdt.h>
 
 // --- Diagnostic toggle: overnight lockup investigation - RESOLVED ---
 // The lockup was traced to insufficient power (PC USB port couldn't
@@ -60,8 +61,9 @@ void setup() {
     // the port (e.g. after a flash or a closed serial monitor), each write
     // retries 20x the TX timeout (100 ms default) - ~2 s per Serial.print.
     // That stalled loop() long enough to drop MQTT and the web page
-    // (2026-09-27). 0 = never wait: output is dropped when nobody reads.
-    Serial.setTxTimeoutMs(0);
+    // (2026-09-27). 1 ms: output is dropped when nobody reads.
+    // 1, not 0: 0 hangs core 3.0.x (global CLAUDE.md); fine on either here.
+    Serial.setTxTimeoutMs(1);
     delay(2000);
 
     // NOTE: this partition scheme (app3M_fat9M_16MB, chosen for OTA support)
@@ -108,6 +110,16 @@ void setup() {
 
     Serial.print("DIAGNOSTIC: initial free heap = "); Serial.println(ESP.getFreeHeap());
 
+    // Watchdog (2026-10-05): the board froze overnight (no log rows, no web, no
+    // MQTT) until the reset button. If loop() doesn't come round for 30 s, the
+    // board restarts itself; the BOOT event then reads "TASK_WDT" with the part
+    // of loop() that was stuck (sdLoggerMarkStage). The core feeds it after each
+    // loop(); the OTA upload and file downloads feed it themselves. 30 s is far
+    // above the longest normal pass (~3 s).
+    esp_task_wdt_config_t wdt = { .timeout_ms = 30000, .idle_core_mask = 1 << 0, .trigger_panic = true };
+    esp_task_wdt_reconfigure(&wdt);
+    enableLoopWDT();
+
     Serial.println("\n==================================================");
     Serial.println("System initialized and running.");
     Serial.println("==================================================\n");
@@ -116,6 +128,7 @@ void setup() {
 // DIAGNOSTIC (2026-10-04): loop() stalled for minutes with the Ethernet cable
 // out. Each part is timed; one taking over 500 ms is printed by name.
 static void slowCheck(const char* part, unsigned long startedMs) {
+    sdLoggerMarkStage("loop");
     unsigned long took = millis() - startedMs;
     if (took > 500) { Serial.print("SLOW: "); Serial.print(part); Serial.print(" took "); Serial.print(took); Serial.println(" ms"); }
 }
@@ -128,6 +141,7 @@ void loop() {
         lastThermalSample = millis();
 
         t0 = millis();
+        sdLoggerMarkStage("probe");
         sampleLocalTemperature();
         slowCheck("probe", t0);
         evaluateSensorFailsafes();
@@ -149,6 +163,7 @@ void loop() {
     if (millis() - lastDisplayUpdate >= REFRESH_PERIOD_MS) {
         lastDisplayUpdate = millis();
         t0 = millis();
+        sdLoggerMarkStage("dashboard");
         updateMainDashboardUI();
         slowCheck("dashboard", t0);
     }
@@ -167,15 +182,18 @@ void loop() {
 
     // --- Web traffic handling ---
     t0 = millis();
+    sdLoggerMarkStage("web");
     webServerLoop();
     slowCheck("web", t0);
 
     // --- Home Assistant over MQTT (every pass; rate-limited inside) ---
     // State out, thresholds/override/network temperature in (mqtt.cpp).
     t0 = millis();
+    sdLoggerMarkStage("network");
     networkLoop(); // WiFi backup / hotspot (fan_network.cpp)
     slowCheck("network", t0);
     t0 = millis();
+    sdLoggerMarkStage("mqtt");
     mqttLoop();
     slowCheck("mqtt", t0);
 
@@ -188,6 +206,7 @@ void loop() {
     if (millis() - lastTouchPoll >= TOUCH_POLL_MS) {
         lastTouchPoll = millis();
         t0 = millis();
+        sdLoggerMarkStage("touch");
         handleTouchInput();
         slowCheck("touch", t0);
     }
@@ -197,6 +216,7 @@ void loop() {
     // Internally rate-limited (per-minute rows, daily rollup on day change,
     // SD-absent retry every 15 s, card check every 10 s) - safe and cheap to call every iteration.
     t0 = millis();
+    sdLoggerMarkStage("sd");
     sdLoggerLoop();
     slowCheck("sd", t0);
 

@@ -13,8 +13,6 @@ How this list works (agreed 2026-09-28):
 ## Your notes
 
 
-- [ ] `[Board]` Board locked up overnight at 05:05:43. Unknown reasons. Stopped reporting data, unresponsive to web or HA commands. Required a board reset button press to recover. 
-
 - [ ] `[Web]` Web remote display of the LCD - after the LCD display backlight was turned off by HA, the website still shows the live screen, without the "Display Off" transparent label.
     - Tested - HA toggle does turn off the backlight, but it is turned back on by some other process. 
 
@@ -32,8 +30,6 @@ How this list works (agreed 2026-09-28):
 
     - Archive the LVGL project, but edit it for future reference to use standard web page icons for Ethernet/Network, Wifi, and Hotspot in the top bar of the display. Left side, replacing the current status dots. Same for the MQTT and SD Card, except they go on the right side of the name. Grayed out if not active, with the current connection colored/lit up. If Hotspot is active, make it flash, possibly with an Orange back color. Discuss industry display standards. 
 
-- [ ] Mark the Web slider and the two NET and SD Open issues tentatively completed, with notes for future reference in case they show up again. 
-
 
 ## Open
  
@@ -44,35 +40,33 @@ How this list works (agreed 2026-09-28):
 - [ ] `[Board]` Boot log on the Touch-LCD-2 shows "GPIO isr service already installed" and one
       I2C read error (touch bus) at ~4 s; touch works. Look into it. Seen on both Lite boards, so it's the firmware (2026-09-29)
 
-- [ ] `[Net]` After an Ethernet link drop and return (cable bumped), the board got no new DHCP
-      address and fell back to the hotspot. Happened twice on the F924 board (COM9) the same
-      evening; the second time with no known bump, MQTT "Host is unreachable" until reset.
-      User's working theory: not enough power on the bench set-up (W5500 Lite ~130 mA on the
-      3V3 rail). Revisit if it continues once the hardware is wired for good; then: log the
-      Ethernet/DHCP state, and restart DHCP (then the W5500) if the link is up with no
-      address. Test: unplug a few seconds, plug back (2026-09-29)
-
-- [ ] `[Web]` Low priority: Manual Override slider sometimes doesn't change the speed (your
-      note, 2026-10-02). Has worked and not worked; can't be confirmed while the bench
-      hardware has network/connection problems. Re-check once wired for good (2026-10-04)
-
-- [ ] `[Net]` loop() stalled ~3 min with the Ethernet cable out (first unplug, 2026-10-04):
-      no WiFi join, no hotspot until the cable was back. Not reproduced in three later
-      unplugs; main.cpp now prints "SLOW: <part> took N ms" for any part over 500 ms, so the
-      log names it if it happens again (2026-10-04)
 - [ ] `[Board]` Lowest free heap 153 KB while WiFi and Ethernet were both up (floor ~150 KB,
       CLAUDE.md success criteria) (2026-10-04)
-- [ ] `[SD]` (lower priority, user 2026-10-04) A failing card (knock-off) makes each SD retry block loop() up to ~0.5 s; the web
-      page stalls ("Failed to fetch") during a run of them (2026-09-29)
-- [ ] `[SD]` Some cards are recognised until the buffered (internal flash) data has been
-      written to them, then the card is lost and the dot flashes red again; only certain
-      cards (your note). Likely the same as the failing-card item above (2026-10-04)
+- [ ] `[Board]` Overnight freeze (your note): 2026-10-05 05:05 the board stopped (last log row
+      05:05:16; no web, no HA) until the reset button at 09:52; no crash was logged, so it hung.
+      Cause unknown. Since this commit a 30 s watchdog restarts it; if a BOOT event with
+      `reason=TASK_WDT` appears in the event log, its `stage=` names the stuck part of loop()
+      and `heap=`/`minHeap=` the memory just before (2026-10-05)
 - [ ] `[LCD]` `[Decide]` Discuss moving the LCD to LVGL (nicer gauges and fonts): high effort, low
       impact, but pretty. Discussed 2026-10-04 (worth it after your design images; dashboard first behind a build switch); moved to the bottom by the user. You're collecting images (`docs/images/`) (your
       note, 2026-09-28)
 
 ## Done
 
+- [x] `[Board]` Loop watchdog: loop() not back within 30 s = restart, and the BOOT event
+      gives the stuck part (`stage=`) and free memory. Tested on COM15 with a deliberate hang
+      in the web step: restarted, logged `reason=TASK_WDT ... stage=web heap=256668`
+      (Claude, 2026-10-05, this commit)
+- [x] `[Net]` `[SD]` `[Web]` Closed tentatively by the user (2026-10-05); reopen if seen again:
+      - Ethernet got no new DHCP address after a link drop (COM9, twice, 2026-09-29; power
+        theory). If again: log the Ethernet/DHCP state, restart DHCP (then the W5500) when the
+        link is up without an address
+      - loop() stalled ~3 min with the cable out (2026-10-04; not reproduced in three
+        unplugs). The watchdog now restarts after 30 s and logs where
+      - Manual Override slider sometimes didn't change the speed (2026-10-02)
+      - A failing (knock-off) SD card made each retry block loop() up to ~0.5 s and the web page
+        stalled (2026-09-29); some cards were lost once the buffered data was written to them
+        (2026-10-04), probably the same
 - [x] `[Web]` Per-fan speed offset (your note): Fan channels table, - / + / Reset, 10 RPM steps,
       +/-500; fan N held at fan 1's RPM + offset by a trim on its duty, on RPMs averaged over
       ~10 s; 20-100 % limits, none in the failsafe or while fan 1 is off, no trim without a tach

@@ -30,9 +30,14 @@ struct SystemSnapshot {
     bool localSensorHealthy;
     bool networkSensorHealthy;
     unsigned long uptimeMs;
+    char stage[12];          // part of loop() running (sdLoggerMarkStage)
+    uint32_t freeHeap;       // at the last snapshot
+    uint32_t minFreeHeap;    // lowest since boot
 };
 
-static const uint32_t SNAPSHOT_MAGIC = 0xFA57C0DE;
+// Changed with the layout (2026-10-05: stage and heap added), so a snapshot
+// left by older firmware isn't read with the new layout.
+static const uint32_t SNAPSHOT_MAGIC = 0xFA57C0DF;
 RTC_NOINIT_ATTR SystemSnapshot rtcSnapshot;
 
 void sdLoggerUpdateSnapshot() {
@@ -47,6 +52,13 @@ void sdLoggerUpdateSnapshot() {
     rtcSnapshot.localSensorHealthy = localSensorHealthy;
     rtcSnapshot.networkSensorHealthy = networkSensorHealthy;
     rtcSnapshot.uptimeMs = millis();
+    rtcSnapshot.freeHeap = ESP.getFreeHeap();
+    rtcSnapshot.minFreeHeap = ESP.getMinFreeHeap();
+}
+
+void sdLoggerMarkStage(const char* name) {
+    strncpy(rtcSnapshot.stage, name, sizeof(rtcSnapshot.stage) - 1);
+    rtcSnapshot.stage[sizeof(rtcSnapshot.stage) - 1] = '\0';
 }
 
 static String resetReasonString() {
@@ -484,6 +496,9 @@ void sdLoggerInit() {
         desc += " localOK=" + String(rtcSnapshot.localSensorHealthy ? "y" : "n");
         desc += " netOK=" + String(rtcSnapshot.networkSensorHealthy ? "y" : "n");
         desc += " uptimeAtReset=" + String(rtcSnapshot.uptimeMs / 1000) + "s";
+        rtcSnapshot.stage[sizeof(rtcSnapshot.stage) - 1] = '\0';
+        desc += " stage=" + String(rtcSnapshot.stage);
+        desc += " heap=" + String(rtcSnapshot.freeHeap) + " minHeap=" + String(rtcSnapshot.minFreeHeap);
     } else {
         desc += " | no prior state available (cold boot or RTC memory invalid)";
     }
@@ -491,6 +506,7 @@ void sdLoggerInit() {
     Serial.print("Boot event: "); Serial.println(desc);
     sdLogEvent("BOOT", desc);
 
+    sdLoggerMarkStage("setup");
     sdLoggerUpdateSnapshot(); // establish a valid snapshot immediately, don't wait for the first 1s tick
 }
 
