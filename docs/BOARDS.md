@@ -84,7 +84,8 @@ be broken by firmware:
 ## Web page, login, OTA (both boards)
 
 - Page: `web/index.html` (compiled in), API under `/api` (`src/web_server.cpp`). Tabs:
-  Dashboard, Fan Control, Home Assistant, Network, System (firmware info, OTA, theme, login).
+  Dashboard, History, Fan Control, Home Assistant, Network (Ethernet, WiFi, hotspot), System
+  (firmware info, theme, time, OTA, device name, login, restart, factory reset).
   Opened from disk it shows a demo with made-up data. Tabs follow the URL (`/#system`).
 - Login: viewing is open; every change needs it. Until one is set, changes are refused
   (setting the first one needs none). **Forgotten login:** erase the settings partition over
@@ -110,6 +111,18 @@ be broken by firmware:
 - Device name (mDNS, System tab): http://<name>.local on Ethernet and WiFi; default from the
   node ID (`fancontroller-01`).
 
+## Restart, watchdog, boot events (both boards)
+
+- **Restart** without changing anything: System tab (asks to confirm, needs the login), or on
+  the LCD the gear (QR page), then hold Restart 2 s. Both log a RESTART event.
+- **Watchdog** (2026-10-05): if loop() hasn't come round for 30 s the board restarts itself.
+  Every restart logs a BOOT event with the reason; after anything but a cold boot it adds the
+  last known state, including `stage=` (the part of loop() that was running: probe,
+  dashboard, web, network, mqtt, touch, sd, loop, setup) and `heap=` / `minHeap=`.
+  `reason=TASK_WDT ... stage=mqtt` = stuck in MQTT for 30 s. The reset button and power-up
+  read `POWERON` (no state). Opening the USB serial port can reset the board (`reason=USB`);
+  a reader that sets DTR and RTS low before opening doesn't.
+
 ## SD card files (both boards)
 
 Plain CSV; the first line holds the column names (files created since 2026-09-28; a download
@@ -120,7 +133,7 @@ adds it to older files). The web page's History tab reads them (`/api/history/..
 | `/logs/YYYY-MM.csv` | every minute: `timestamp, local, network, blended` (°C; empty = probe failed, since 2026-09-28), `fan 1 RPM, fan 2 RPM`, then since 2026-09-28 `fan duty %, override (1/0)` |
 | `/rollups/daily.csv` | per day (30 days kept): `date, local min/max, network min/max, blended min/max, fan 1 min/max, fan 2 min/max` |
 | `/rollups/alltime.csv` | one row `ALL, ...`: the all-time highs and lows, same columns |
-| `/events.csv` | `timestamp, category, description`: BOOT, CONFIG, OVERRIDE, OTA |
+| `/events.csv` | `timestamp, category, description`: BOOT, CONFIG, OVERRIDE, OTA, DISPLAY, RESTART, SD |
 
 Without a card, rows go to an internal buffer (LittleFS, 200 KB) and are written into the
 current month's file when a card is back; those rows are out of time order at the end of the

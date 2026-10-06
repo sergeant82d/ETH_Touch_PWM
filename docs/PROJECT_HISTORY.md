@@ -3,11 +3,13 @@
 How this project came to be, and what was learned (2026-09-27). Read this before starting
 work; it saves re-discovering things.
 
-## Current status (2026-10-04)
+## Current status (2026-10-05)
 
 - Everything is on `main`. Three builds: `waveshare_s3_lcd2` (Touch-LCD-2 + W5500 module),
   `waveshare_s3_lcd2_lite` (Touch-LCD-2 + W5500 Lite on the user's pins), `waveshare_s3_eth`
-  (ESP32-S3-ETH, no LCD). Settings version 10. Image ~1.48 MB (47 % of the 3 MB slot).
+  (ESP32-S3-ETH, no LCD). Settings version 10. Image ~1.47 MB (47 % of the 3 MB slot).
+- Watchdog: a hung loop() restarts the board after 30 s and the BOOT event names where it hung
+  (`docs/BOARDS.md`). The cause of the 2026-10-05 overnight freeze is still unknown.
 - **ESP32-S3-ETH (fan_controller_01, COM10):** fully tested up to 2026-09-28; not reflashed
   since.
 - **Touch-LCD-2 W5500 Lite boards (COM8/COM9/COM14/COM15 on different days):** the bench boards
@@ -173,5 +175,20 @@ growth. Current limit: `CLAUDE.md`, success criteria.
 - 2026-10-04: Fans: curve input averaged ~30 s, hysteresis, rate limit; per-fan RPM offset by
   an integral trim on averaged RPMs (single tach readings jump 60-120 RPM). Settings v10; an
   upgrade used to reset `ethDhcp` for every older file (now only before v9).
+- 2026-10-05: The board froze overnight (no crash, no log rows until the reset button): a 30 s
+  task watchdog on loop() now restarts it, and the RTC snapshot keeps the running part of
+  loop() and the heap for the BOOT event. Tested with a deliberate hang. **pyserial resets the
+  board** on open/close unless DTR and RTS are set low before `open()`.
+- 2026-10-05: **The CST816D reports phantom taps** (0.2-0.6 s, mostly one row) in bursts
+  16-25 s after the backlight goes off, ~19 in 2 minutes; very rarely with it on. They woke
+  the standby screen; now a 1 s press wakes it. Anything touch-triggered that matters needs a
+  hold (Restart on the QR page: 2 s).
+- 2026-10-05: Override Cancel looked broken: after the override the smoothed curve eased down
+  from 100 % at 0.5 %/s (~2.5 min). An override's end now jumps to the curve's speed.
+- 2026-10-05: LCD flicker gone: each dashboard part caches what it drew and redraws only on a
+  change; bars draw over their old fill instead of clearing to black. `clearScreen()` bumps a
+  generation counter that makes everything draw once after a full-screen page.
+- 2026-10-05: Web: Network and WiFi tabs merged, System tab reordered, Restart button; LCD
+  Override has - / + (held = repeat) instead of the slider.
 
 Open items: `docs/TODO.md`.
