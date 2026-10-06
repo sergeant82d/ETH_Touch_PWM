@@ -12,8 +12,6 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
-- [ ] `[Web]` Network page - rename "Setup hotspot" card to "HotSpot password"
-
 ## Open
 
 - [ ] `[Board]` Low priority, parked (user, 2026-10-06): one I2C read error (touch bus) at
@@ -53,9 +51,12 @@ How this list works (agreed 2026-09-28):
         49.7 days (5.3)
   - [ ] Skipped unless wanted: rows held until the clock is set (3.5), SD at 16 MHz; rule
         kept in mind: no SD access inside an open LCD transaction (1.1)
+- [ ] `[Web]` Network tab: rename the "Setup hotspot" card to "HotSpot password" (your note,
+      2026-10-06)
 
 ## Done
 
+- [x] `[Docs]` Status report 05; your note turned into an item (2026-10-06, this commit)
 - [x] `[Net]` `[Board]` More detail for the Ethernet-without-an-address item (your question):
       NET events give link speed/duplex, time to address (~4.5 s on COM15), and on link down,
       lease lost and every "no address" step the DHCP client state and the W5500's own link

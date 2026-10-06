@@ -3,13 +3,15 @@
 How this project came to be, and what was learned (2026-09-27). Read this before starting
 work; it saves re-discovering things.
 
-## Current status (2026-10-05)
+## Current status (2026-10-06)
 
 - Everything is on `main`. Three builds: `waveshare_s3_lcd2` (Touch-LCD-2 + W5500 module),
   `waveshare_s3_lcd2_lite` (Touch-LCD-2 + W5500 Lite on the user's pins), `waveshare_s3_eth`
-  (ESP32-S3-ETH, no LCD). Settings version 10. Image ~1.47 MB (47 % of the 3 MB slot).
+  (ESP32-S3-ETH, no LCD). Settings version 10. Image ~1.48 MB (47 % of the 3 MB slot).
 - Watchdog: a hung loop() restarts the board after 30 s and the BOOT event names where it hung
   (`docs/BOARDS.md`). The cause of the 2026-10-05 overnight freeze is still unknown.
+- Event log (NET, MQTT, CONFIG, LOOP ...), self-heal restarts and Ethernet diagnostics:
+  `docs/BOARDS.md`. Firmware audit and its open items: `docs/AUDIT_2026-10-06.md`, `docs/TODO.md`.
 - **ESP32-S3-ETH (fan_controller_01, COM10):** fully tested up to 2026-09-28; not reflashed
   since.
 - **Touch-LCD-2 W5500 Lite boards (COM8/COM9/COM14/COM15 on different days):** the bench boards
@@ -190,5 +192,22 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   generation counter that makes everything draw once after a full-screen page.
 - 2026-10-05: Web: Network and WiFi tabs merged, System tab reordered, Restart button; LCD
   Override has - / + (held = repeat) instead of the slider.
+- 2026-10-06: Overnight: watchdog restart at 03:16 `stage=network` while HA rebooted after its
+  backup; 05:57 the board went 73 min without MQTT (HA/Mosquitto logs clean: the board thought
+  it had no network). NET/MQTT/CONFIG events and a self-heal restart added. HA history CSVs are
+  in UTC (local is UTC-5 in summer).
+- 2026-10-06: **Both networks are on one subnet**, so after Ethernet returns lwIP keeps a new
+  connection on WiFi while WiFi is up; MQTT now moves once, when the WiFi backup goes off.
+  Log the connection's local address, not the preferred network.
+- 2026-10-06: Memory: no leak. The WiFi backup's driver takes ~110 KB, which explains the
+  143-147 KB lows; a WiFi scan holds ~30 KB until collected (now dropped after 30 s). Target
+  ~200 KB on Ethernet, ~120 KB on WiFi.
+- 2026-10-06: Ethernet without an address: DHCP restarted after 20 s and every 3 min, then a
+  backed-off restart without WiFi. The DHCP client state (`esp_netif_dhcpc_get_status`) and the
+  W5500's PHYCFGR (`esp_eth_ioctl(ETH.handle(), ETH_CMD_READ_PHY_REG)`, register 0x2E << 16)
+  go into the NET events. Time to address comes from the driver events: loop() can be busy
+  when it polls (MQTT's first connect sends ~30 discovery messages, 3 s).
+- 2026-10-06: LCD top-bar icons (1-bit, 16 x 16, `drawBitmap()`), no LVGL needed; the design
+  note is `docs/LCD_DESIGN.md`.
 
 Open items: `docs/TODO.md`.
