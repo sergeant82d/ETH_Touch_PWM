@@ -24,12 +24,6 @@ How this list works (agreed 2026-09-28):
       Cause unknown. Since `b91c006` a 30 s watchdog restarts it; if a BOOT event with
       `reason=TASK_WDT` appears in the event log, its `stage=` names the stuck part of loop()
       and `heap=`/`minHeap=` the memory just before (2026-10-05)
-- [ ] `[LCD]` `[Docs]` LVGL cancelled (user, 2026-10-05; discussed 2026-10-04, images in
-      `docs/images/`). To do: an archive note for future reference with your top-bar design:
-      standard icons for Ethernet, WiFi and hotspot on the left (replacing the status dots),
-      MQTT and SD card right of the name; greyed out when inactive, the connection in use
-      coloured; the hotspot flashing, perhaps on orange. Plus a short discussion of display
-      conventions (your note, 2026-10-05)
 - [ ] `[Net]` Reopened 2026-10-06: Ethernet without an address after a drop, now on COM15 too.
       2026-10-06 05:57 the board told HA "offline" (HA and Mosquitto logs clean, so the board
       decided it had no network) and stayed off MQTT 73 min until a restart; it kept running
@@ -43,6 +37,9 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` `[Docs]` LVGL archive note: `docs/LCD_DESIGN.md` (why cancelled, your mock-ups,
+      top-bar icon design and states, display conventions, what each style would take);
+      icons drawn and approved, `docs/images/icon_preview.png` (2026-10-06, this commit)
 - [x] `[Web]` `[HA]` Phones: Manual override right below the LCD view; History tab moved to
       next-to-last (before System). A settings save reconnects MQTT only when the name,
       broker, port, MQTT login or fan count changed (every save did). Checked by the user

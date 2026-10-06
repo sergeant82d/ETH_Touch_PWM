@@ -12,7 +12,8 @@ commit `c23de85`); that repo stays as the Arduino reference and is not changed f
 **Read `docs/PROJECT_HISTORY.md` first:** current status, build settings and why, Windows
 build gotchas, what was learned. Open items: `docs/TODO.md`. Home Assistant (MQTT topics,
 entities, the HA automations it needs): `docs/MQTT.md`. Boards, pins, OTA, login recovery,
-WiFi/hotspot: `docs/BOARDS.md`. General rules (working principles, testing, git, TODO and
+WiFi/hotspot: `docs/BOARDS.md`. LCD design ideas (LVGL archive, top-bar icons):
+`docs/LCD_DESIGN.md`. General rules (working principles, testing, git, TODO and
 status reports, Windows/PlatformIO build) are in the user's global `~/.claude/CLAUDE.md`.
 
 ## Hardware
