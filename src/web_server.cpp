@@ -191,6 +191,9 @@ static void handleStatus(NetworkClient &client) {
     doc["ip"] = localIP().toString();
     doc["uptime"] = millis() / 1000;
     doc["heap"] = ESP.getFreeHeap();
+    doc["heapMin"] = ESP.getMinFreeHeap();          // lowest since boot
+    doc["heapMinDuring"] = heapLowStage();          // part of loop() at that moment
+    doc["heapBlock"] = heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL);
     doc["timeSet"] = timeStatus() != timeNotSet;
     doc["time"] = (uint32_t)now(); // local time (NTP + time zone rule), seconds
     doc["tz"] = config.tzName;

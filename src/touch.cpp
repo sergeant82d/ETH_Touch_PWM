@@ -1,6 +1,7 @@
 #include "touch.h"
 #include "pins.h"
 #include <Wire.h>
+#include "sd_logger.h"
 
 // CST816D register map (standard CST8xx family layout - not chip-specific
 // to this exact part number, but consistent across the family).
@@ -27,11 +28,20 @@ void touchInit() {
 static bool logWasDown = false;
 static unsigned long i2cFails = 0, lastFailReportMs = 0;
 
+// Also to the event log (the boot-time failure only ever showed on the serial
+// port, 2026-10-06): the first one, then at most one summary an hour
 static void countI2cFail() {
     i2cFails++;
     if (millis() - lastFailReportMs >= 10000) {
         lastFailReportMs = millis();
         Serial.print("TOUCH: I2C read failures so far: "); Serial.println(i2cFails);
+    }
+    static unsigned long lastEventMs = 0;
+    static unsigned long loggedFails = 0;
+    if (loggedFails == 0 || millis() - lastEventMs >= 3600000UL) {
+        lastEventMs = millis();
+        sdLogEvent("TOUCH", "I2C read failed (" + String(i2cFails) + " since boot, uptime " + String(millis() / 1000) + " s)");
+        loggedFails = i2cFails;
     }
 }
 

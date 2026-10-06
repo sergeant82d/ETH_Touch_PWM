@@ -12,13 +12,18 @@ How this list works (agreed 2026-09-28):
 
 ## Your notes
 
+- [ ] `[Web]` Network page - rename "Setup hotspot" card to "HotSpot password"
+
 ## Open
 
-- [ ] `[Board]` Low priority: one I2C read error (touch bus) at ~4 s after boot; touch works
-      afterwards. Probably the touch chip not ready yet after a reset. Only worth a look if
-      touch ever fails at startup (2026-09-29; kept by the user 2026-10-05)
-- [ ] `[Board]` Lowest free heap 153 KB while WiFi and Ethernet were both up (floor ~150 KB,
-      CLAUDE.md success criteria) (2026-10-04); 143 KB on 2026-10-05 after ~4.7 h on WiFi
+- [ ] `[Board]` Low priority, parked (user, 2026-10-06): one I2C read error (touch bus) at
+      ~4 s after boot; touch works afterwards. Touch read failures now go to the event log
+      (TOUCH, the first and then at most one an hour); Claude checks it at the start of each
+      session and picks this up only if it shows again (2026-09-29)
+- [ ] `[Decide]` Free-memory target in CLAUDE.md (~150 KB): measured 2026-10-06 on COM15, no
+      leak. Ethernet ~252-256 KB (web page loads dip ~16 KB); a WiFi scan ~30 KB while it
+      runs, all back afterwards; the WiFi backup joined: lows of 143-147 KB (the WiFi driver
+      and connection, ~110 KB). Suggested: about 120 KB on WiFi, 200 KB on Ethernet
 - [ ] `[Board]` Overnight freeze (your note): 2026-10-05 05:05 the board stopped (last log row
       05:05:16; no web, no HA) until the reset button at 09:52; no crash was logged, so it hung.
       Cause unknown. Since `b91c006` a 30 s watchdog restarts it; if a BOOT event with
@@ -37,6 +42,12 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Board]` `[Web]` Memory: the lowest free memory is now tracked with the part of loop()
+      running then (serial "HEAP: new low", DIAGNOSTIC line with largest block and free
+      PSRAM, System tab "Free memory ... lowest ... during ...", BOOT event `minHeap= during`).
+      Fixed: a WiFi scan whose results the page never collected kept the WiFi on and ~30 KB
+      in use; dropped after 30 s now (COM15: 221 -> 252 KB, Claude). Touch I2C failures to
+      the event log, History filter "Touch" (2026-10-06, this commit)
 - [x] `[Web]` LCD view "No connection" overlay: after two missed status updates (~4-6 s) the
       view dims and shows the time of the last good values; clears by itself. Takes the place
       of "Display off" while shown (your question: they would have overlapped). Background

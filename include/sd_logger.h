@@ -31,6 +31,11 @@ void sdLoggerUpdateSnapshot();
 // (overnight freeze 2026-10-05). Up to 11 characters.
 void sdLoggerMarkStage(const char* name);
 
+// Lowest free internal memory since boot and the part of loop() that ran when
+// it was reached (checked at every stage change; 2026-10-06, the 147 KB dips).
+// Other tasks (network stack) are counted against the part running then.
+const char* heapLowStage();
+
 // Generic append-only event logger - "timestamp,category,description" to
 // /events.csv. This is the hook point for the manual-override and
 // config-change history logging described in the SD-logging spec; wire

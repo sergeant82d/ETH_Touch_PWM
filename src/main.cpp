@@ -236,6 +236,9 @@ void loop() {
         Serial.print(ESP.getFreeHeap());
         Serial.print("  minFreeHeap=");
         Serial.print(ESP.getMinFreeHeap());
+        Serial.print(" (during "); Serial.print(heapLowStage());
+        Serial.print(")  largestBlock="); Serial.print(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
+        Serial.print("  psramFree="); Serial.print(ESP.getFreePsram());
         Serial.print("  ");
         Serial.println(networkDiagText()); // network, DNS, time sync (NTP after switches, 2026-10-04)
     }

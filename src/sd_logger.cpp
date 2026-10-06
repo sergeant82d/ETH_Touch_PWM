@@ -33,11 +33,12 @@ struct SystemSnapshot {
     char stage[12];          // part of loop() running (sdLoggerMarkStage)
     uint32_t freeHeap;       // at the last snapshot
     uint32_t minFreeHeap;    // lowest since boot
+    char lowStage[12];       // part of loop() when that lowest point was reached
 };
 
 // Changed with the layout (2026-10-05: stage and heap added), so a snapshot
 // left by older firmware isn't read with the new layout.
-static const uint32_t SNAPSHOT_MAGIC = 0xFA57C0DF;
+static const uint32_t SNAPSHOT_MAGIC = 0xFA57C0E0; // 2026-10-06: lowStage added
 RTC_NOINIT_ATTR SystemSnapshot rtcSnapshot;
 
 void sdLoggerUpdateSnapshot() {
@@ -56,10 +57,25 @@ void sdLoggerUpdateSnapshot() {
     rtcSnapshot.minFreeHeap = ESP.getMinFreeHeap();
 }
 
+static uint32_t lowSeen = UINT32_MAX;
+static char lowStage[12] = "boot";
+
 void sdLoggerMarkStage(const char* name) {
+    // A new low since the last mark happened during the stage that just ran
+    uint32_t m = ESP.getMinFreeHeap();
+    if (m < lowSeen) {
+        if (lowSeen != UINT32_MAX && lowSeen - m >= 4096) { // say so for steps of 4 KB or more
+            Serial.printf("HEAP: new low %u bytes during %s\n", (unsigned)m, rtcSnapshot.stage);
+        }
+        lowSeen = m;
+        strncpy(lowStage, rtcSnapshot.stage[0] ? rtcSnapshot.stage : "boot", sizeof(lowStage) - 1);
+        memcpy(rtcSnapshot.lowStage, lowStage, sizeof(lowStage));
+    }
     strncpy(rtcSnapshot.stage, name, sizeof(rtcSnapshot.stage) - 1);
     rtcSnapshot.stage[sizeof(rtcSnapshot.stage) - 1] = '\0';
 }
+
+const char* heapLowStage() { return lowStage; }
 
 static String resetReasonString() {
     switch (esp_reset_reason()) {
@@ -498,7 +514,8 @@ void sdLoggerInit() {
         desc += " uptimeAtReset=" + String(rtcSnapshot.uptimeMs / 1000) + "s";
         rtcSnapshot.stage[sizeof(rtcSnapshot.stage) - 1] = '\0';
         desc += " stage=" + String(rtcSnapshot.stage);
-        desc += " heap=" + String(rtcSnapshot.freeHeap) + " minHeap=" + String(rtcSnapshot.minFreeHeap);
+        rtcSnapshot.lowStage[sizeof(rtcSnapshot.lowStage) - 1] = '\0';
+        desc += " heap=" + String(rtcSnapshot.freeHeap) + " minHeap=" + String(rtcSnapshot.minFreeHeap) + " during " + String(rtcSnapshot.lowStage);
     } else {
         desc += " | no prior state available (cold boot or RTC memory invalid)";
     }
@@ -506,6 +523,8 @@ void sdLoggerInit() {
     Serial.print("Boot event: "); Serial.println(desc);
     sdLogEvent("BOOT", desc);
 
+    rtcSnapshot.stage[0] = '\0';
+    rtcSnapshot.lowStage[0] = '\0';
     sdLoggerMarkStage("setup");
     sdLoggerUpdateSnapshot(); // establish a valid snapshot immediately, don't wait for the first 1s tick
 }

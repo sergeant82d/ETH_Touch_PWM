@@ -785,7 +785,7 @@ function renderStatus() {
   $("#mqtt-status").textContent = s.mqtt;
 
   $("#sys-info").innerHTML = [["Board", s.board], ["Time zone", s.tz], ["SD card", s.sdState + (s.sdUsed !== null && s.sdUsed !== undefined ? ` \u00b7 ${s.sdUsed} % used` : "")], ["Build", s.build], ["Source", s.sketch], ["IP address", s.ip],
-    ["Uptime", fmtUptime(s.uptime)], ["Free memory", Math.round(s.heap / 1024) + " KB"]]
+    ["Uptime", fmtUptime(s.uptime)], ["Free memory", Math.round(s.heap / 1024) + " KB" + (s.heapMin ? ` (lowest ${Math.round(s.heapMin / 1024)} KB, during ${esc(s.heapMinDuring || "?")}; largest block ${Math.round(s.heapBlock / 1024)} KB)` : "")]]
     .map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
   // No login yet (setup): nothing to log in to, so no button
   $("#btn-login").hidden = $("#who").hidden = !s.loginSet;
@@ -1511,7 +1511,7 @@ function render30() {
 }
 
 const EV_TYPES = { BOOT: ["Boot", "var(--accent)"], CONFIG: ["Settings", "var(--warn)"], OVERRIDE: ["Override", "var(--error)"], OTA: ["Update", "var(--ok)"],
-  NET: ["Network", "var(--accent)"], MQTT: ["MQTT", "var(--accent)"], RESTART: ["Restart", "var(--warn)"], DISPLAY: ["Display", "var(--muted)"], SD: ["SD card", "var(--muted)"] };
+  NET: ["Network", "var(--accent)"], MQTT: ["MQTT", "var(--accent)"], RESTART: ["Restart", "var(--warn)"], DISPLAY: ["Display", "var(--muted)"], SD: ["SD card", "var(--muted)"], TOUCH: ["Touch", "var(--muted)"] };
 function renderEvents() {
   const cats = ["All"].concat(Object.keys(EV_TYPES));
   $("#ev-filter").innerHTML = cats.map((c) => `<button type="button" class="btn ghost ${c === evFilter ? "on" : ""}" data-c="${c}">${c === "All" ? "All" : EV_TYPES[c][0]}</button>`).join("");

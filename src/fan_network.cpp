@@ -166,6 +166,7 @@ static void applyHostname() {
 static bool staActive = false;     // backup WiFi wanted (joining or joined)
 static bool apActive = false;      // setup hotspot on
 static bool scanning = false;
+static unsigned long scanStartedMs = 0;
 static unsigned long ethDownSince = 0;  // boot counts as "down" until the link comes up
 static unsigned long ethUpSince = 0;
 static unsigned long lastAnyUpMs = 0;   // last moment Ethernet or WiFi worked
@@ -350,6 +351,15 @@ void networkLoop() {
 
     // WiFi backup: only while Ethernet is down
     unsigned long wifiWait = !ethPresent ? 0 : ethEverUp ? WIFI_AFTER_ETH_DOWN_MS : WIFI_AFTER_BOOT_MS;
+    // A scan whose results nobody collected (page closed mid-scan) kept the
+    // WiFi on and ~30 KB in use until the next scan (2026-10-06): drop it
+    if (scanning && now - scanStartedMs > 30000) {
+        WiFi.scanDelete();
+        scanning = false;
+        applyWifiMode();
+        Serial.println("WiFi: scan results not collected, WiFi off again");
+    }
+
     // Watchdog stage names (sd_logger.h) for the steps that can block
     if (!ethUp && !staActive && config.wifiSsid[0] && now - ethDownSince >= wifiWait) { sdLoggerMarkStage("net:wifi+"); startSta(); }
     if (ethUp && staActive && now - ethUpSince >= WIFI_OFF_AFTER_ETH_UP_MS) { sdLoggerMarkStage("net:wifi-"); stopSta("Ethernet is back"); }
@@ -389,6 +399,7 @@ void wifiReconfigure() {
 void wifiScanStart() {
     if (scanning) return;
     scanning = true;
+    scanStartedMs = millis();
     applyWifiMode();
     WiFi.scanNetworks(true);
 }
