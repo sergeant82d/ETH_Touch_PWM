@@ -13,9 +13,6 @@ How this list works (agreed 2026-09-28):
 ## Your notes
 
 
-- [ ] `[Web]` Web remote display of the LCD - after the LCD display backlight was turned off by HA, the website still shows the live screen, without the "Display Off" transparent label.
-    - Tested - HA toggle does turn off the backlight, but it is turned back on by some other process. 
-
 - [ ] `[Web]` Main page - Move the Remote Display card to the top of the page on mobile devices. 
 
 - [ ] `[LCD]` `[Web]` On the LCD only, Replace Override slider with large plus/minus (+/-) buttons on either side of value number. Have press-and-hold action for rapid change. On the website, add the buttons to the ends of the slider but keep the slider active.
@@ -53,6 +50,12 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[LCD]` `[Web]` LCD turned itself back on after HA/web turned it off (your note; the web
+      view was right, the board really was on again): 16-25 s after the backlight goes off the
+      touch panel reports bursts of phantom taps (0.2-0.6 s, mostly one row, ~19 in 2 min; none
+      in 4 min with it on), and a tap woke it. Now a 1 s press wakes it, and the rest of that
+      press reaches nothing. COM15: 19 phantom taps, stayed dark (Claude); hold wakes, tap
+      doesn't, buttons fine afterwards (user, 2026-10-05, this commit)
 - [x] `[Board]` Loop watchdog: loop() not back within 30 s = restart, and the BOOT event
       gives the stuck part (`stage=`) and free memory. Tested on COM15 with a deliberate hang
       in the web step: restarted, logged `reason=TASK_WDT ... stage=web heap=256668`

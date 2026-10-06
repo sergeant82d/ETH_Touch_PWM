@@ -77,7 +77,7 @@ them in its own unit system. `None` = unknown (probe failed).
 | `sd_card` | sensor "SD card" | `OK` / `Getting full` (>= 90 % used) / `Missing` (no card or a write failed) | (new, 2026-09-28) |
 | `sd_used` | sensor "SD card used", %, diagnostic | `23` / `None` without a card | (new, 2026-09-28) |
 | `sd_fault` | binary_sensor "Fault SD card", problem | `ON` unless the card is OK | (new, 2026-09-28) |
-| `display` | switch "LCD display" (LCD boards only) | `ON` / `OFF`: LCD standby, backlight only; a tap on the screen also turns it on; on after every boot | (new, 2026-10-04) |
+| `display` | switch "LCD display" (LCD boards only) | `ON` / `OFF`: LCD standby, backlight only; pressing the screen for 1 s also turns it on (not a tap: the panel reports phantom taps while dark); on after every boot | (new, 2026-10-04) |
 
 HA to device (not retained): `t_min/set`, `t_max/set`, `override/set`, `override_speed/set`,
 `display/set`, `network_temp/set`.

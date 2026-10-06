@@ -878,9 +878,22 @@ void handleTouchInput() {
     int tx, ty;
     bool pressed = getTouchPoint(tx, ty);
 
-    // Dark screen: a tap only wakes it (never reaches a button underneath)
+    // Dark screen: a press held 1 s wakes it (never reaches a button underneath).
+    // Not a tap: 16-25 s after the backlight goes off the panel reports bursts
+    // of phantom taps (0.2-0.4 s each, same row), which woke it (2026-10-05).
+    static bool wakePressHeld = false; // the rest of the waking press reaches nothing
     if (!displayOn) {
-        if (pressed && !wasPressed) setDisplayOn(true, "LCD");
+        static unsigned long pressStartMs = 0;
+        if (pressed && !wasPressed) pressStartMs = millis();
+        if (pressed && wasPressed && millis() - pressStartMs >= 1000) {
+            setDisplayOn(true, "LCD");
+            wakePressHeld = true;
+        }
+        wasPressed = pressed;
+        return;
+    }
+    if (wakePressHeld) {
+        if (!pressed) wakePressHeld = false;
         wasPressed = pressed;
         return;
     }
