@@ -13,17 +13,11 @@ How this list works (agreed 2026-09-28):
 ## Your notes
 
 
-- [ ] `[LCD]` Cancel the LVGL conversion. Address the Screen flicker issue.
-
-    - Archive the LVGL project, but edit it for future reference to use standard web page icons for Ethernet/Network, Wifi, and Hotspot in the top bar of the display. Left side, replacing the current status dots. Same for the MQTT and SD Card, except they go on the right side of the name. Grayed out if not active, with the current connection colored/lit up. If Hotspot is active, make it flash, possibly with an Orange back color. Discuss industry display standards. 
-
-
 ## Open
 
 - [ ] `[Board]` Low priority: one I2C read error (touch bus) at ~4 s after boot; touch works
       afterwards. Probably the touch chip not ready yet after a reset. Only worth a look if
       touch ever fails at startup (2026-09-29; kept by the user 2026-10-05)
-
 - [ ] `[Board]` Lowest free heap 153 KB while WiFi and Ethernet were both up (floor ~150 KB,
       CLAUDE.md success criteria) (2026-10-04); 143 KB on 2026-10-05 after ~4.7 h on WiFi
 - [ ] `[Board]` Overnight freeze (your note): 2026-10-05 05:05 the board stopped (last log row
@@ -31,50 +25,54 @@ How this list works (agreed 2026-09-28):
       Cause unknown. Since `b91c006` a 30 s watchdog restarts it; if a BOOT event with
       `reason=TASK_WDT` appears in the event log, its `stage=` names the stuck part of loop()
       and `heap=`/`minHeap=` the memory just before (2026-10-05)
-- [ ] `[LCD]` `[Decide]` Discuss moving the LCD to LVGL (nicer gauges and fonts): high effort, low
-      impact, but pretty. Discussed 2026-10-04 (worth it after your design images; dashboard first behind a build switch); moved to the bottom by the user. You're collecting images (`docs/images/`) (your
-      note, 2026-09-28)
+- [ ] `[LCD]` `[Docs]` LVGL cancelled (user, 2026-10-05; discussed 2026-10-04, images in
+      `docs/images/`). To do: an archive note for future reference with your top-bar design:
+      standard icons for Ethernet, WiFi and hotspot on the left (replacing the status dots),
+      MQTT and SD card right of the name; greyed out when inactive, the connection in use
+      coloured; the hotspot flashing, perhaps on orange. Plus a short discussion of display
+      conventions (your note, 2026-10-05)
 
 ## Done
 
+- [x] `[Docs]` Status report 04; notes turned into items (2026-10-05, this commit)
 - [x] `[LCD]` Screen flicker: every part of the dashboard redraws only when what it shows
       changes (bars and their numbers were wiped every 200 ms, the rest every 2 s); bars no
       longer go through black, only the part above the new fill is cleared. A full-screen
       page closing redraws everything once. User: "screen looks great" (COM15, 2026-10-05,
-      this commit)
+      `5eec4c8`)
 - [x] `[LCD]` `[Web]` Override - / + (your note): LCD panel has big - and + either side of the
       speed instead of the slider; web keeps the slider with - and + at its ends. A tap is 1 %;
       held, they repeat after 0.5 s, in 5 % steps after 2 s; the web sends the speed on
-      release. Checked by the user on COM15, LCD and web (2026-10-05, this commit)
+      release. Checked by the user on COM15, LCD and web (2026-10-05, `80283a7`)
 - [x] `[Board]` "GPIO isr service already installed" in the boot log: harmless. ETH.begin()
       installs the GPIO interrupt service, then the tach attachInterrupt() asks again; the core
       treats the "already installed" answer as success. Not related to the touch problems
-      (touch is polled, no interrupt). Closed by the user (2026-10-05)
+      (touch is polled, no interrupt). Closed by the user (2026-10-05, `80283a7`)
 - [x] `[Web]` Page layout (your notes): WiFi tab merged into Network (status header, Ethernet,
       WiFi network, WiFi address, hotspot; `#wifi` links open it); System tab order Firmware,
       Appearance, Time, OTA, Device name, Web login, Restart, Factory reset; on phones the LCD
       view is the Dashboard's first card. Docs updated. Checked by the user on PC and phone
-      (2026-10-05, this commit)
+      (2026-10-05, `f5d3bc7`)
 - [x] `[LCD]` `[Web]` Restart button (your note): System tab, panel "Restart" just above Factory
       reset (asks to confirm, needs the login, nothing changed or lost); LCD on the QR page
       (gear), held 2 s with a filling button, so phantom taps can't trigger it (instead of a
       new swipe page, agreed with the user). Both log a RESTART event. Tested by the user on
-      COM15 (2026-10-05, this commit)
+      COM15 (2026-10-05, `f9a23ce`)
 - [x] `[LCD]` `[Board]` Cancel on the Manual Override panel seemed not to work unless the slider
       had been moved (your note): the override did end, but since the fan smoothing
       (`ea3557e`) the curve eased down from the override's speed at 0.5 %/s (100 % -> ~2.5 min
       loud). Now the curve's speed applies at once when an override ends. COM15: MQTT test
-      100 % -> 34 % at once, RPM back in ~5 s (Claude); LCD Cancel (user, 2026-10-05, this commit)
+      100 % -> 34 % at once, RPM back in ~5 s (Claude); LCD Cancel (user, 2026-10-05, `7e098a9`)
 - [x] `[LCD]` `[Web]` LCD turned itself back on after HA/web turned it off (your note; the web
       view was right, the board really was on again): 16-25 s after the backlight goes off the
       touch panel reports bursts of phantom taps (0.2-0.6 s, mostly one row, ~19 in 2 min; none
       in 4 min with it on), and a tap woke it. Now a 1 s press wakes it, and the rest of that
       press reaches nothing. COM15: 19 phantom taps, stayed dark (Claude); hold wakes, tap
-      doesn't, buttons fine afterwards (user, 2026-10-05, this commit)
+      doesn't, buttons fine afterwards (user, 2026-10-05, `b3188e5`)
 - [x] `[Board]` Loop watchdog: loop() not back within 30 s = restart, and the BOOT event
       gives the stuck part (`stage=`) and free memory. Tested on COM15 with a deliberate hang
       in the web step: restarted, logged `reason=TASK_WDT ... stage=web heap=256668`
-      (Claude, 2026-10-05, this commit)
+      (Claude, 2026-10-05, `b91c006`)
 - [x] `[Net]` `[SD]` `[Web]` Closed tentatively by the user (2026-10-05); reopen if seen again:
       - Ethernet got no new DHCP address after a link drop (COM9, twice, 2026-09-29; power
         theory). If again: log the Ethernet/DHCP state, restart DHCP (then the W5500) when the
