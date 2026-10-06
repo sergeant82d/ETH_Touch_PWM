@@ -126,11 +126,16 @@ void setup() {
 }
 
 // DIAGNOSTIC (2026-10-04): loop() stalled for minutes with the Ethernet cable
-// out. Each part is timed; one taking over 500 ms is printed by name.
+// out. Each part is timed; one taking over 500 ms is printed by name, and over
+// 5 s also goes to the event log with the last stage inside it (2026-10-06:
+// a 21 s pause at boot that only serial could have named).
 static void slowCheck(const char* part, unsigned long startedMs) {
+    char inner[12];
+    strlcpy(inner, sdLoggerStage(), sizeof(inner));
     sdLoggerMarkStage("loop");
     unsigned long took = millis() - startedMs;
     if (took > 500) { Serial.print("SLOW: "); Serial.print(part); Serial.print(" took "); Serial.print(took); Serial.println(" ms"); }
+    if (took > 5000) sdLogEvent("LOOP", String(part) + " took " + String(took / 1000.0, 1) + " s (last stage " + inner + ")");
 }
 
 void loop() {

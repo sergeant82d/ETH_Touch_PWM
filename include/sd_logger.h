@@ -36,6 +36,9 @@ void sdLoggerMarkStage(const char* name);
 // Other tasks (network stack) are counted against the part running then.
 const char* heapLowStage();
 
+// The stage last marked (for the slow-step event: which call inside a step)
+const char* sdLoggerStage();
+
 // Generic append-only event logger - "timestamp,category,description" to
 // /events.csv. This is the hook point for the manual-override and
 // config-change history logging described in the SD-logging spec; wire

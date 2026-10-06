@@ -100,11 +100,15 @@ time_t getNtpTime() {
 // right one back.
 static uint32_t ethDns = 0, wifiDns = 0;
 
+// Driver event times, for "address after N s" (loop() may be busy when it polls)
+static volatile unsigned long ethLinkEventMs = 0, ethIpEventMs = 0;
+
 static void onNetworkEvent(arduino_event_id_t event, arduino_event_info_t info) {
     switch (event) {
-        case ARDUINO_EVENT_ETH_CONNECTED:    Serial.println("Ethernet: link up"); break;
+        case ARDUINO_EVENT_ETH_CONNECTED:    ethLinkEventMs = millis(); Serial.println("Ethernet: link up"); break;
         case ARDUINO_EVENT_ETH_DISCONNECTED: Serial.println("Ethernet: link down"); break;
         case ARDUINO_EVENT_ETH_GOT_IP:
+            ethIpEventMs = millis();
             ethDns = (uint32_t)ETH.dnsIP();
             Serial.print("Ethernet: address "); Serial.print(ETH.localIP());
             Serial.print(", DNS "); Serial.println(ETH.dnsIP());
@@ -315,6 +319,28 @@ IPAddress localIP() {
     return ETH.localIP(); // the static address it will have
 }
 
+// For the "link up, no address" events (2026-10-06): did the board ask (DHCP
+// client state), and does the W5500 itself agree about the link (its PHYCFGR
+// register, read over SPI; a mismatch with the driver points at the SPI wiring)
+static String ethDiag() {
+    esp_netif_dhcp_status_t st = ESP_NETIF_DHCP_INIT;
+    esp_netif_dhcpc_get_status(ETH.netif(), &st);
+    String s = String("DHCP client ") + (st == ESP_NETIF_DHCP_STARTED ? "running" : st == ESP_NETIF_DHCP_STOPPED ? "stopped" : "not started");
+    uint32_t phy = 0;
+    esp_eth_phy_reg_rw_data_t rw = { .reg_addr = 0x002EUL << 16, .reg_value_p = &phy }; // W5500 PHYCFGR
+    if (esp_eth_ioctl(ETH.handle(), ETH_CMD_READ_PHY_REG, &rw) == ESP_OK) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "; W5500 says link %s (PHYCFGR 0x%02X)",
+                 !(phy & 1) ? "down" : (phy & 2) ? ((phy & 4) ? "up, 100 Mbps full" : "up, 100 Mbps half")
+                                                 : ((phy & 4) ? "up, 10 Mbps full" : "up, 10 Mbps half"),
+                 (unsigned)(phy & 0xFF));
+        s += buf;
+    } else {
+        s += "; W5500 register read failed";
+    }
+    return s;
+}
+
 // Ethernet link up but no DHCP address (audit 2.2; COM9 2026-09-29, COM15
 // 2026-10-06 05:57, 73 min off MQTT): restart the DHCP client after 20 s and
 // every 3 min after that. Without WiFi to carry the traffic, restart the board
@@ -342,16 +368,17 @@ static void ethNoAddressCheck(unsigned long now) {
         lastDhcpMs = now;
         dhcpRestarts++;
         sdLoggerMarkStage("net:dhcp");
+        String diag = ethDiag();          // the state before the restart
         esp_netif_dhcpc_stop(ETH.netif());
         esp_err_t e = esp_netif_dhcpc_start(ETH.netif());
         sdLogEvent("NET", "Ethernet link up, no address for " + String((now - since) / 1000) +
-                          " s: DHCP restarted (" + esp_err_to_name(e) + ")");
+                          " s (" + diag + "): DHCP restarted (" + esp_err_to_name(e) + ")");
     }
     unsigned long limit = ETH_RESTART_MS << min(ethHealCount, (uint32_t)6);
     if (now - since >= limit && !isWifiConnected()) {
         ethHealCount++;
         sdLogEvent("RESTART", "source=self-heal Ethernet link up without an address for " +
-                              String((now - since) / 1000) + " s (" + String(ethHealCount) + " in a row)");
+                              String((now - since) / 1000) + " s (" + String(ethHealCount) + " in a row; " + ethDiag() + ")");
         delay(500);
         LittleFS.end();
         delay(200);
@@ -372,12 +399,20 @@ void networkLoop() {
     static int loggedLink = -1, loggedEthIp = -1, loggedWifi = -1;
     int link = isEthernetConnected() ? 1 : 0;
     if (link != loggedLink) {
-        if (loggedLink != -1) sdLogEvent("NET", link ? "Ethernet link up" : "Ethernet link down");
+        if (loggedLink != -1) sdLogEvent("NET", link ? "Ethernet link up, " + String(ETH.linkSpeed()) + " Mbps " + (ETH.fullDuplex() ? "full" : "half")
+                                                     : "Ethernet link down (" + ethDiag() + ")");
         loggedLink = link;
     }
     int ethIp = (link && ETH.hasIP()) ? 1 : 0;
     if (ethIp != loggedEthIp) {
-        if (loggedEthIp != -1 || ethIp) sdLogEvent("NET", ethIp ? "Ethernet address " + ETH.localIP().toString() : String("Ethernet address lost"));
+        if (ethIp) {
+            unsigned long linkMs = ethLinkEventMs, ipMs = ethIpEventMs;
+            String after = (linkMs && ipMs - linkMs < 3600000UL) ? " after " + String((ipMs - linkMs) / 1000.0, 1) + " s" : String();
+            sdLogEvent("NET", "Ethernet address " + ETH.localIP().toString() + after);
+        } else if (loggedEthIp != -1) {
+            // With the link still up = the lease was lost, not the cable
+            sdLogEvent("NET", link ? "Ethernet address lost, link still up (" + ethDiag() + ")" : String("Ethernet address lost"));
+        }
         loggedEthIp = ethIp;
     }
     int wifiNow = isWifiConnected() ? 1 : 0;

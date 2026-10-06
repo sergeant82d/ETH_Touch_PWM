@@ -1511,7 +1511,7 @@ function render30() {
 }
 
 const EV_TYPES = { BOOT: ["Boot", "var(--accent)"], CONFIG: ["Settings", "var(--warn)"], OVERRIDE: ["Override", "var(--error)"], OTA: ["Update", "var(--ok)"],
-  NET: ["Network", "var(--accent)"], MQTT: ["MQTT", "var(--accent)"], RESTART: ["Restart", "var(--warn)"], DISPLAY: ["Display", "var(--muted)"], SD: ["SD card", "var(--muted)"], TOUCH: ["Touch", "var(--muted)"] };
+  NET: ["Network", "var(--accent)"], MQTT: ["MQTT", "var(--accent)"], RESTART: ["Restart", "var(--warn)"], DISPLAY: ["Display", "var(--muted)"], SD: ["SD card", "var(--muted)"], TOUCH: ["Touch", "var(--muted)"], LOOP: ["Slow", "var(--warn)"] };
 function renderEvents() {
   const cats = ["All"].concat(Object.keys(EV_TYPES));
   $("#ev-filter").innerHTML = cats.map((c) => `<button type="button" class="btn ghost ${c === evFilter ? "on" : ""}" data-c="${c}">${c === "All" ? "All" : EV_TYPES[c][0]}</button>`).join("");

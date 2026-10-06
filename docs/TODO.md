@@ -56,6 +56,13 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Net]` `[Board]` More detail for the Ethernet-without-an-address item (your question):
+      NET events give link speed/duplex, time to address (~4.5 s on COM15), and on link down,
+      lease lost and every "no address" step the DHCP client state and the W5500's own link
+      register (`docs/BOARDS.md` says how to read them). Any loop() step over 5 s goes to the
+      event log as LOOP (History filter "Slow"). COM15: boots and a cable pull logged as
+      expected (Claude, user pulled the cable); the LOOP event and the "no address" lines
+      UNTESTED (need the fault) (2026-10-06, this commit)
 - [x] `[Net]` `[HA]` Audit, first batch (`docs/AUDIT_2026-10-06.md`): MQTT no longer reconnects
       when Ethernet returns, only once when the WiFi backup goes off (2.1); the MQTT event
       names the address the connection uses. Ethernet link without an address: DHCP

@@ -134,6 +134,14 @@ be broken by firmware:
     12 ... up to ~3 h in a row.
   - The W5500 Lite build runs the W5500 at 10 MHz (core default 20 MHz) since 2026-10-06,
     a test for the "no address" cases, all seen on that build.
+- **Ethernet details in NET events** (2026-10-06): link up with speed and duplex; address with
+  the time it took (normally ~4.5 s); link down, address lost with the link still up (= lease
+  lost, not the cable) and every "no address" step with the DHCP client state (running /
+  stopped / not started) and the W5500's own link register. "Not started" with the link up =
+  the driver never asked for an address; "running" = it asked and got no answer (router,
+  switch); the W5500 disagreeing with the driver = SPI trouble.
+- **Slow steps** (2026-10-06): a part of loop() taking over 5 s is logged as
+  `LOOP <part> took N s (last stage ...)` (History filter "Slow"); over 0.5 s only on serial.
 
 ## SD card files (both boards)
 

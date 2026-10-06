@@ -76,6 +76,7 @@ void sdLoggerMarkStage(const char* name) {
 }
 
 const char* heapLowStage() { return lowStage; }
+const char* sdLoggerStage() { return rtcSnapshot.stage; }
 
 static String resetReasonString() {
     switch (esp_reset_reason()) {
