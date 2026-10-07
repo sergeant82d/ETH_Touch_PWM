@@ -78,6 +78,20 @@ How this list works (agreed 2026-09-28):
         kept in mind: no SD access inside an open LCD transaction (1.1)
 - [ ] `[Web]` Network tab: rename the "Setup hotspot" card to "HotSpot password" (your note,
       2026-10-06)
+- [ ] `[LCD]` `[Decide]` Faster LCD drawing with DMA, as done in Wifi_Fan_Knob 2026-10-07
+      (`3d7311c`; how it's done: its `src/main.cpp` `display_flush()`, and
+      `D:\GitHub\VSCodeProjects\Wifi_Bench_Fan\Wifi_Fan_Knob\docs\PROJECT_HISTORY.md`,
+      "LCD swiping"). There, LVGL
+      redraws took 110-240 ms during a swipe; two 40-line buffers in internal DMA RAM sent with
+      LovyanGFX `pushImageDMA` (drawing the next part while the last is sent) fixed it.
+      Here it isn't a straight copy (Claude, 2026-10-07):
+      - This LCD is drawn directly with Adafruit_ST7789 (no LVGL, no DMA). The equivalent is
+        switching to LovyanGFX: draw into a buffer (sprite) in DMA RAM, push it by DMA. Same
+        screens, new drawing calls: a medium job; measure the redraw times first to see if it
+        is worth it (the flicker fixes of 2026-10-05 already cut redraws to what changed).
+      - The LCD shares its SPI bus with the SD card: end the LCD write (which waits for the
+        DMA) before every SD access (audit 1.1: no SD access inside an open LCD transaction).
+      (user asked for this note, 2026-10-07)
 
 ## Done
 
