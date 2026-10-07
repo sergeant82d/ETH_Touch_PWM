@@ -6,9 +6,18 @@ How this list works (agreed 2026-09-28):
   the notes are turned into items below and this list is condensed.
 - **Open**: oldest first. **Done**: newest first, with date and commit. Done items older than
   about two weeks move to `docs/TODO_DONE.md`.
-- Tags: `[Board]` needs a board on the bench, `[LCD]` Touch-LCD-2 screen, `[Web]` web page,
-  `[HA]` Home Assistant / MQTT, `[Net]` Ethernet / WiFi, `[SD]` SD card, `[Docs]`,
-  `[Decide]` needs a decision, `[Question]` needs an answer.
+- Tags (alphabetical; the same set in every project, copy one into an item):
+  - `[Board]` needs a board on the bench
+  - `[Decide]` needs a decision
+  - `[Docs]` documentation
+  - `[Eye]` screensaver / standby eye (Wifi_Fan_Knob)
+  - `[HA]` Home Assistant / MQTT
+  - `[LCD]` Touch-LCD-2 screen
+  - `[Net]` Ethernet / WiFi
+  - `[Question]` needs an answer
+  - `[SD]` SD card
+  - `[Sensor]` air, light and presence sensors (Wifi_Fan_Knob)
+  - `[Web]` web page
 
 ## Your notes
 

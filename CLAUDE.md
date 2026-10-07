@@ -32,6 +32,9 @@ status reports, Windows/PlatformIO build) are in the user's global `~/.claude/CL
 
 ## Web page
 
+- All projects follow one web standard: `D:\GitHub\WEB_STYLE.md` (layout, tab names, colours,
+  components, rules; agreed 2026-10-07). This page is its reference implementation, so a change
+  to the shared look here goes into that file too.
 - `web/index.html` (HTML + CSS + JS in one file) is compiled into the firmware; `src/web_server.cpp`
   serves it and the JSON API. Don't build HTML with `client.print` again.
 - Colours are CSS variables; the preset themes (NUT, Navy & gold, Classic dark, Classic light)
