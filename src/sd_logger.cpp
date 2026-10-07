@@ -10,6 +10,7 @@
 #include <LittleFS.h>
 #include <TimeLib.h>
 #include <esp_system.h>
+#include <esp_core_dump.h>
 
 // ============================================================
 // RTC_NOINIT_ATTR last-known-state snapshot
@@ -529,6 +530,32 @@ void sdLoggerInit() {
         desc += " heap=" + String(rtcSnapshot.freeHeap) + " minHeap=" + String(rtcSnapshot.minFreeHeap) + " during " + String(rtcSnapshot.lowStage);
     } else {
         desc += " | no prior state available (cold boot or RTC memory invalid)";
+    }
+
+    // After a crash or watchdog: the task and code addresses from the crash dump
+    // in flash (2026-10-07: a TASK_WDT "stage=probe" was really the W5500 driver's
+    // task starving loop(); the stage alone can't say that). Decode the addresses
+    // with the firmware.elf of that build (docs/BOARDS.md); the full dump stays
+    // in flash for esp-coredump.
+    esp_reset_reason_t rr = esp_reset_reason();
+    if (rr == ESP_RST_PANIC || rr == ESP_RST_INT_WDT || rr == ESP_RST_TASK_WDT || rr == ESP_RST_WDT) {
+        esp_core_dump_summary_t *sum = (esp_core_dump_summary_t *)malloc(sizeof(esp_core_dump_summary_t));
+        if (sum && esp_core_dump_get_summary(sum) == ESP_OK) {
+            sum->exc_task[sizeof(sum->exc_task) - 1] = '\0';
+            char buf[24];
+            desc += " | crash: task=" + String(sum->exc_task[0] ? sum->exc_task : "?");
+            snprintf(buf, sizeof(buf), " pc=0x%08lx bt=", (unsigned long)sum->exc_pc);
+            desc += buf;
+            uint32_t depth = min(sum->exc_bt_info.depth, (uint32_t)8);
+            for (uint32_t i = 0; i < depth; i++) {
+                snprintf(buf, sizeof(buf), "%s0x%08lx", i ? " " : "", (unsigned long)sum->exc_bt_info.bt[i]);
+                desc += buf;
+            }
+            if (sum->exc_bt_info.corrupted) desc += " (corrupted)";
+        } else {
+            desc += " | crash: no dump in flash";
+        }
+        free(sum);
     }
 
     Serial.print("Boot event: "); Serial.println(desc);

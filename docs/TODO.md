@@ -22,15 +22,29 @@ How this list works (agreed 2026-09-28):
       05:05:16; no web, no HA) until the reset button at 09:52; no crash was logged, so it hung.
       Cause unknown. Since `b91c006` a 30 s watchdog restarts it; if a BOOT event with
       `reason=TASK_WDT` appears in the event log, its `stage=` names the stuck part of loop()
-      and `heap=`/`minHeap=` the memory just before (2026-10-05)
+      and `heap=`/`minHeap=` the memory just before (2026-10-05). 2026-10-07: likely found.
+      Watchdog restarts 2026-10-06 10:50 (`stage=loop`) and 16:45 (`stage=probe`); the 16:45
+      crash dump shows the W5500 driver's receive task (priority 15) looping on SPI reads of
+      the chip and starving loop(). Its loop only ends when the W5500 answers sensibly, so
+      garbage from the module hangs it (core code, can't be changed here; the watchdog
+      recovers in 30 s). Same suspect as the Ethernet item below. BOOT events now carry the
+      crash task and addresses, to confirm the next one
 - [ ] `[Net]` Reopened 2026-10-06: Ethernet without an address after a drop, now on COM15 too.
       2026-10-06 05:57 the board told HA "offline" (HA and Mosquitto logs clean, so the board
       decided it had no network) and stayed off MQTT 73 min until a restart; it kept running
       and logging. Same as COM9 on 2026-09-29. The NET events (this commit) will show link /
       address changes; then: restart DHCP, then the W5500, when the link is up with no
       address. Since the audit commit: DHCP restarted after 20 s and every 3 min, board
-      restart (backed off) without WiFi; the W5500 Lite runs at 10 MHz as a test. UNTESTED:
-      close when it has recurred and healed, or after a quiet stretch
+      restart (backed off) without WiFi; the W5500 Lite runs at 10 MHz as a test.
+      2026-10-07: **cause found.** 2026-10-06 18:04:47 the link dropped for 2 s, then 17 h
+      on WiFi without an Ethernet address (343 DHCP restarts, no answer; the router gave .223
+      to another device, the board is now .229). The W5500's link register read `0xBF`: the
+      chip had reset itself and lost its setup. Now detected and the board restarts (this
+      commit). Suspect: the W5500 Lite's power or jumper wiring (10 MHz didn't help).
+      `[Board]` For you: check its 3.3 V feed (short, thick wires; ~100 uF + 100 nF at the
+      module), shorten the SPI jumpers; DHCP reservation for `2E:84:85:87:E0:D5` (Ethernet)
+      and `28:84:85:87:E0:D4` (WiFi) on the router (recommended over a static address).
+      Close after a quiet stretch
 - [ ] `[Board]` `[HA]` 2026-10-06 03:15: the watchdog caught a hang in the network step
       (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
       unavailable 03:15:50, back 03:16:17). The finer stage names (`net:...`, `mqtt:...`) will
@@ -43,7 +57,9 @@ How this list works (agreed 2026-09-28):
   - [ ] `[SD]` All-time record and daily rollups: temp file + rename; ignore a file without
         its `ALL,` row (3.3)
   - [ ] `[HA]` MQTT reply wait 2 s; a failed publish closes the connection, but not for a
-        message too big for the buffer (the audit's sketch would reconnect-loop) (4.1)
+        message too big for the buffer (the audit's sketch would reconnect-loop) (4.1).
+        Done 2026-10-07: Nagle off on the MQTT connection (first connect held loop() 8.9 s;
+        2.6 s after, one boot) and a "discovery sent in N s" event to watch it
   - [ ] `[Board]` `[SD]` Measure how long a no-card mount retry blocks before changing it (3.4)
   - [ ] `[Web]` Web request limits: overall header deadline, line length cap, short writes in
         downloads (5.1)
@@ -56,6 +72,13 @@ How this list works (agreed 2026-09-28):
 
 ## Done
 
+- [x] `[Net]` `[Board]` Event log analysis 2026-10-07 and fixes: a W5500 that reset itself is
+      detected (link register OPSEL bit clear on two reads) and restarts the board, WiFi or
+      not; BOOT events after a crash or watchdog name the task and code addresses from the
+      crash dump in flash (`docs/BOARDS.md` says how to decode them); MQTT sends without
+      Nagle delay. COM15: boots, Ethernet, MQTT, discovery 2.6 s (Claude). UNTESTED: the W5500
+      restart and the crash line (need the faults); the other two builds (compile)
+      (2026-10-07, this commit)
 - [x] `[Docs]` Status report 05; your note turned into an item (2026-10-06, this commit)
 - [x] `[Net]` `[Board]` More detail for the Ethernet-without-an-address item (your question):
       NET events give link speed/duplex, time to address (~4.5 s on COM15), and on link down,

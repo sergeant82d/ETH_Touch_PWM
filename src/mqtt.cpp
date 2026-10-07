@@ -412,6 +412,10 @@ static void tryConnect() {
         return;
     }
     lastConnectState = MQTT_CONNECTED;
+    // Send each small message at once, not held back until the last one is
+    // acknowledged (Nagle). The first connect after boot sends ~30 discovery
+    // messages and held loop() 8.9 s on 2026-10-07, 21 s on 2026-10-06 (audit 4.1)
+    net.setNoDelay(true);
     Serial.print("MQTT: connected to "); Serial.print(config.mqttBroker);
     Serial.print(" as "); Serial.println(activeNode);
     // The board's address actually used (both networks share one subnet, audit 2.1)
@@ -423,8 +427,10 @@ static void tryConnect() {
     // reconnect used to resend ~30 messages, holding loop() up ~2 s.
     String announce = activeNode + "/" + String(config.fanCount);
     if (announce != announcedFor) {
+        unsigned long t0 = millis();
         publishDiscovery(activeNode, false);
         announcedFor = announce;
+        sdLogEvent("MQTT", "discovery sent in " + String((millis() - t0) / 1000.0, 1) + " s");
     }
     mqtt.subscribe((activeNode + "/+/set").c_str());
     mqtt.subscribe("homeassistant/status");

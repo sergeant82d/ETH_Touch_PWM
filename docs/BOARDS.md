@@ -124,6 +124,17 @@ be broken by firmware:
   `reason=TASK_WDT ... stage=mqtt` = stuck in MQTT for 30 s. The reset button and power-up
   read `POWERON` (no state). Opening the USB serial port can reset the board (`reason=USB`);
   a reader that sets DTR and RTS low before opening doesn't.
+- **The stage can mislead** (2026-10-07): a watchdog restart only says loop() didn't come
+  round, and a higher-priority task hogging its core (the W5500 driver, priority 15) starves
+  it in whatever stage it was. After a crash or watchdog restart the BOOT event therefore adds
+  `crash: task=... pc=... bt=...` from the crash dump the firmware keeps in flash (the
+  `coredump` partition, last crash only). Turn the addresses into function names with the
+  `firmware.elf` of the build that crashed (`.pio/build/<env>/`, so commit before flashing):
+  `~/.platformio/packages/toolchain-xtensa-esp-elf/bin/xtensa-esp32s3-elf-addr2line -pfiaC -e
+  firmware.elf 0x42031f3a 0x42004936`. The whole dump, all tasks: `esptool --chip esp32s3
+  --port COMx read_flash 0xFF0000 0x10000 core.bin` (resets the board), then
+  `esp-coredump info_corefile --core core.bin --core-format raw firmware.elf` (both in
+  `~/.platformio/penv/Scripts`).
 - **Self-heal** (2026-10-06, both logged as `RESTART source=self-heal` with the reason; the
   NET and MQTT events before it show what went wrong):
   - MQTT set up, Ethernet or WiFi working, but MQTT not connected for 15 minutes = restart.
@@ -132,14 +143,21 @@ be broken by firmware:
   - Ethernet link up but no address (DHCP): the DHCP request is restarted after 20 s and
     every 3 min. If WiFi isn't carrying the traffic, the board restarts after 3 min, then 6,
     12 ... up to ~3 h in a row.
+  - The W5500 reset by itself (2026-10-07): its link register reads with bit 6 (OPSEL)
+    clear, which the driver always sets at start (`PHYCFGR 0xBF` up, `0xB8` down; normal
+    `0xFF` / `0xF8`). Everything the driver set up in the chip is gone, so nothing is
+    received and DHCP restarts can't help. Seen on two reads 10 s apart, the board restarts
+    after 20 s, WiFi or not (in a row: 40 s, 80 s ... up to ~21 min).
   - The W5500 Lite build runs the W5500 at 10 MHz (core default 20 MHz) since 2026-10-06,
-    a test for the "no address" cases, all seen on that build.
+    a test for the "no address" cases, all seen on that build. It didn't stop them
+    (2026-10-06 16:45 and 18:04); the suspect is the module's power or jumper wiring.
 - **Ethernet details in NET events** (2026-10-06): link up with speed and duplex; address with
   the time it took (normally ~4.5 s); link down, address lost with the link still up (= lease
   lost, not the cable) and every "no address" step with the DHCP client state (running /
   stopped / not started) and the W5500's own link register. "Not started" with the link up =
   the driver never asked for an address; "running" = it asked and got no answer (router,
-  switch); the W5500 disagreeing with the driver = SPI trouble.
+  switch, or a W5500 that reset itself: `PHYCFGR 0xB?`, see above); the W5500 disagreeing
+  with the driver = SPI trouble.
 - **Slow steps** (2026-10-06): a part of loop() taking over 5 s is logged as
   `LOOP <part> took N s (last stage ...)` (History filter "Slow"); over 0.5 s only on serial.
 

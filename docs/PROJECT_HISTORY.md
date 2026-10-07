@@ -209,5 +209,13 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   when it polls (MQTT's first connect sends ~30 discovery messages, 3 s).
 - 2026-10-06: LCD top-bar icons (1-bit, 16 x 16, `drawBitmap()`), no LVGL needed; the design
   note is `docs/LCD_DESIGN.md`.
+- 2026-10-07: **The W5500 Lite resets itself / talks garbage.** 18:04 a 2 s link drop left
+  17 h without an address: PHYCFGR read `0xBF`, OPSEL clear = the chip's power-on value, its
+  whole setup lost. 16:45 a watchdog restart `stage=probe` was really the W5500 driver's
+  receive task (priority 15) looping on SPI reads (`w5500_get_rx_received_size` reads until
+  two reads agree) and starving loop(). Found with the crash dump the core keeps in flash
+  (`coredump` partition, on by default in the Arduino core); `esp_core_dump_get_summary()`
+  now puts it in the BOOT event. A lease not renewed for hours lets the router give the
+  address away.
 
 Open items: `docs/TODO.md`.

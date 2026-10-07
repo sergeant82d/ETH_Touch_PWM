@@ -322,13 +322,18 @@ IPAddress localIP() {
 // For the "link up, no address" events (2026-10-06): did the board ask (DHCP
 // client state), and does the W5500 itself agree about the link (its PHYCFGR
 // register, read over SPI; a mismatch with the driver points at the SPI wiring)
+static bool readPhycfgr(uint32_t &phy) {
+    phy = 0;
+    esp_eth_phy_reg_rw_data_t rw = { .reg_addr = 0x002EUL << 16, .reg_value_p = &phy }; // W5500 PHYCFGR
+    return esp_eth_ioctl(ETH.handle(), ETH_CMD_READ_PHY_REG, &rw) == ESP_OK;
+}
+
 static String ethDiag() {
     esp_netif_dhcp_status_t st = ESP_NETIF_DHCP_INIT;
     esp_netif_dhcpc_get_status(ETH.netif(), &st);
     String s = String("DHCP client ") + (st == ESP_NETIF_DHCP_STARTED ? "running" : st == ESP_NETIF_DHCP_STOPPED ? "stopped" : "not started");
     uint32_t phy = 0;
-    esp_eth_phy_reg_rw_data_t rw = { .reg_addr = 0x002EUL << 16, .reg_value_p = &phy }; // W5500 PHYCFGR
-    if (esp_eth_ioctl(ETH.handle(), ETH_CMD_READ_PHY_REG, &rw) == ESP_OK) {
+    if (readPhycfgr(phy)) {
         char buf[64];
         snprintf(buf, sizeof(buf), "; W5500 says link %s (PHYCFGR 0x%02X)",
                  !(phy & 1) ? "down" : (phy & 2) ? ((phy & 4) ? "up, 100 Mbps full" : "up, 100 Mbps half")
@@ -386,6 +391,30 @@ static void ethNoAddressCheck(unsigned long now) {
     }
 }
 
+// The W5500 reset itself (COM15 2026-10-06 18:04: link back after 2 s, then 17 h
+// without an address on WiFi). Its PHYCFGR then reads the chip's power-on value
+// with OPSEL (bit 6) clear; the driver always sets it at start. Everything the
+// driver set up (MAC address, receive socket, interrupts) is gone, so nothing
+// arrives and DHCP restarts can't help. Only a fresh start fixes it: restart the
+// board, WiFi or not. Seen on two reads 10 s apart (one garbled read is not
+// enough), then after 20 s, 40 s ... up to ~21 min in a row (ethHealCount).
+static void w5500ResetCheck(unsigned long now) {
+    static unsigned long lastMs = 0, seenSince = 0;
+    if (!ethPresent || now - lastMs < 10000) return;
+    lastMs = now;
+    uint32_t phy;
+    if (!isEthernetConnected() || !readPhycfgr(phy) || (phy & 0x40)) { seenSince = 0; return; }
+    if (seenSince == 0) { seenSince = now; return; }
+    if (now - seenSince < (20000UL << min(ethHealCount, (uint32_t)6))) return;
+    ethHealCount++;
+    sdLogEvent("RESTART", "source=self-heal W5500 reset by itself, its settings lost (" + ethDiag() + "; " +
+                          String(ethHealCount) + " in a row)");
+    delay(500);
+    LittleFS.end();
+    delay(200);
+    ESP.restart();
+}
+
 void networkLoop() {
     static unsigned long lastRun = 0;
     if (millis() - lastRun < 500) return;
@@ -424,6 +453,7 @@ void networkLoop() {
 
     bool ethUp = isEthernetConnected() && ETH.hasIP();
     ethNoAddressCheck(now);
+    w5500ResetCheck(now);
     if (ethUp && !lastEthUp) ethUpSince = now;
     if (ethUp) ethEverUp = true;
     if (!ethUp && lastEthUp) ethDownSince = now;
