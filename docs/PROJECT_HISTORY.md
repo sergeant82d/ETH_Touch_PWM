@@ -217,5 +217,14 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   (`coredump` partition, on by default in the Arduino core); `esp_core_dump_get_summary()`
   now puts it in the BOOT event. A lease not renewed for hours lets the router give the
   address away.
+- 2026-10-07: **MQTT with Nagle off** (`net.setNoDelay(true)` after connect, `mqtt.cpp`).
+  TCP's Nagle algorithm holds back a small message while an earlier one is still waiting for
+  its acknowledgement, to bundle it with the next. The broker delays its acknowledgements on
+  purpose (tens to hundreds of ms, hoping to piggyback them on a reply), so each side waits
+  for the other. After every connect the board sends ~30 small discovery messages in a row,
+  each waiting its turn: 8.9 s (21 s once), with loop() stuck in the send, so LCD, touch and
+  web stalled (fans not: PWM is hardware). With Nagle off each message goes out at once; the
+  cost, a few more small packets, is nothing on a LAN. Discovery 2.6 s on the first boot,
+  0.1 s on the two since (COM15, 2026-10-07; timed in the `discovery sent in` MQTT event).
 
 Open items: `docs/TODO.md`.
