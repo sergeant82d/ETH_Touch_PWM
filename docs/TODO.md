@@ -111,6 +111,11 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[Web]` Card titles in Title Case on every tab (your request, 2026-10-08), e.g. `Fan Curve`,
+      `Backup WiFi Network`, `Firmware Update (OTA)`, the login dialog `Log In`; field labels,
+      hints and buttons stay in sentence case. Rule added to `D:\GitHub\WEB_STYLE.md`
+      (section 5). COM15: checked by the user. UNTESTED: the other two builds (2026-10-08,
+      this commit)
 - [x] `[Web]` Network tab: the "Setup hotspot" card is now "HotSpot password" (your note,
       2026-10-06). COM15 serves it (Claude). UNTESTED: your look at the page (2026-10-08,
       this commit)

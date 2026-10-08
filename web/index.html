@@ -283,7 +283,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
             restarts: afterwards rejoin your normal network (or the WiFi you enter below), then open the address shown.</div>
         </div>
         <div class="panel">
-          <h2>1. Name and login</h2>
+          <h2>1. Name and Login</h2>
           <div class="form">
             <div class="field"><label for="su-node">Controller name</label>
               <input type="text" id="su-node" maxlength="63" pattern="[A-Za-z0-9_\-]+" title="Letters, digits, _ and - only" required></div>
@@ -298,7 +298,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
           <div class="hint">The login is needed for every change later; viewing needs none. Forgotten: the settings have to be erased over USB.</div>
         </div>
         <div class="panel">
-          <h2>2. Network and time</h2>
+          <h2>2. Network and Time</h2>
           <div class="field"><span class="label">Ethernet address</span>
             <div class="radios"><label><input type="radio" name="su-eth" value="dhcp" checked> Automatic (DHCP)</label><label><input type="radio" name="su-eth" value="static"> Static</label></div></div>
           <div class="form" id="su-static" hidden>
@@ -333,7 +333,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
           <div class="hint">The fan curve (where the fans start and reach full speed) is on the Fan Control tab.</div>
         </div>
         <div class="panel">
-          <h2>4. Home Assistant (optional)</h2>
+          <h2>4. Home Assistant (Optional)</h2>
           <div class="radios"><label><input type="checkbox" id="su-usemqtt"> Use Home Assistant (MQTT)</label></div>
           <div id="su-mqtt" hidden>
             <div class="form">
@@ -366,14 +366,14 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       </div>
       <div class="grid" id="fan-cards"></div>
       <div class="panel" id="lcd-panel">
-        <h2>LCD view</h2>
+        <h2>LCD View</h2>
         <canvas id="lcd-view" class="lcd-view" width="960" height="720"></canvas>
         <div class="hint">The Touch-LCD-2 screen layout, drawn here from this controller's live values (fonts are close, not exact).</div>
         <div class="actions" id="lcd-power-row" hidden><button class="btn ghost" id="lcd-power">Turn the LCD off</button><span class="msg" id="lcd-power-msg"></span></div>
         <div class="hint" id="lcd-power-hint" hidden>Standby turns off the backlight only; the controller keeps running. Pressing the screen for 1 second, or Home Assistant ("LCD display"), turns it back on.</div>
       </div>
       <div class="panel" id="ovr-panel">
-        <h2>Manual override</h2>
+        <h2>Manual Override</h2>
         <button class="btn override-btn" id="ovr-btn">Manual override: off (tap to turn on)</button>
         <div class="slider-row" id="ovr-row" hidden>
           <button type="button" class="btn ghost step-btn" id="ovr-minus" aria-label="Slower">&minus;</button>
@@ -415,7 +415,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         <div class="hint">One reading a minute from the SD card; hover (or touch) a chart for the values. Dashed lines: fan curve start and top (today's settings). Fan duty and override are logged since 2026-09-28.</div>
       </div>
       <div class="panel">
-        <h2>Last 30 days</h2>
+        <h2>Last 30 Days</h2>
         <div class="hint" id="hist30-empty" hidden>No daily data yet: the rollup is written at midnight.</div>
         <div id="hist30-charts">
         <div class="chart-wrap"><canvas id="hist30-temp"></canvas><div class="chart-tip"></div></div>
@@ -426,7 +426,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
         </div>
       </div>
       <div class="panel">
-        <h2>All-time records</h2>
+        <h2>All-Time Records</h2>
         <div class="records" id="records"></div>
       </div>
       <div class="panel">
@@ -451,13 +451,13 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
     <!-- ===== Fan Control ===== -->
     <section class="page" id="page-fans">
       <form class="panel" id="form-fans">
-        <h2>Fan channels</h2>
+        <h2>Fan Channels</h2>
         <table class="fan-table">
           <thead><tr><th>Use</th><th>Channel</th><th>PWM pin</th><th>Tach pin</th><th>Speed</th><th>Offset vs fan 1</th></tr></thead>
           <tbody id="fan-rows"></tbody>
         </table>
         <div class="hint" style="margin: -8px 0 18px">Offset: each other fan is held at fan 1's speed plus or minus this many RPM (10 RPM steps, up to 500), by adjusting its own speed a little every second. Needs both fans' tach wires; not used at full speed in the failsafe, or while fan 1 is off. Saved with the Save button below.<br>Tick the fans that are connected, in order: the next channel becomes available once the one before it is ticked; only the last ticked one can be unticked. Grey = not available (or not wired on this board).</div>
-        <h2>Fan curve</h2>
+        <h2>Fan Curve</h2>
         <div class="form">
           <div class="field"><span class="label">Temperature unit (web page and LCD)</span>
             <div class="radios"><label><input type="radio" name="unit" value="C"> Celsius</label><label><input type="radio" name="unit" value="F"> Fahrenheit</label></div></div>
@@ -496,7 +496,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       </div>
 
       <form class="panel" id="form-net">
-        <h2>Ethernet address</h2>
+        <h2>Ethernet Address</h2>
         <div class="radios"><label><input type="radio" name="ethMode" value="dhcp"> Automatic (DHCP)</label><label><input type="radio" name="ethMode" value="static"> Static</label></div>
         <div class="form" id="eth-static">
           <div class="field"><label for="ip">IP address</label><input type="text" id="ip"></div>
@@ -509,7 +509,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       </form>
 
       <form class="panel" id="form-wifi">
-        <h2>Backup WiFi network</h2>
+        <h2>Backup WiFi Network</h2>
         <div class="form">
           <div class="field"><label for="wifiSsid">SSID</label><input type="text" id="wifiSsid" maxlength="32" required></div>
           <div class="field"><label for="wifiPass">Password</label><input type="password" id="wifiPass" maxlength="63" autocomplete="new-password"></div>
@@ -525,7 +525,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       </form>
 
       <form class="panel" id="form-wifi-addr">
-        <h2>WiFi address</h2>
+        <h2>WiFi Address</h2>
         <div class="radios"><label><input type="radio" name="wifiMode" value="dhcp"> Automatic (DHCP)</label><label><input type="radio" name="wifiMode" value="static"> Static</label></div>
         <div class="form" id="wifi-static" hidden>
           <div class="field"><label for="wifiIp">IP address</label><input type="text" id="wifiIp"></div>
@@ -538,7 +538,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       </form>
 
       <form class="panel" id="form-hotspot">
-        <h2>HotSpot password</h2>
+        <h2>HotSpot Password</h2>
         <div class="hint" id="hotspot-state" style="margin-bottom: 12px"></div>
         <div class="form">
           <div class="field"><label for="apPass">New hotspot password (8-63 characters)</label><input type="password" id="apPass" minlength="8" maxlength="63" required autocomplete="new-password"></div>
@@ -586,7 +586,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       </form>
 
       <div class="panel">
-        <h2>Firmware update (OTA)</h2>
+        <h2>Firmware Update (OTA)</h2>
         <label class="drop" id="ota-drop"><input type="file" id="ota-file" accept=".bin" hidden><span id="ota-drop-text">Drop firmware.bin here, or click to choose</span></label>
         <div class="hint">Use <code>.pio/build/&lt;board&gt;/firmware.bin</code>. The controller refuses firmware built for the other board, then restarts with the new one (about 30 s). Settings are kept.</div>
         <progress id="ota-progress" value="0" max="100" hidden></progress>
@@ -594,7 +594,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       </div>
 
       <form class="panel" id="form-hostname">
-        <h2>Device name</h2>
+        <h2>Device Name</h2>
         <div class="form">
           <div class="field"><label for="hostname">Name (letters, digits, hyphens)</label>
             <input type="text" id="hostname" maxlength="31" pattern="[A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?"></div>
@@ -604,7 +604,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       </form>
 
       <form class="panel" id="form-login">
-        <h2>Web login</h2>
+        <h2>Web Login</h2>
         <div class="hint" id="login-state" style="margin-bottom: 12px"></div>
         <div class="form">
           <div class="field"><label for="newUser">User name</label><input type="text" id="newUser" maxlength="31" pattern="[A-Za-z0-9._\-]+" required autocomplete="username"></div>
@@ -625,7 +625,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       </form>
 
       <form class="panel" id="form-reset">
-        <h2>Factory reset</h2>
+        <h2>Factory Reset</h2>
         <div class="hint" style="margin-bottom: 12px">All settings go back to the factory values: login, name, MQTT, network (DHCP),
           WiFi, fans, fan curve, time zone. The controller restarts into the Setup page; find it by the IP on its LCD or in
           your router, or at <b>http://fancontroller-xx.local</b>. The theme, the notes and the SD card logs are kept.</div>
@@ -640,7 +640,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
 
 <dialog id="login-dialog">
   <form method="dialog" id="login-form">
-    <h2>Log in</h2>
+    <h2>Log In</h2>
     <div class="field"><label for="loginUser">User name</label><input type="text" id="loginUser" autocomplete="username" required></div>
     <div class="field"><label for="loginPass">Password</label><input type="password" id="loginPass" autocomplete="current-password" required></div>
     <div class="msg bad" id="login-msg"></div>
