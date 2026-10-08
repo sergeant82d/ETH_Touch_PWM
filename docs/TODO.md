@@ -73,9 +73,6 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       say which call next time
 - [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
       agreed with the user 2026-10-06:
-  - [ ] `[SD]` `[HA]` Day's hi/lo kept through a restart, rollup not skipped over midnight (3.6)
-  - [ ] `[SD]` All-time record and daily rollups: temp file + rename; ignore a file without
-        its `ALL,` row (3.3)
   - [ ] `[HA]` MQTT reply wait 2 s; a failed publish closes the connection, but not for a
         message too big for the buffer (the audit's sketch would reconnect-loop) (4.1).
         Done 2026-10-07: Nagle off on the MQTT connection (first connect held loop() 8.9 s;
@@ -109,6 +106,26 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[SD]` Audit 3.3 + no more 30-day purge (your decision, 2026-10-08): `daily.csv` keeps
+      every day (~30 KB a year), so it is only ever appended to (checked, 3.1). The all-time
+      record is worked out again from all of `daily.csv` (at boot, card in, new day) instead
+      of read-merge-write, and written to `alltime.tmp`, then swapped in: a power cut leaves
+      the old record or none, and a missing or damaged one mends itself on the next pass
+      (covers the audit's "no `ALL,` row"). History tab reads only the last 4 KB of
+      `daily.csv`. COM15: record rebuilt at boot, same values, no temp file left (Claude).
+      To do next session: replace `daily.csv` with every day from 2026-09-27 recalculated from
+      the minute logs (your choice; fan 2's 6083/6180 RPM glitches on 09-29 left out).
+      History tab checked by the user. UNTESTED: the swap failing partway; the other two
+      builds (compile) (2026-10-08, this commit)
+- [x] `[SD]` `[HA]` Audit 3.6: the day's highs and lows (the "Summary of the day" on the card
+      and in HA) are kept in RTC memory through any restart but a power cut, with the date
+      they belong to; a restart over midnight still closes the old day, labelled with its
+      own date (was "now - 12 h"). The day change is now checked before the minute row, so
+      the new day's first row no longer counts in the old day. BOOT events say `day ...
+      hi/lo kept` or `start over`. COM15: restart from HA kept them (`day 20261008 hi/lo
+      kept: local 30.8-30.9C`) (Claude). UNTESTED: the midnight rollover with this build
+      (tonight: 2026-10-08's row covers only from 16:37, the flash); a restart across
+      midnight; the other two builds (compile) (2026-10-08, this commit)
 - [x] `[SD]` Audit 3.1 + 3.2: row and event writes go through the C file calls, which report
       every step (the Arduino File layer ignored its final flush, so a write to a card that
       was gone counted as done); a failed write marks the card missing and the row goes to

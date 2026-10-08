@@ -123,6 +123,9 @@ be broken by firmware:
   dashboard, web, network, mqtt, touch, sd, loop, setup; inside those since 2026-10-06
   `net:wifi+`, `net:wifi-`, `net:ap+`, `net:ap-`, `net:dns`, `net:dhcp`, `mqtt:conn`,
   `mqtt:loop`, `mqtt:pub`, and `sd:write` for any SD card write) and `heap=` / `minHeap=`.
+  Since 2026-10-08 it ends with `day 20261008 hi/lo kept: local 28.4-31.0C` (the day's
+  highs and lows, for the "Summary of the day", carried over the restart) or `day hi/lo
+  start over` (cold boot, or the first boot of a build that changed their layout).
   `reason=TASK_WDT ... stage=mqtt` = stuck in MQTT for 30 s. The reset button and power-up
   read `POWERON` (no state). Opening the USB serial port can reset the board (`reason=USB`);
   a reader that sets DTR and RTS low before opening doesn't.
@@ -171,8 +174,8 @@ adds it to older files). The web page's History tab reads them (`/api/history/..
 | File | Row |
 |---|---|
 | `/logs/YYYY-MM.csv` | every minute: `timestamp, local, network, blended` (°C; empty = probe failed, since 2026-09-28), `fan 1 RPM, fan 2 RPM`, then since 2026-09-28 `fan duty %, override (1/0)` |
-| `/rollups/daily.csv` | per day (30 days kept): `date, local min/max, network min/max, blended min/max, fan 1 min/max, fan 2 min/max` |
-| `/rollups/alltime.csv` | one row `ALL, ...`: the all-time highs and lows, same columns |
+| `/rollups/daily.csv` | per day, every day kept (cut to 30 days until 2026-10-08): `date, local min/max, network min/max, blended min/max, fan 1 min/max, fan 2 min/max` |
+| `/rollups/alltime.csv` | one row `ALL, ...`: the all-time highs and lows, same columns. Worked out again from all of `daily.csv` at boot, when a card goes in and after each new day, so editing `daily.csv` on a PC (or deleting this file) is fine |
 | `/events.csv` | `timestamp, category, description`: BOOT, CONFIG, OVERRIDE, OTA, DISPLAY, RESTART, SD, NET (Ethernet link/address, WiFi, hotspot, network in use), MQTT (connected, lost, failed, network temperature, HA status) |
 
 Without a card, rows go to an internal buffer (LittleFS, 200 KB) and are written into the

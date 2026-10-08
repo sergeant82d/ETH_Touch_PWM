@@ -1525,7 +1525,7 @@ function renderEvents() {
 
 async function loadHistory30() {
   try {
-    const [daily, all, ev] = DEMO ? demo30() : await Promise.all([fetchCsv("/rollups/daily.csv"), fetchCsv("/rollups/alltime.csv"), fetchCsv("/events.csv", 24000)]);
+    const [daily, all, ev] = DEMO ? demo30() : await Promise.all([fetchCsv("/rollups/daily.csv", 4000), fetchCsv("/rollups/alltime.csv"), fetchCsv("/events.csv", 24000)]);
     dailyRows = parseDaily(daily);
     const a = CSV_ROWS(all).find((l) => l.startsWith("ALL,"));
     allTime = a ? parseDaily(a.replace(/^ALL/, "0000-00-00"))[0] : null;

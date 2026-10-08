@@ -177,23 +177,26 @@ String csvHeaderFor(const String &path) {
     return "";
 }
 
-// Appends text to an SD file; a new file starts with its column names. True
-// only if it reached the card. The Arduino File layer ignores the result of
-// its final flush, so f.print() + f.close() "succeeded" on a card that was
-// gone (audit 3.1); the C calls report every step. SD.begin() mounts at /sd.
+// Writes text to an SD file ("a" appends, "w" replaces). True only if it
+// reached the card. The Arduino File layer ignores the result of its final
+// flush, so f.print() + f.close() "succeeded" on a card that was gone
+// (audit 3.1); the C calls report every step. SD.begin() mounts at /sd.
 // Parent folders must exist (made at mount).
-static bool sdAppendChecked(const String &path, const String &text) {
-    String header = SD.exists(path) ? String() : csvHeaderFor(path);
+static bool sdWriteChecked(const String &path, const char* mode, const String &text) {
     String full = "/sd" + path;
-    FILE* fp = fopen(full.c_str(), "a");
+    FILE* fp = fopen(full.c_str(), mode);
     if (!fp) return false;
-    bool ok = true;
-    if (header.length()) ok = fputs(header.c_str(), fp) >= 0 && fputc('\n', fp) != EOF;
-    ok = ok && fwrite(text.c_str(), 1, text.length(), fp) == text.length();
+    bool ok = fwrite(text.c_str(), 1, text.length(), fp) == text.length();
     ok = fflush(fp) == 0 && ok;          // C buffer -> FAT layer
     ok = fsync(fileno(fp)) == 0 && ok;   // FAT layer -> card
     ok = fclose(fp) == 0 && ok;
     return ok;
+}
+
+// Appends to an SD file; a new file starts with its column names
+static bool sdAppendChecked(const String &path, const String &text) {
+    String header = SD.exists(path) ? String() : csvHeaderFor(path);
+    return sdWriteChecked(path, "a", header.length() ? header + "\n" + text : text);
 }
 
 // The card stopped taking writes: pulled out or failing. The 15 s retry in
@@ -327,16 +330,31 @@ struct DailyExtremes {
     bool anySample;
 };
 
-static DailyExtremes today;
-static int lastLoggedDay = -1;
+// Kept in RTC memory through restarts (OTA, settings, watchdog, self-heal), so
+// the day's summary covers the whole day and a restart over midnight still
+// closes the old day (audit 3.6). Lost on a power cut, like rtcSnapshot.
+// Magic and date sit with the values, so a build that moves them can't
+// misread them. Change DAILY_MAGIC whenever this layout changes.
+struct DailyRtc {
+    uint32_t magic;
+    uint32_t dateKey;          // yyyymmdd the values belong to, 0 = no day yet
+    DailyExtremes ext;
+};
+static const uint32_t DAILY_MAGIC = 0xDA11E001;
+RTC_NOINIT_ATTR static DailyRtc dailyRtc;
+static DailyExtremes &today = dailyRtc.ext;
 
-static void resetDailyExtremes() {
-    today.localMin = today.netMin = today.blendMin = 1e6;
-    today.localMax = today.netMax = today.blendMax = -1e6;
-    today.fan1Min = today.fan2Min = 999999;
-    today.fan1Max = today.fan2Max = -1;
-    today.anySample = false;
+// "No samples" markers: any real value replaces them (written as-is to the
+// rollups; the web page and HA show them as no value)
+static void initExtremes(DailyExtremes &e) {
+    e.localMin = e.netMin = e.blendMin = 1e6;
+    e.localMax = e.netMax = e.blendMax = -1e6;
+    e.fan1Min = e.fan2Min = 999999;
+    e.fan1Max = e.fan2Max = -1;
+    e.anySample = false;
 }
+
+static void resetDailyExtremes() { initExtremes(today); }
 
 static void updateDailyExtremes() {
     if (localSensorHealthy) {
@@ -368,133 +386,77 @@ static String extremesToCsvFields(const DailyExtremes &e) {
     return s;
 }
 
-// Updates the never-purged all-time record in place by comparing today's
-// finalized extremes against whatever's currently stored.
-static void updateAllTimeRecord(const DailyExtremes &finalizedDay) {
-    DailyExtremes allTime = finalizedDay; // fallback if no file exists yet
-
-    if (sdPresent && SD.exists("/rollups/alltime.csv")) {
-        File f = SD.open("/rollups/alltime.csv", FILE_READ);
-        if (f) {
-            String line;
-            while (f.available()) {              // skip the column-name line
-                line = f.readStringUntil('\n');
-                if (line.startsWith("ALL,")) break;
-            }
-            f.close();
-            // Format: ALL,localMin,localMax,netMin,netMax,blendMin,blendMax,f1Min,f1Max,f2Min,f2Max
-            int idx = line.indexOf(',');
-            if (idx != -1) {
-                String rest = line.substring(idx + 1);
-                float vals[6]; long ivals[4];
-                int pos = 0, field = 0;
-                // Simple CSV split - this file is always our own known format.
-                String work = rest;
-                float* floatTargets[6] = {&allTime.localMin, &allTime.localMax, &allTime.netMin, &allTime.netMax, &allTime.blendMin, &allTime.blendMax};
-                for (field = 0; field < 6; field++) {
-                    int c = work.indexOf(',');
-                    String tok = (c == -1) ? work : work.substring(0, c);
-                    *floatTargets[field] = tok.toFloat();
-                    if (c == -1) break;
-                    work = work.substring(c + 1);
-                }
-                long* longTargets[4] = {&allTime.fan1Min, &allTime.fan1Max, &allTime.fan2Min, &allTime.fan2Max};
-                for (field = 0; field < 4; field++) {
-                    int c = work.indexOf(',');
-                    String tok = (c == -1) ? work : work.substring(0, c);
-                    *longTargets[field] = tok.toInt();
-                    if (c == -1) break;
-                    work = work.substring(c + 1);
-                }
-                (void)pos; (void)vals; (void)ivals;
-            }
-
-            allTime.localMin = min(allTime.localMin, finalizedDay.localMin);
-            allTime.localMax = max(allTime.localMax, finalizedDay.localMax);
-            allTime.netMin = min(allTime.netMin, finalizedDay.netMin);
-            allTime.netMax = max(allTime.netMax, finalizedDay.netMax);
-            allTime.blendMin = min(allTime.blendMin, finalizedDay.blendMin);
-            allTime.blendMax = max(allTime.blendMax, finalizedDay.blendMax);
-            allTime.fan1Min = min(allTime.fan1Min, finalizedDay.fan1Min);
-            allTime.fan1Max = max(allTime.fan1Max, finalizedDay.fan1Max);
-            allTime.fan2Min = min(allTime.fan2Min, finalizedDay.fan2Min);
-            allTime.fan2Max = max(allTime.fan2Max, finalizedDay.fan2Max);
-        }
+// Reads the 10 values after the first field of a daily.csv / alltime.csv row.
+// False for a row cut short (e.g. by a power cut).
+static bool parseExtremes(const String &line, DailyExtremes &e) {
+    float v[10];
+    int start = line.indexOf(',') + 1;
+    if (start <= 0) return false;
+    for (int i = 0; i < 10; i++) {
+        int c = line.indexOf(',', start);
+        if (c == -1 && i < 9) return false;
+        v[i] = line.substring(start, c == -1 ? line.length() : c).toFloat();
+        start = c + 1;
     }
-
-    if (sdHasFreeSpace()) {
-        // FILE_WRITE appends on ESP32's SD library, it does not truncate -
-        // must remove first for a true overwrite, or this file would just
-        // grow with a duplicate "ALL,..." row every time instead of
-        // replacing the previous record.
-        SD.remove("/rollups/alltime.csv");
-        File out = SD.open("/rollups/alltime.csv", FILE_WRITE);
-        if (out) {
-            out.print(csvHeaderFor("/rollups/alltime.csv") + "\n" + "ALL," + extremesToCsvFields(allTime) + "\n");
-            out.close();
-        }
-    }
+    e.localMin = v[0]; e.localMax = v[1]; e.netMin = v[2]; e.netMax = v[3];
+    e.blendMin = v[4]; e.blendMax = v[5];
+    e.fan1Min = (long)v[6]; e.fan1Max = (long)v[7]; e.fan2Min = (long)v[8]; e.fan2Max = (long)v[9];
+    return true;
 }
 
-// Removes daily.csv rows older than 30 days. ISO date strings ("YYYY-MM-DD")
-// sort/compare correctly as plain strings, so no date-math library needed.
-static void purgeOldDailyRows() {
-    if (!sdHasFreeSpace() || !SD.exists("/rollups/daily.csv")) return;
+static const char* DAILY_PATH = "/rollups/daily.csv";
+static const char* ALLTIME_PATH = "/rollups/alltime.csv";
+static const char* ALLTIME_TMP = "/rollups/alltime.tmp";
+static bool allTimeStale = false;  // rebuild the all-time record (boot, remount, new day)
 
-    time_t cutoffTime = now() - 30UL * 24 * 3600;
-    char cutoffBuf[12];
-    snprintf(cutoffBuf, sizeof(cutoffBuf), "%04d-%02d-%02d", year(cutoffTime), month(cutoffTime), day(cutoffTime));
-    String cutoff(cutoffBuf);
-
-    File in = SD.open("/rollups/daily.csv", FILE_READ);
-    if (!in) return;
-
-    String kept;
-    int purgedCount = 0;
-    while (in.available()) {
-        String line = in.readStringUntil('\n');
-        if (line.length() < 10) continue;
-        String lineDate = line.substring(0, 10);
-        if (lineDate >= cutoff) {
-            kept += line + "\n";
-        } else {
-            purgedCount++;
-        }
+// The all-time record, worked out again from every row of daily.csv, which
+// keeps every day since 2026-10-08 (it used to be cut to 30 days). Nothing is
+// read from the old record, so a damaged or missing alltime.csv mends itself
+// and edited daily rows count. Written to a temp file first, then swapped in:
+// a power cut or card fault leaves the old record or none, never half of one
+// (audit 3.3; it used to be deleted, then written).
+static void rebuildAllTimeRecord() {
+    if (!SD.exists(DAILY_PATH)) { allTimeStale = false; return; }
+    File f = SD.open(DAILY_PATH, FILE_READ);
+    if (!f) { markCardMissing(); return; }   // retried after the remount
+    DailyExtremes all, d;
+    initExtremes(all);
+    int days = 0;
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        if (!line.length() || !isDigit(line[0]) || !parseExtremes(line, d)) continue; // column names, cut rows
+        all.localMin = min(all.localMin, d.localMin); all.localMax = max(all.localMax, d.localMax);
+        all.netMin = min(all.netMin, d.netMin);       all.netMax = max(all.netMax, d.netMax);
+        all.blendMin = min(all.blendMin, d.blendMin); all.blendMax = max(all.blendMax, d.blendMax);
+        all.fan1Min = min(all.fan1Min, d.fan1Min);    all.fan1Max = max(all.fan1Max, d.fan1Max);
+        all.fan2Min = min(all.fan2Min, d.fan2Min);    all.fan2Max = max(all.fan2Max, d.fan2Max);
+        days++;
     }
-    in.close();
+    f.close();
+    if (days == 0) { allTimeStale = false; return; }
 
-    if (purgedCount > 0) {
-        // Same FILE_WRITE-appends-not-truncates gotcha as the all-time
-        // record above - remove first, or the "kept" rows would get
-        // appended after the old, unpurged content instead of replacing it.
-        SD.remove("/rollups/daily.csv");
-        File out = SD.open("/rollups/daily.csv", FILE_WRITE);
-        if (out) {
-            out.print(kept);
-            out.close();
-            Serial.print("Daily rollup purge: removed "); Serial.print(purgedCount);
-            Serial.println(" row(s) older than 30 days.");
-        }
-    }
+    String content = csvHeaderFor(ALLTIME_PATH) + "\n" + "ALL," + extremesToCsvFields(all) + "\n";
+    SD.remove(ALLTIME_TMP);
+    bool ok = sdWriteChecked(ALLTIME_TMP, "w", content);
+    if (ok && SD.exists(ALLTIME_PATH)) ok = SD.remove(ALLTIME_PATH); // FAT rename won't overwrite
+    if (ok) ok = SD.rename(ALLTIME_TMP, ALLTIME_PATH);
+    if (!ok) { markCardMissing(); return; }  // the next rebuild clears the temp file
+    allTimeStale = false;
 }
 
-static void finalizeDailyRollup() {
+// Closes the day the values belong to (dateKey yyyymmdd), which is not
+// always yesterday: a restart can span more than a day.
+static void finalizeDailyRollup(uint32_t dateKey) {
     if (!today.anySample) return; // nothing recorded yet (e.g. first-ever boot)
 
-    // This runs right after the day has already rolled over (see
-    // sdLoggerLoop()), so dateNow() would incorrectly label yesterday's
-    // accumulated data with today's date. Back up ~12h from "now" to land
-    // safely in yesterday regardless of exactly when this fires relative
-    // to midnight.
-    time_t yesterdayTime = now() - 12UL * 3600;
     char buf[12];
-    snprintf(buf, sizeof(buf), "%04d-%02d-%02d", year(yesterdayTime), month(yesterdayTime), day(yesterdayTime));
+    snprintf(buf, sizeof(buf), "%04lu-%02lu-%02lu", (unsigned long)(dateKey / 10000),
+             (unsigned long)(dateKey / 100 % 100), (unsigned long)(dateKey % 100));
     String rollupDate(buf);
 
     String row = rollupDate + "," + extremesToCsvFields(today) + "\n";
-    appendLine("/rollups/daily.csv", row);
-    updateAllTimeRecord(today);
-    purgeOldDailyRows();
+    appendLine(DAILY_PATH, row);   // kept for good (no 30-day purge since 2026-10-08)
+    allTimeStale = true;
 
     // Once-a-day hi/lo summary to HA over MQTT - NOT the full raw log (that
     // stays local to the SD card per the original spec).
@@ -541,8 +503,14 @@ void sdLoggerInit() {
     }
     // Rows buffered before a restart: written once the clock is set (sdLoggerLoop)
     drainPending = isLittleFsMounted() && LittleFS.exists(SPILLOVER_PATH);
+    allTimeStale = true;  // also clears a temp file left by a power cut
 
-    resetDailyExtremes();
+    bool dayKept = esp_reset_reason() != ESP_RST_POWERON && dailyRtc.magic == DAILY_MAGIC;
+    if (!dayKept) {
+        resetDailyExtremes();
+        dailyRtc.dateKey = 0;
+        dailyRtc.magic = DAILY_MAGIC;
+    }
 
     // Boot reason + last-known-state event, using whatever survived in RTC
     // memory. A true cold boot (ESP_RST_POWERON) has nothing meaningful in
@@ -563,6 +531,13 @@ void sdLoggerInit() {
         desc += " heap=" + String(rtcSnapshot.freeHeap) + " minHeap=" + String(rtcSnapshot.minFreeHeap) + " during " + String(rtcSnapshot.lowStage);
     } else {
         desc += " | no prior state available (cold boot or RTC memory invalid)";
+    }
+    if (dayKept && dailyRtc.dateKey) {
+        desc += " | day " + String(dailyRtc.dateKey) + " hi/lo kept";
+        if (today.localMin <= today.localMax)
+            desc += ": local " + String(today.localMin, 1) + "-" + String(today.localMax, 1) + "C";
+    } else {
+        desc += " | day hi/lo start over";
     }
 
     // After a crash or watchdog: the task and code addresses from the crash dump
@@ -640,6 +615,18 @@ void sdLoggerLoop() {
 
     if (drainPending && sdPresent) drainSpilloverToSD();
 
+    // --- Day change: close the old day first, so the new day's first row
+    // isn't counted in it ---
+    uint32_t dateKey = (uint32_t)year() * 10000 + month() * 100 + day();
+    if (dailyRtc.dateKey == 0) {
+        dailyRtc.dateKey = dateKey;   // first day this power-up
+    } else if (dateKey != dailyRtc.dateKey) {
+        finalizeDailyRollup(dailyRtc.dateKey);
+        resetDailyExtremes();
+        dailyRtc.dateKey = dateKey;
+    }
+    if (allTimeStale && sdPresent) rebuildAllTimeRecord();
+
     // --- Per-minute time-series row ---
     static unsigned long lastMinuteLogMs = 0;
     const unsigned long MINUTE_LOG_PERIOD_MS = 60000;
@@ -665,16 +652,6 @@ void sdLoggerLoop() {
         updateDailyExtremes();
     }
 
-    // --- Day-rollover check (finalize+purge once per day) ---
-    int currentDay = day();
-    if (lastLoggedDay == -1) {
-        lastLoggedDay = currentDay; // first run this boot - don't finalize on startup
-    } else if (currentDay != lastLoggedDay) {
-        finalizeDailyRollup();
-        resetDailyExtremes();
-        lastLoggedDay = currentDay;
-    }
-
     // --- SD-absent retry (every 15 s) ---
     static unsigned long lastSdRetryMs = 0;
     const unsigned long SD_RETRY_PERIOD_MS = 15000;
@@ -686,6 +663,7 @@ void sdLoggerLoop() {
             SD.mkdir("/rollups");
             sdHasFreeSpace(); // measure the new card now
             drainPending = true;  // written on the next pass (needs the clock)
+            allTimeStale = true;  // the card may have been edited on a PC
         }
     }
 }

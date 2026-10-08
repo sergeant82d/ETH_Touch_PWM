@@ -246,5 +246,16 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   `fsync`, `fclose` and checks each. The internal buffer is deleted only when all of it is
   on the card; the drain stays one pass (1 KB took under a second on COM15; a full
   200 KB buffer is not measured).
+- 2026-10-08: **Day's hi/lo in RTC memory** (audit 3.6). `RTC_NOINIT_ATTR` variables can
+  move between builds, so the magic word and the date sit in one struct with the values
+  (`DailyRtc`); a build that moves or changes it starts the day over instead of reading
+  garbage. Flashing over USB keeps RTC memory (the BOOT event after a USB flash still had
+  `lastState`, when the layout hadn't moved).
+- 2026-10-08: **`daily.csv` kept for good; the all-time record is derived** (audit 3.3).
+  One row a day is ~30 KB a year, so the 30-day purge (a delete-then-rewrite) went. The
+  record is recomputed from every daily row and swapped in through `alltime.tmp` (FAT
+  `rename` won't overwrite: remove, then rename). Nothing reads the old record, so it can't
+  carry damage forward. The download adds the column names to old files that lack them
+  (`daily.csv` from before 2026-09-28): the listed size is smaller than the download.
 
 Open items: `docs/TODO.md`.
