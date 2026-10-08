@@ -114,7 +114,8 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       (covers the audit's "no `ALL,` row"). History tab reads only the last 4 KB of
       `daily.csv`. COM15: record rebuilt at boot, same values, no temp file left (Claude).
       To do next session: replace `daily.csv` with every day from 2026-09-27 recalculated from
-      the minute logs (your choice; fan 2's 6083/6180 RPM glitches on 09-29 left out).
+      the minute logs (your choice; fan 2's 6083/6180 RPM glitches on 09-29 left out):
+      `tools/rebuild_daily.py <folder with the downloaded logs> 2026-10-08`.
       History tab checked by the user. UNTESTED: the swap failing partway; the other two
       builds (compile) (2026-10-08, this commit)
 - [x] `[SD]` `[HA]` Audit 3.6: the day's highs and lows (the "Summary of the day" on the card
