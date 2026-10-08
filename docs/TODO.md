@@ -1,11 +1,12 @@
 # To do
 
-How this list works (agreed 2026-09-28):
+How this list works (the all-projects format, agreed 2026-10-07; started here 2026-09-28):
 - **Your notes** (top): write anything for Claude here. At the start of a session Claude reads
   it, answers questions and summarises the open tasks; when the day's status report is written,
-  the notes are turned into items below and this list is condensed.
-- **Open**: oldest first. **Done**: newest first, with date and commit. Done items older than
-  about two weeks move to `docs/TODO_DONE.md`.
+  the notes are turned into items below and this section is emptied.
+- **Open**: oldest first. **Done**: newest first, with date and commit, who checked it (user /
+  Claude / board) and what is UNTESTED. Done items older than about two weeks move to
+  `docs/TODO_DONE.md`.
 - Tags (alphabetical; the same set in every project, copy one into an item):
   - `[Board]` needs a board on the bench
   - `[Decide]` needs a decision
@@ -64,7 +65,8 @@ How this list works (agreed 2026-09-28):
       and short). Ethernet, address (4.6 s), MQTT fine; 60 pings, none lost. Count only events
       after the swap; close after 3-4 days without `W5500 reset by itself` or a `TASK_WDT` BOOT.
       Watch too: first boot after the swap logged `LOOP mqtt took 8.5 s (last stage mqtt:pub)`,
-      the first state publish; not seen on the 10-07 boots
+      the first state publish; not seen on the 10-07 boots. DHCP reservation: Ethernet set
+      2026-10-08 (user); WiFi `28:84:85:87:E0:D4` not yet
 - [ ] `[Board]` `[HA]` 2026-10-06 03:15: the watchdog caught a hang in the network step
       (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
       unavailable 03:15:50, back 03:16:17). The finer stage names (`net:...`, `mqtt:...`) will
@@ -104,6 +106,10 @@ How this list works (agreed 2026-09-28):
       - The LCD shares its SPI bus with the SD card: end the LCD write (which waits for the
         DMA) before every SD access (audit 1.1: no SD access inside an open LCD transaction).
       (user asked for this note, 2026-10-07)
+- [ ] `[HA]` `[Decide]` Restart button in Home Assistant (Claude, 2026-10-08): the web page
+      and LCD have Restart, HA doesn't, against the rule "every web control is also in HA".
+      Wifi_Fan_Knob added one 2026-10-07 (`388a3e2`): an MQTT button entity, ignored in the
+      first 30 s after boot so a stray retained message can't restart it in a loop
 
 ## Done
 

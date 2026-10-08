@@ -67,7 +67,9 @@ Taken from the Arduino IDE Tools menu used for the working board:
 - **USB serial stalls loop()** (found 2026-09-27): with the USB cable in a PC that isn't
   reading the port (after a flash, or a closed serial monitor), each `Serial.print` on the
   native USB-Serial/JTAG retries 20 x 100 ms. A dozen prints dropped the MQTT connection.
-  `Serial.setTxTimeoutMs(0)` in `setup()` fixes it (output is dropped when nobody reads).
+  `Serial.setTxTimeoutMs(1)` in `setup()` fixes it (output is dropped when nobody reads).
+  1, not 0: 0 was fine on this core (3.3.11), but on core 3.0.x it wraps to ~4 billion
+  retries and hangs every print (Wifi_Fan_Knob, 2026-09-28); 1 works on both.
   The Arduino builds still have it. Also: a test that waits for `<node>/status = online`
   right after a flash sees the retained message of the previous session; wait for a small
   `uptime` instead.
@@ -79,6 +81,9 @@ Taken from the Arduino IDE Tools menu used for the working board:
 - **`pio pkg install -l <lib>` rewrites `platformio.ini`** (drops every comment, and gives
   the `extends` environment its own `lib_deps`, which replaces the inherited list): always add
   `--no-save`, or add the library to `platformio.ini` by hand and just build (2026-09-28).
+- Wifi_Fan_Knob is pinned to pioarduino 51.03.04 (core 3.0.4) and shares the one core
+  folder with this project, so the first build after switching projects re-downloads the
+  core (~3 min). Both are pinned by URL, so each gets its own version back.
 - The board profile header reads "8 MB, No PSRAM"; that is the generic devkit description.
   The `platformio.ini` overrides apply.
 
