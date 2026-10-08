@@ -78,15 +78,21 @@ them in its own unit system. `None` = unknown (probe failed).
 | `sd_used` | sensor "SD card used", %, diagnostic | `23` / `None` without a card | (new, 2026-09-28) |
 | `sd_fault` | binary_sensor "Fault SD card", problem | `ON` unless the card is OK | (new, 2026-09-28) |
 | `display` | switch "LCD display" (LCD boards only) | `ON` / `OFF`: LCD standby, backlight only; pressing the screen for 1 s also turns it on (not a tap: the panel reports phantom taps while dark); on after every boot | (new, 2026-10-04) |
+| `restart` | button "Restart", restart device class, configuration section; no state | HA sends `PRESS` on `restart/set` | (new, 2026-10-08) |
 
 HA to device (not retained): `t_min/set`, `t_max/set`, `override/set`, `override_speed/set`,
-`display/set`, `network_temp/set`.
+`display/set`, `restart/set`, `network_temp/set`.
 
 Rules:
 - `override/set ON` starts at 100 %, like the web page and LCD. `override_speed/set` is
   ignored while the override is off (as now); the device republishes its real state, so
   HA's slider snaps back.
 - The device publishes its state after every command, so HA, web page and LCD agree.
+- `restart/set PRESS` restarts the board (event `RESTART source=HA`), like the web page and
+  LCD. Ignored in the first 30 s of each MQTT connection (event `MQTT Restart from HA
+  ignored`): a retained `PRESS` left on the broker by mistake arrives right after every
+  connect and would restart the board over and over. Clear one with an empty retained
+  message on that topic.
 - `network_temp/set` payload: `{"value": "24.1", "unit": "°C"}` (°F is converted). Anything
   that doesn't parse (e.g. `"value": "unavailable"`) marks the network probe failed, as does
   no message for 5 minutes.

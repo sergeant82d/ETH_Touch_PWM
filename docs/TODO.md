@@ -64,8 +64,8 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       **2026-10-08 ~15:25: W5500 Lite module replaced** (user: power and SPI wiring are solid
       and short). Ethernet, address (4.6 s), MQTT fine; 60 pings, none lost. Count only events
       after the swap; close after 3-4 days without `W5500 reset by itself` or a `TASK_WDT` BOOT.
-      Watch too: first boot after the swap logged `LOOP mqtt took 8.5 s (last stage mqtt:pub)`,
-      the first state publish; not seen on the 10-07 boots. DHCP reservation: Ethernet set
+      The 8.5 s `LOOP` on the first boot after the swap is the MQTT first-connect stall
+      (audit 4.1 below), not the module. DHCP reservation: Ethernet set
       2026-10-08 (user); WiFi `28:84:85:87:E0:D4` not yet
 - [ ] `[Board]` `[HA]` 2026-10-06 03:15: the watchdog caught a hang in the network step
       (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
@@ -81,8 +81,12 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
   - [ ] `[HA]` MQTT reply wait 2 s; a failed publish closes the connection, but not for a
         message too big for the buffer (the audit's sketch would reconnect-loop) (4.1).
         Done 2026-10-07: Nagle off on the MQTT connection (first connect held loop() 8.9 s;
-        2.6 s after, one boot) and a "discovery sent in N s" event to watch it; 0.1 s on the
-        three boots since (2026-10-08)
+        2.6 s after, one boot) and a "discovery sent in N s" event to watch it. 2026-10-08:
+        **not the whole cause.** Discovery 0.1 s on three boots, but 2.7 s and 8.7 s on two
+        others, and one cold boot logged `LOOP mqtt took 8.5 s (last stage mqtt:pub)` (the
+        first state publish) after a 0.1 s discovery. Each stall is the first burst of
+        messages right after boot, ~5 s after the Ethernet link comes up; ~8 s looks like TCP
+        retransmit waits (a lost packet), not Nagle. Open: find out what is lost or waited for
   - [ ] `[Board]` `[SD]` Measure how long a no-card mount retry blocks before changing it (3.4)
   - [ ] `[Web]` Web request limits: overall header deadline, line length cap, short writes in
         downloads (5.1)
@@ -106,13 +110,19 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       - The LCD shares its SPI bus with the SD card: end the LCD write (which waits for the
         DMA) before every SD access (audit 1.1: no SD access inside an open LCD transaction).
       (user asked for this note, 2026-10-07)
-- [ ] `[HA]` `[Decide]` Restart button in Home Assistant (Claude, 2026-10-08): the web page
-      and LCD have Restart, HA doesn't, against the rule "every web control is also in HA".
-      Wifi_Fan_Knob added one 2026-10-07 (`388a3e2`): an MQTT button entity, ignored in the
-      first 30 s after boot so a stray retained message can't restart it in a loop
 
 ## Done
 
+- [x] `[HA]` Restart button in Home Assistant (your request, 2026-10-08), like Wifi_Fan_Knob's
+      (`388a3e2`): button "Restart" in the device's configuration section. Presses in the
+      first 30 s of each MQTT connection are ignored and logged, so a retained `PRESS` left on
+      the broker can't restart the board over and over (counted from the connection, not
+      boot: a retained message comes back at every reconnect). COM15 (Claude, MQTT test
+      tool): discovery correct, a press at 41 s restarted it (`RESTART source=HA`), a press
+      at 18 s was ignored. Pressed in HA by the user: restarted fine. Full flash backup first
+      (`ETH_Touch_PWM_backups/COM15_Lite_67f63b1_full-flash_2026-10-08.bin`). UNTESTED:
+      the other two builds (compile) (2026-10-08, this
+      commit)
 - [x] `[Net]` `[Board]` Event log analysis 2026-10-07 and fixes: a W5500 that reset itself is
       detected (link register OPSEL bit clear on two reads) and restarts the board, WiFi or
       not; BOOT events after a crash or watchdog name the task and code addresses from the

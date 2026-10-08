@@ -113,8 +113,10 @@ be broken by firmware:
 
 ## Restart, watchdog, boot events (both boards)
 
-- **Restart** without changing anything: System tab (asks to confirm, needs the login), or on
-  the LCD the gear (QR page), then hold Restart 2 s. Both log a RESTART event.
+- **Restart** without changing anything: System tab (asks to confirm, needs the login), on
+  the LCD the gear (QR page), then hold Restart 2 s, or the "Restart" button in Home
+  Assistant (not in the first 30 s after the board connects, `docs/MQTT.md`). All log a
+  RESTART event.
 - **Watchdog** (2026-10-05): if loop() hasn't come round for 30 s the board restarts itself.
   Every restart logs a BOOT event with the reason; after anything but a cold boot it adds the
   last known state, including `stage=` (the part of loop() that was running: probe,

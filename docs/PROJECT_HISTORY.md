@@ -231,5 +231,14 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   web stalled (fans not: PWM is hardware). With Nagle off each message goes out at once; the
   cost, a few more small packets, is nothing on a LAN. Discovery 2.6 s on the first boot,
   0.1 s on the two since (COM15, 2026-10-07; timed in the `discovery sent in` MQTT event).
+  2026-10-08: not the whole story. Two later boots took 2.7 s and 8.7 s, and one stalled
+  8.5 s on the first state publish instead; always the first burst right after boot. ~8 s
+  fits TCP retransmit waits (a lost packet) better than Nagle. Still open (`docs/TODO.md`,
+  audit 4.1). Nagle stays off: it costs nothing here.
+- 2026-10-08: **Full flash read of COM15 fails** at 0x10A000 with esptool's stub ("Packet
+  content transfer stopped", any baud, always the same blocks: 0x10A000, 0x10E000,
+  0x185000). Those blocks read fine with `--no-stub` (slow, ~15 kbit/s). Read the rest with
+  the stub and only the failing blocks without it (scratchpad script `backup_flash.py`, kept
+  in the session only; the method is the point).
 
 Open items: `docs/TODO.md`.

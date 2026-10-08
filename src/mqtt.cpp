@@ -28,6 +28,7 @@ static bool attemptNow = true;
 static unsigned long lastAttemptMs = 0;
 static int lastConnectState = MQTT_DISCONNECTED;
 static const unsigned long RETRY_MS = 15000; // connect attempts block briefly; space them out
+static unsigned long connectedMs = 0;  // when the current connection was made
 
 bool isValidNodeId(const char* id) {
     size_t len = strlen(id);
@@ -71,7 +72,7 @@ static const char* DEG_C = "\xC2\xB0" "C"; // "°C"
 // HA lists a device's entities alphabetically by name within each card, so
 // the names group them. Sensors: "Air temperature ...", "Fan duty N",
 // "Fan speed N", "Fault ...", "SD card", "Summary of the day". Controls: "Fan curve start/top" (tMin/tMax),
-// "Manual override", "Manual override speed".
+// "Manual override", "Manual override speed", "Restart".
 // Every entity the device can have (all NUM_FANS fans), so the ones no
 // longer wanted can be removed from HA as well as the wanted ones added.
 static int buildEntities(EntityDef *out) {
@@ -91,6 +92,7 @@ static int buildEntities(EntityDef *out) {
     out[n++] = {"number", "t_max", "Fan curve top", "temperature", DEG_C, "mdi:thermometer-high", false, false, 0, 100, 0.1, "box"};
     out[n++] = {"switch", "override", "Manual override", nullptr, nullptr, "mdi:hand-back-right", false, false};
     out[n++] = {"number", "override_speed", "Manual override speed", nullptr, "%", "mdi:fan", false, false, 0, 100, 1, "slider"};
+    out[n++] = {"button", "restart", "Restart", "restart", nullptr, nullptr, false, false};
 #if HAS_LCD
     out[n++] = {"switch", "display", "LCD display", nullptr, nullptr, "mdi:monitor", false, false}; // standby
 #endif
@@ -103,7 +105,7 @@ static int buildEntities(EntityDef *out) {
     return n;
 }
 
-static const int MAX_ENTITIES = 16 + 3 * 4;
+static const int MAX_ENTITIES = 17 + 3 * 4;
 
 // Fan entities beyond config.fanCount are unwanted
 static bool entityWanted(const EntityDef &e) {
@@ -127,7 +129,12 @@ static void publishEntityConfig(const String &node, const EntityDef &e, bool wan
     JsonDocument doc;
     doc["name"] = e.name;
     doc["unique_id"] = node + "_" + e.object;
-    doc["state_topic"] = node + "/" + e.object;
+    if (strcmp(e.component, "button") == 0) {
+        doc["command_topic"] = node + "/" + e.object + "/set"; // stateless: HA sends PRESS
+        doc["entity_category"] = "config";
+    } else {
+        doc["state_topic"] = node + "/" + e.object;
+    }
     doc["availability_topic"] = node + "/status";
     if (e.deviceClass) doc["device_class"] = e.deviceClass;
     if (e.unit) doc["unit_of_measurement"] = e.unit;
@@ -335,6 +342,22 @@ static void onMessage(char *t, byte *payload, unsigned int len) {
         onNetworkTemp(msg); // regular data, not a control: no state echo
         return;
     }
+    if (object == "restart") {
+        // HA sends PRESS, not retained. A retained one left on the broker by
+        // mistake would arrive right after every connect and restart the board
+        // over and over, so presses in the first 30 s of a connection are ignored.
+        if (msg != "PRESS") return;
+        if (millis() - connectedMs < 30000) {
+            sdLogEvent("MQTT", "Restart from HA ignored: within 30 s of connecting (a retained message?)");
+            return;
+        }
+        Serial.println("Restart from Home Assistant.");
+        sdLogEvent("RESTART", "source=HA");
+        delay(500);
+        LittleFS.end();
+        delay(200);
+        ESP.restart();
+    }
     if (object == "t_min") {
         setThreshold(config.tMin, "tMin", msg);
     } else if (object == "t_max") {
@@ -412,6 +435,7 @@ static void tryConnect() {
         return;
     }
     lastConnectState = MQTT_CONNECTED;
+    connectedMs = millis();
     // Send each small message at once, not held back until the last one is
     // acknowledged (Nagle). The first connect after boot sends ~30 discovery
     // messages and held loop() 8.9 s on 2026-10-07, 21 s on 2026-10-06 (audit 4.1)
