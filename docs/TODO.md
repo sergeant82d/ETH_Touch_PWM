@@ -94,8 +94,6 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
         49.7 days (5.3)
   - [ ] Skipped unless wanted: rows held until the clock is set (3.5), SD at 16 MHz; rule
         kept in mind: no SD access inside an open LCD transaction (1.1)
-- [ ] `[Web]` Network tab: rename the "Setup hotspot" card to "HotSpot password" (your note,
-      2026-10-06)
 - [ ] `[LCD]` `[Decide]` Faster LCD drawing with DMA, as done in Wifi_Fan_Knob 2026-10-07
       (`3d7311c`; how it's done: its `src/main.cpp` `display_flush()`, and
       `D:\GitHub\VSCodeProjects\Wifi_Bench_Fan\Wifi_Fan_Knob\docs\PROJECT_HISTORY.md`,
@@ -113,6 +111,9 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[Web]` Network tab: the "Setup hotspot" card is now "HotSpot password" (your note,
+      2026-10-06). COM15 serves it (Claude). UNTESTED: your look at the page (2026-10-08,
+      this commit)
 - [x] `[HA]` Restart button in Home Assistant (your request, 2026-10-08), like Wifi_Fan_Knob's
       (`388a3e2`): button "Restart" in the device's configuration section. Presses in the
       first 30 s of each MQTT connection are ignored and logged, so a retained `PRESS` left on
