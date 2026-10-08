@@ -240,5 +240,11 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   0x185000). Those blocks read fine with `--no-stub` (slow, ~15 kbit/s). Read the rest with
   the stub and only the failing blocks without it (scratchpad script `backup_flash.py`, kept
   in the session only; the method is the point).
+- 2026-10-08: **SD writes are checked** (audit 3.1/3.2). The Arduino `File` layer ignores
+  the result of its final flush (core `vfs_api.cpp`), so `f.print(); f.close();` "worked" on
+  a card that was gone. `sdAppendChecked()` uses `fopen("/sd...")`, `fwrite`, `fflush`,
+  `fsync`, `fclose` and checks each. The internal buffer is deleted only when all of it is
+  on the card; the drain stays one pass (1 KB took under a second on COM15; a full
+  200 KB buffer is not measured).
 
 Open items: `docs/TODO.md`.

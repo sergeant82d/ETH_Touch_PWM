@@ -11,6 +11,8 @@
 #include <TimeLib.h>
 #include <esp_system.h>
 #include <esp_core_dump.h>
+#include <stdio.h>
+#include <unistd.h>
 
 // ============================================================
 // RTC_NOINIT_ATTR last-known-state snapshot
@@ -106,6 +108,8 @@ static const uint64_t MIN_FREE_BYTES = 5UL * 1024 * 1024; // 5MB safety margin
 static const char* SPILLOVER_PATH = "/sd_pending.csv";
 static const size_t SPILLOVER_MAX_BYTES = 200 * 1024; // ~200KB cap
 static bool spilloverCapWarned = false;
+static bool drainPending = false;  // buffer to write to the card (remount, or left from before a restart)
+static size_t drainPos = 0;        // bytes of the buffer already on the card (lost on restart: duplicates, not gaps)
 
 static String timestampNow() {
     if (timeStatus() == timeNotSet) return "notime";
@@ -173,36 +177,40 @@ String csvHeaderFor(const String &path) {
     return "";
 }
 
-// Opens an SD file for appending; a new file starts with its column names
-static File openForAppend(const String &path) {
-    bool isNew = !SD.exists(path);
-    File f = SD.open(path, FILE_APPEND);
-    if (f && isNew) {
-        String header = csvHeaderFor(path);
-        if (header.length()) { f.print(header); f.print('\n'); }
-    }
-    return f;
+// Appends text to an SD file; a new file starts with its column names. True
+// only if it reached the card. The Arduino File layer ignores the result of
+// its final flush, so f.print() + f.close() "succeeded" on a card that was
+// gone (audit 3.1); the C calls report every step. SD.begin() mounts at /sd.
+// Parent folders must exist (made at mount).
+static bool sdAppendChecked(const String &path, const String &text) {
+    String header = SD.exists(path) ? String() : csvHeaderFor(path);
+    String full = "/sd" + path;
+    FILE* fp = fopen(full.c_str(), "a");
+    if (!fp) return false;
+    bool ok = true;
+    if (header.length()) ok = fputs(header.c_str(), fp) >= 0 && fputc('\n', fp) != EOF;
+    ok = ok && fwrite(text.c_str(), 1, text.length(), fp) == text.length();
+    ok = fflush(fp) == 0 && ok;          // C buffer -> FAT layer
+    ok = fsync(fileno(fp)) == 0 && ok;   // FAT layer -> card
+    ok = fclose(fp) == 0 && ok;
+    return ok;
 }
 
-// Appends one line to an SD file, creating parent behavior isn't needed
-// (SD.open with FILE_APPEND creates the file if missing, but not parent
-// dirs - callers must mkdir once at init). Falls back to spillover if the
-// card is absent or low on space.
+// The card stopped taking writes: pulled out or failing. The 15 s retry in
+// sdLoggerLoop() mounts it again when it's back.
+static void markCardMissing() {
+    Serial.println("WARNING: SD write failed - card marked missing, logging to internal flash.");
+    SD.end();
+    sdPresent = false;
+    usedPercent = -1;
+}
+
+// Appends one line to an SD file. Falls back to the buffer in internal flash
+// if the card is absent, low on space, or the write fails.
 static void appendLineImpl(const char* sdPath, const String &line) {
     if (sdHasFreeSpace()) {
-        File f = openForAppend(sdPath);
-        if (f) {
-            f.print(line);
-            f.close();
-            return;
-        }
-        // Open failed even though we thought the card was present: pulled
-        // out or failing. Mark it missing (the 15 s retry in sdLoggerLoop()
-        // mounts it again when it's back) and spill this line.
-        Serial.println("WARNING: SD write failed - card marked missing, spilling to internal flash.");
-        SD.end();
-        sdPresent = false;
-        usedPercent = -1;
+        if (sdAppendChecked(sdPath, line)) return;
+        markCardMissing();
     }
     appendToSpillover(sdPath, line);
 }
@@ -250,38 +258,61 @@ bool isSpilloverNearFull() {
     return sz > (SPILLOVER_MAX_BYTES * 4 / 5); // >80% of cap
 }
 
+// Writes the buffer to the card in one go, in checked pieces of up to 4 KB
+// (lines for one file are written together). The buffer is deleted only once
+// all of it is on the card; a failed write keeps it and drainPos, and the
+// next remount carries on from there (audit 3.2: it used to be deleted even
+// when the writes had failed, up to ~2 days of rows).
 static void drainSpilloverToSD() {
-    if (!isLittleFsMounted()) return; // nothing to drain from an unmounted filesystem
-    if (!LittleFS.exists(SPILLOVER_PATH)) return;
+    if (!isLittleFsMounted() || !sdPresent) return;
+    if (!LittleFS.exists(SPILLOVER_PATH)) { drainPos = 0; drainPending = false; return; }
     File f = LittleFS.open(SPILLOVER_PATH, FILE_READ);
     if (!f) return;
+    size_t size = f.size();
+    if (drainPos > size) drainPos = 0;
+    f.seek(drainPos);
+    size_t startPos = drainPos;
 
     // Each line names its file ("<path>\t<line>"); lines from older firmware
     // without a path go to the current month's log, as they used to.
     String monthPath = "/logs/" + String(year()) + "-" + (month() < 10 ? "0" : "") + String(month()) + ".csv";
-    String openPath;
-    File out;
-    while (f.available()) {
-        String line = f.readStringUntil('\n');
-        if (line.length() == 0) continue;
-        String path = monthPath;
-        int tab = line.indexOf('\t');
-        if (tab > 0) {
-            path = line.substring(0, tab);
-            line = line.substring(tab + 1);
+    String runPath, run;
+    size_t runEnd = drainPos;
+    bool failed = false;
+    while (true) {
+        bool more = f.position() < size;
+        String line, path;
+        if (more) {
+            line = f.readStringUntil('\n');
+            path = monthPath;
+            int tab = line.indexOf('\t');
+            if (tab > 0) { path = line.substring(0, tab); line = line.substring(tab + 1); }
         }
-        if (path != openPath) {          // lines of one file come in runs: reopen only on a change
-            if (out) out.close();
-            out = openForAppend(path);
-            openPath = path;
+        // Write the piece so far when the file changes, it reaches 4 KB, or at the end
+        if (run.length() && (!more || path != runPath || run.length() >= 4096)) {
+            if (!sdAppendChecked(runPath, run)) { failed = true; break; }
+            drainPos = runEnd;
+            run = "";
         }
-        if (out) { out.print(line); out.print('\n'); }
+        if (!more) break;
+        runPath = path;
+        if (line.length()) { run += line; run += '\n'; }
+        runEnd = f.position();
     }
-    if (out) out.close();
     f.close();
+
+    if (failed) {
+        markCardMissing();
+        sdLogEvent("SD", "buffer kept: write failed after " + String((drainPos - startPos) / 1024) +
+                         " of " + String((size - startPos) / 1024) + " KB, carried on when the card is back");
+        return;
+    }
     LittleFS.remove(SPILLOVER_PATH);
+    drainPos = 0;
+    drainPending = false;
     spilloverCapWarned = false;
-    Serial.println("SD card back: drained buffered log data from internal flash.");
+    Serial.println("SD card: buffered log data written from internal flash.");
+    sdLogEvent("SD", "buffer written to the card: " + String((size - startPos + 1023) / 1024) + " KB");
 }
 
 // ============================================================
@@ -508,6 +539,8 @@ void sdLoggerInit() {
     } else {
         Serial.println("SD card not detected at boot - logging will spill to internal flash until it's inserted.");
     }
+    // Rows buffered before a restart: written once the clock is set (sdLoggerLoop)
+    drainPending = isLittleFsMounted() && LittleFS.exists(SPILLOVER_PATH);
 
     resetDailyExtremes();
 
@@ -605,6 +638,8 @@ void sdLoggerLoop() {
 
     if (timeStatus() == timeNotSet) return; // can't build valid timestamps/filenames yet
 
+    if (drainPending && sdPresent) drainSpilloverToSD();
+
     // --- Per-minute time-series row ---
     static unsigned long lastMinuteLogMs = 0;
     const unsigned long MINUTE_LOG_PERIOD_MS = 60000;
@@ -650,7 +685,7 @@ void sdLoggerLoop() {
             SD.mkdir("/logs");
             SD.mkdir("/rollups");
             sdHasFreeSpace(); // measure the new card now
-            drainSpilloverToSD();
+            drainPending = true;  // written on the next pass (needs the clock)
         }
     }
 }

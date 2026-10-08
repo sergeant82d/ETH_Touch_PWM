@@ -73,8 +73,6 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       say which call next time
 - [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
       agreed with the user 2026-10-06:
-  - [ ] `[SD]` Checked SD writes, and the buffer kept unless all of it reached the card (3.1,
-        3.2; one-go drain, not the audit's slices)
   - [ ] `[SD]` `[HA]` Day's hi/lo kept through a restart, rollup not skipped over midnight (3.6)
   - [ ] `[SD]` All-time record and daily rollups: temp file + rename; ignore a file without
         its `ALL,` row (3.3)
@@ -111,6 +109,19 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[SD]` Audit 3.1 + 3.2: row and event writes go through the C file calls, which report
+      every step (the Arduino File layer ignored its final flush, so a write to a card that
+      was gone counted as done); a failed write marks the card missing and the row goes to
+      the internal buffer. The buffer is written back in one go (as agreed, not the audit's
+      slices) in checked pieces of up to 4 KB, deleted only when all of it is on the card,
+      otherwise kept and continued from where it stopped. New: a buffer left from before a
+      restart is written once the clock is set (it used to wait for the next card
+      pull). Events `SD buffer written to the card: N KB` / `buffer kept: ...`. COM15: card
+      out 16:20-16:29, 9 rows and the events buffered and written back, no gap, no restart
+      (user + Claude). UNTESTED: a write failing partway through the write-back (too quick
+      to pull a card during it), a buffer left over a restart; the other two builds
+      (compile). All-time record and daily rewrite: still unchecked, with 3.3
+      (2026-10-08, this commit)
 - [x] `[Web]` Card titles in Title Case on every tab (your request, 2026-10-08), e.g. `Fan Curve`,
       `Backup WiFi Network`, `Firmware Update (OTA)`, the login dialog `Log In`; field labels,
       hints and buttons stay in sentence case. Rule added to `D:\GitHub\WEB_STYLE.md`
