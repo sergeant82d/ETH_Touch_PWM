@@ -84,6 +84,12 @@ HA to device (not retained): `t_min/set`, `t_max/set`, `override/set`, `override
 `display/set`, `restart/set`, `network_temp/set`.
 
 Rules:
+- The board connects 15 s after its network comes up, not at once (2026-10-08): the first
+  connection after a boot stalled 1-10 s in 70-90 % of boots otherwise (`docs/PROJECT_HISTORY.md`).
+  HA shows it unavailable ~15 s longer after a restart.
+- Every send is checked: one that fails (the broker stopped acknowledging) closes the
+  connection and the board reconnects 15 s later; a failed subscribe does the same. Sends
+  over 0.5 s go to the event log (`MQTT slow send ...`). The broker's reply wait is 2 s.
 - `override/set ON` starts at 100 %, like the web page and LCD. `override_speed/set` is
   ignored while the override is off (as now); the device republishes its real state, so
   HA's slider snaps back.

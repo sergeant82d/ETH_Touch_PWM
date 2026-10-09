@@ -279,6 +279,7 @@ static void stopAp() {
 }
 
 bool isEthernetConnected() { return ETH.linkUp(); }
+unsigned long ethAddressMs() { return ethIpEventMs; }
 bool isWifiConnected() { return staActive && WiFi.status() == WL_CONNECTED; }
 bool isHotspotActive() { return apActive; }
 bool isWifiJoining() { return staActive && WiFi.status() != WL_CONNECTED; }
@@ -570,13 +571,7 @@ void networkInit() {
     Serial.println("Initializing W5500 Ethernet (ESP32 ETH driver)...");
     SPI.begin(W5500_SCK, W5500_MISO, W5500_MOSI);
     // The driver pulses W5500_RST itself
-#if defined(BOARD_LCD2_LITE)
-    // Jumper-wired W5500 Lite: half the core's 20 MHz SPI clock, a test for the
-    // "link up, no address" cases, all seen on this build so far (audit 1.2)
-    ethPresent = ETH.begin(ETH_PHY_W5500, 1, W5500_CS, W5500_INT, W5500_RST, SPI, 10);
-#else
     ethPresent = ETH.begin(ETH_PHY_W5500, 1, W5500_CS, W5500_INT, W5500_RST, SPI);
-#endif
     if (!ethPresent) {
         Serial.println("ERROR: W5500 not found - check wiring / pins.h. Using WiFi only.");
     }
@@ -589,6 +584,10 @@ void networkInit() {
     WiFi.persistent(false);    // WiFi settings live in our config, not the WiFi driver's flash
     WiFi.mode(WIFI_OFF);       // on only when needed (backup, hotspot, scan)
     applyHostname();
+    // Starts the TCP/IP stack if nothing has yet: without a W5500 (dead or missing
+    // module) neither ETH nor WiFi had, and server.begin() crashed the board in a
+    // boot loop (found 2026-10-08 with Ethernet switched off for a test)
+    Network.begin();
     server.begin();
 
     Serial.print("Dashboard URL: http://"); Serial.println(ETH.localIP());

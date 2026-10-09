@@ -153,9 +153,12 @@ be broken by firmware:
     `0xFF` / `0xF8`). Everything the driver set up in the chip is gone, so nothing is
     received and DHCP restarts can't help. Seen on two reads 10 s apart, the board restarts
     after 20 s, WiFi or not (in a row: 40 s, 80 s ... up to ~21 min).
-  - The W5500 Lite build runs the W5500 at 10 MHz (core default 20 MHz) since 2026-10-06,
-    a test for the "no address" cases, all seen on that build. It didn't stop them
-    (2026-10-06 16:45 and 18:04); the suspect is the module's power or jumper wiring.
+  - The W5500 Lite build ran the W5500 at 10 MHz from 2026-10-06, a test for the "no
+    address" cases. It didn't stop them (the module was replaced 2026-10-08), so since
+    2026-10-08 all builds use the core's 20 MHz again.
+  - No W5500 found at boot (dead or unplugged module): the board carries on with WiFi
+    (until 2026-10-08 it crashed in a boot loop: nothing had started the network stack
+    before the web server; `Network.begin()` now does).
 - **Ethernet details in NET events** (2026-10-06): link up with speed and duplex; address with
   the time it took (normally ~4.5 s); link down, address lost with the link still up (= lease
   lost, not the cable) and every "no address" step with the DHCP client state (running /

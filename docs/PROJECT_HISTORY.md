@@ -257,5 +257,22 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   `rename` won't overwrite: remove, then rename). Nothing reads the old record, so it can't
   carry damage forward. The download adds the column names to old files that lack them
   (`daily.csv` from before 2026-09-28): the listed size is smaller than the download.
+- 2026-10-08: **First MQTT connection after a boot stalls; connect 15 s later.** ~80 restarts
+  from an MQTT test script (Restart button), each boot's events read back. Connecting at
+  the address: 70-90 % of boots stalled one send 1-10 s (2.5-3, ~4.5, 8.5, 10 s = gave up),
+  0.1-0.4 s into the first burst (discovery, subscribe, first state). Steps of ~3 s = lwIP
+  resending after `CONFIG_LWIP_TCP_RTO_TIME` 3000 ms, then doubling. Ruled out, one test
+  each: W5500 SPI at 10 vs 20 MHz; the W5500 driver's 200 us send timeout (raised to the
+  10 Mbps 1500 us through `mac->set_speed()`); a 5 ms gap between messages; the broker
+  (a PC's 35-message bursts: 40-50 ms every time, also reconnecting under the same client
+  ID without a goodbye); a fixed local port (random per boot); Ethernet itself (WiFi
+  stalled the same way). Pings went through during a stall. Connecting 5 s after the
+  address: 3 of 7 stalled; 15 s or more: 0 of 16. So the board waits 15 s
+  (`NET_SETTLE_MS`). Cause still unknown; something in the board's first seconds online.
+- 2026-10-08: **No W5500 at boot crashed the board in a loop** (`assert failed:
+  xQueueSemaphoreTake`, from `NetworkServer::begin()`): WiFi starts later and ETH never
+  started, so the lwIP stack didn't exist yet. `Network.begin()` before `server.begin()`.
+  Found by switching Ethernet off in a test build; the board was down ~15 min, a test that
+  should have been watched from its first boot.
 
 Open items: `docs/TODO.md`.

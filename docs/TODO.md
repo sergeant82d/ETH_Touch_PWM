@@ -66,22 +66,13 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       after the swap; close after 3-4 days without `W5500 reset by itself` or a `TASK_WDT` BOOT.
       The 8.5 s `LOOP` on the first boot after the swap is the MQTT first-connect stall
       (audit 4.1 below), not the module. DHCP reservation: Ethernet set
-      2026-10-08 (user); WiFi `28:84:85:87:E0:D4` not yet
+      2026-10-08 (user); WiFi `28:84:85:87:E0:D4` at .190 (user, 2026-10-08)
 - [ ] `[Board]` `[HA]` 2026-10-06 03:15: the watchdog caught a hang in the network step
       (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
       unavailable 03:15:50, back 03:16:17). The finer stage names (`net:...`, `mqtt:...`) will
       say which call next time
 - [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
       agreed with the user 2026-10-06:
-  - [ ] `[HA]` MQTT reply wait 2 s; a failed publish closes the connection, but not for a
-        message too big for the buffer (the audit's sketch would reconnect-loop) (4.1).
-        Done 2026-10-07: Nagle off on the MQTT connection (first connect held loop() 8.9 s;
-        2.6 s after, one boot) and a "discovery sent in N s" event to watch it. 2026-10-08:
-        **not the whole cause.** Discovery 0.1 s on three boots, but 2.7 s and 8.7 s on two
-        others, and one cold boot logged `LOOP mqtt took 8.5 s (last stage mqtt:pub)` (the
-        first state publish) after a 0.1 s discovery. Each stall is the first burst of
-        messages right after boot, ~5 s after the Ethernet link comes up; ~8 s looks like TCP
-        retransmit waits (a lost packet), not Nagle. Open: find out what is lost or waited for
   - [ ] `[Board]` `[SD]` Measure how long a no-card mount retry blocks before changing it (3.4)
   - [ ] `[Web]` Web request limits: overall header deadline, line length cap, short writes in
         downloads (5.1)
@@ -89,23 +80,24 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
         49.7 days (5.3)
   - [ ] Skipped unless wanted: rows held until the clock is set (3.5), SD at 16 MHz; rule
         kept in mind: no SD access inside an open LCD transaction (1.1)
-- [ ] `[LCD]` `[Decide]` Faster LCD drawing with DMA, as done in Wifi_Fan_Knob 2026-10-07
-      (`3d7311c`; how it's done: its `src/main.cpp` `display_flush()`, and
-      `D:\GitHub\VSCodeProjects\Wifi_Bench_Fan\Wifi_Fan_Knob\docs\PROJECT_HISTORY.md`,
-      "LCD swiping"). There, LVGL
-      redraws took 110-240 ms during a swipe; two 40-line buffers in internal DMA RAM sent with
-      LovyanGFX `pushImageDMA` (drawing the next part while the last is sent) fixed it.
-      Here it isn't a straight copy (Claude, 2026-10-07):
-      - This LCD is drawn directly with Adafruit_ST7789 (no LVGL, no DMA). The equivalent is
-        switching to LovyanGFX: draw into a buffer (sprite) in DMA RAM, push it by DMA. Same
-        screens, new drawing calls: a medium job; measure the redraw times first to see if it
-        is worth it (the flicker fixes of 2026-10-05 already cut redraws to what changed).
-      - The LCD shares its SPI bus with the SD card: end the LCD write (which waits for the
-        DMA) before every SD access (audit 1.1: no SD access inside an open LCD transaction).
-      (user asked for this note, 2026-10-07)
 
 ## Done
 
+- [x] `[HA]` `[Net]` Audit 4.1 and the first-connect stall (2026-10-08). Every send goes
+      through one checked function: a failed send closes the connection (reconnect in
+      15 s), a message too big for the buffer is refused without reconnecting, a failed
+      subscribe closes it too (one stalled subscribe had left the board deaf to HA), sends
+      over 0.5 s are logged; reply wait 2 s. The stall (1-10 s on the first connection after
+      a boot, 70-90 % of boots, Ethernet and WiFi alike) is avoided by connecting 15 s
+      after the network comes up; cause not found (`docs/PROJECT_HISTORY.md`). COM15, ~80
+      restarts from the MQTT test tool: 11 boots with the fix, no stall, discovery 0.1 s
+      each (Claude). Also: the W5500 Lite back at 20 MHz; no W5500 at boot no longer
+      boot-loops (found when Ethernet was switched off for a test; the board then ran on
+      WiFi). UNTESTED: a real dead W5500 (only simulated); the other two builds (compile)
+      (2026-10-08, this commit)
+- [x] `[LCD]` `[Decide]` Faster LCD drawing with DMA, as in Wifi_Fan_Knob: not for this project
+      (user, 2026-10-08). DMA drawing stays the default for future projects where it makes
+      sense (global `CLAUDE.md`, "Displays") (2026-10-08, this commit)
 - [x] `[SD]` Audit 3.3 + no more 30-day purge (your decision, 2026-10-08): `daily.csv` keeps
       every day (~30 KB a year), so it is only ever appended to (checked, 3.1). The all-time
       record is worked out again from all of `daily.csv` (at boot, card in, new day) instead

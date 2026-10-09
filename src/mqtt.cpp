@@ -29,6 +29,8 @@ static unsigned long lastAttemptMs = 0;
 static int lastConnectState = MQTT_DISCONNECTED;
 static const unsigned long RETRY_MS = 15000; // connect attempts block briefly; space them out
 static unsigned long connectedMs = 0;  // when the current connection was made
+static const unsigned long NET_SETTLE_MS = 15000;
+static unsigned long netUpMs = 0;      // when the network last came up (0 = down)
 
 bool isValidNodeId(const char* id) {
     size_t len = strlen(id);
@@ -43,6 +45,33 @@ bool isValidNodeId(const char* id) {
 static bool mqttWanted() {
     return config.mqttBroker[0] != '\0' && isValidNodeId(config.nodeID) &&
            strcmp(config.nodeID, DEFAULT_NODE_ID) != 0;
+}
+
+// Every send goes through here (audit 4.1). A failed send means the
+// connection is stuck (the broker stopped acknowledging; the core waits up
+// to 10 x 1 s per write): close the socket, so mqttLoop() logs it and
+// reconnects, instead of waiting again on every message. Not mqtt.disconnect():
+// that sends DISCONNECT into the same full buffer. A message too big for the
+// buffer fails every time, so it is refused without closing (or it would
+// reconnect over and over). Sends over 0.5 s go to the event log (the
+// first-connect stalls of 2026-10-07/08).
+static bool pub(const String &t, const String &payload, bool retained = true) {
+    if (!mqtt.connected()) return false;
+    if (t.length() + payload.length() + 7 > mqtt.getBufferSize()) { // PubSubClient's header room
+        Serial.print("MQTT: message too big for the buffer: "); Serial.println(t);
+        return false;
+    }
+    unsigned long t0 = millis();
+    bool ok = mqtt.publish(t.c_str(), payload.c_str(), retained);
+    unsigned long took = millis() - t0;
+    if (took >= 500) {
+        sdLogEvent("MQTT", "slow send " + String(took / 1000.0, 1) + " s: " + t + " (" +
+                           String((t0 - connectedMs) / 1000.0, 1) + " s after connecting)");
+    }
+    if (ok) return true;
+    sdLogEvent("MQTT", "send failed after " + String(took / 1000.0, 1) + " s, connection closed: " + t);
+    net.stop();
+    return false;
 }
 
 static String topic(const String &object) {
@@ -123,7 +152,7 @@ static String configTopic(const String &node, const EntityDef &e) {
 static void publishEntityConfig(const String &node, const EntityDef &e, bool wanted) {
     String t = configTopic(node, e);
     if (!wanted) {
-        mqtt.publish(t.c_str(), "", true);
+        pub(t, "");
         return;
     }
     JsonDocument doc;
@@ -161,7 +190,7 @@ static void publishEntityConfig(const String &node, const EntityDef &e, bool wan
 
     String payload;
     serializeJson(doc, payload);
-    if (!mqtt.publish(t.c_str(), payload.c_str(), true)) {
+    if (!pub(t, payload)) {
         Serial.print("MQTT: discovery publish failed: "); Serial.println(t);
     }
 }
@@ -193,7 +222,7 @@ static String summaryAttrs;
 
 static void publishIfChanged(int slot, const String &object, const String &payload, bool force) {
     if (!force && lastSent[slot] == payload) return;
-    if (mqtt.publish(topic(object).c_str(), payload.c_str(), true)) lastSent[slot] = payload;
+    if (pub(topic(object), payload)) lastSent[slot] = payload;
 }
 
 static String tempPayload(bool healthy, float c) {
@@ -220,7 +249,7 @@ static void publishState(bool force) {
         bool stoppedChanged = (rpm == 0) != (lastRpm[i] == 0);
         if (force || labs(rpm - lastRpm[i]) >= 60 || stoppedChanged ||
             (rpm != lastRpm[i] && millis() - lastRpmMs[i] >= 30000)) {
-            if (mqtt.publish(topic(f + "_rpm").c_str(), String(rpm).c_str(), true)) {
+            if (pub(topic(f + "_rpm"), String(rpm))) {
                 lastRpm[i] = rpm;
                 lastRpmMs[i] = millis();
             }
@@ -242,14 +271,14 @@ static void publishState(bool force) {
     publishIfChanged(SLOT_SD_FAULT, "sd_fault", sdState() == SD_STATE_OK ? "OFF" : "ON", force);
 
     if (force && summaryDate.length()) {
-        mqtt.publish(topic("daily_summary").c_str(), summaryDate.c_str(), true);
-        mqtt.publish(topic("daily_summary/attributes").c_str(), summaryAttrs.c_str(), true);
+        pub(topic("daily_summary"), summaryDate);
+        pub(topic("daily_summary/attributes"), summaryAttrs);
     }
 
     if (force || millis() - lastDiagMs >= 60000) {
         lastDiagMs = millis();
-        mqtt.publish(topic("ip").c_str(), localIP().toString().c_str(), true);
-        mqtt.publish(topic("uptime").c_str(), String(millis() / 1000).c_str(), true);
+        pub(topic("ip"), localIP().toString());
+        pub(topic("uptime"), String(millis() / 1000));
     }
 }
 
@@ -443,9 +472,12 @@ static void tryConnect() {
     Serial.print("MQTT: connected to "); Serial.print(config.mqttBroker);
     Serial.print(" as "); Serial.println(activeNode);
     // The board's address actually used (both networks share one subnet, audit 2.1)
-    sdLogEvent("MQTT", String("connected to ") + config.mqttBroker + " from " + net.localIP().toString() + " (" + activeNetwork() + ")");
+    String sinceAddr;
+    unsigned long addrMs = ethAddressMs();
+    if (strcmp(activeNetwork(), "Ethernet") == 0 && addrMs) sinceAddr = ", " + String((connectedMs - addrMs) / 1000.0, 1) + " s after the address";
+    sdLogEvent("MQTT", String("connected to ") + config.mqttBroker + " from " + net.localIP().toString() + ":" + String(net.localPort()) + " (" + activeNetwork() + sinceAddr + ")");
 
-    mqtt.publish(will.c_str(), "online", true);
+    pub(will, "online");
     // Discovery is retained on the broker: resend it only when it changed
     // (node or fan count) or HA asks (its birth message, below). Every
     // reconnect used to resend ~30 messages, holding loop() up ~2 s.
@@ -456,8 +488,14 @@ static void tryConnect() {
         announcedFor = announce;
         sdLogEvent("MQTT", "discovery sent in " + String((millis() - t0) / 1000.0, 1) + " s");
     }
-    mqtt.subscribe((activeNode + "/+/set").c_str());
-    mqtt.subscribe("homeassistant/status");
+    // Unsubscribed, the board would hear nothing from HA (network temperature,
+    // controls) while looking connected: a failed subscribe closes the connection
+    // (2026-10-08: one stalled 14 s and left the board deaf)
+    if (!mqtt.subscribe((activeNode + "/+/set").c_str()) || !mqtt.subscribe("homeassistant/status")) {
+        sdLogEvent("MQTT", "subscribe failed, connection closed");
+        net.stop();
+        return;
+    }
     publishState(true);
 }
 
@@ -468,14 +506,14 @@ static void disconnectCleanly(bool removeFromHA, const char* why) {
         publishDiscovery(activeNode, true);
         announcedFor = ""; // removed from HA: announce again on the next connect
     }
-    mqtt.publish(topic("status").c_str(), "offline", true);
+    pub(topic("status"), "offline");
     mqtt.disconnect();
     lastConnectState = MQTT_DISCONNECTED;
 }
 
 void mqttInit() {
     mqtt.setBufferSize(1024); // discovery payloads exceed the 256-byte default
-    mqtt.setSocketTimeout(5); // seconds to wait for the broker's reply
+    mqtt.setSocketTimeout(2); // seconds to wait for the broker's reply: a LAN broker answers in ms (audit 4.1)
     net.setConnectionTimeout(2000); // a dead broker blocks loop() at most this long (LAN broker)
     mqtt.setCallback(onMessage);
 }
@@ -520,6 +558,7 @@ void mqttLoop() {
     }
 
     if (!mqttWanted() || !isNetworkConnected()) {
+        netUpMs = 0;
         disconnectCleanly(false, !mqttWanted() ? "MQTT off" : "no network");
         return;
     }
@@ -530,6 +569,14 @@ void mqttLoop() {
         Serial.print("MQTT: connection lost (state "); Serial.print(lastConnectState); Serial.println(")");
         sdLogEvent("MQTT", String("connection lost: ") + mqttStateText(lastConnectState) + " (state " + String(lastConnectState) + ")");
     }
+
+    // Not in the first 15 s after the network comes up. The first connection after a
+    // boot stalled 1-10 s in 70-90 % of ~70 restarts on COM15 (2026-10-08), on Ethernet
+    // and WiFi alike: TCP resent a frame after 3, 6 s ... and loop() waited. Every
+    // connection 15 s or more after the address was smooth; at 5 s, 3 of 7 still stalled.
+    // Cause not found (the broker answers a PC's bursts in 40 ms, reconnecting or not).
+    if (netUpMs == 0) netUpMs = millis();
+    if (millis() - netUpMs < NET_SETTLE_MS) return;
 
     if (!mqtt.connected()) {
         if (attemptNow || millis() - lastAttemptMs >= RETRY_MS) {
@@ -581,8 +628,8 @@ void mqttPublishDailySummary(const String &date,
     serializeJson(doc, summaryAttrs);
     summaryDate = date;
     if (mqtt.connected()) {
-        mqtt.publish(topic("daily_summary").c_str(), summaryDate.c_str(), true);
-        mqtt.publish(topic("daily_summary/attributes").c_str(), summaryAttrs.c_str(), true);
+        pub(topic("daily_summary"), summaryDate);
+        pub(topic("daily_summary/attributes"), summaryAttrs);
         Serial.println("Daily summary published to MQTT.");
     } else {
         Serial.println("Daily summary kept; MQTT not connected, sent on reconnect.");

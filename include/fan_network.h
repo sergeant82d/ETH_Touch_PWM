@@ -38,6 +38,7 @@ void applyTimeZone();
 // assigned address: with a static IP the address stays "assigned" with the
 // cable unplugged).
 bool isEthernetConnected();
+unsigned long ethAddressMs();   // millis() of the last Ethernet address event, 0 = none
 bool isWifiConnected();       // backup WiFi joined
 bool isHotspotActive();
 bool isWifiJoining();         // backup WiFi wanted, not joined yet
