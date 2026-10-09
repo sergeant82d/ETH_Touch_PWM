@@ -22,7 +22,7 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Your notes
 
-- `[Web]` `[HA]` Add LCD Temperature gauge minimum and maximum temperature settings to the Config web page and HA. 
+- `[Web]` `[HA]` Add LCD Temperature gauge minimum and maximum temperature settings to the Config web page and HA. The Fan RPM gauges should be getting their max speed from the Config file of the active fan's calibration. 
 
 
 ## Open
