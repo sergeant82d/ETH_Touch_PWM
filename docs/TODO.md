@@ -22,6 +22,9 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Your notes
 
+- `[Web]` `[HA]` Add LCD Temperature gauge minimum and maximum temperature settings to the Config web page and HA. 
+
+
 ## Open
 
 - [ ] `[Board]` Low priority, parked (user, 2026-10-06): one I2C read error (touch bus) at
