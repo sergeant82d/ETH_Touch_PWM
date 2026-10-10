@@ -88,6 +88,8 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[Docs]` Status report 06 (covers 2026-10-08 and 10-10); no notes to turn into items
+      (2026-10-10, this commit)
 - [x] `[SD]` Audit 3.5 (rows held until the clock is set) skipped, and 1.1 (no SD access inside
       an open LCD write) closed as covered by the global `CLAUDE.md` display rule (user,
       2026-10-10, Claude's recommendation). 3.5 costs only the minutes after a power cut
