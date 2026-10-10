@@ -301,6 +301,11 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   one is mostly the line-by-line parsing); file identical. Downloads now ~315 KB/s, so the
   card was the limit before. `SD_CLOCK_HZ` in sd_logger.cpp; back to 4 MHz if a card
   misbehaves.
+- 2026-10-10: **LCD woke itself in the dark** 4 times in 5 days despite the 1 s hold, twice
+  exactly 56 s after HA turned it off. The hold counted any two consecutive finger-down
+  readings, so two phantom taps on either side of a busy loop() could add up to 1 s; now a
+  gap over 150 ms restarts it, and each wake logs `DISPLAY wake press: ...`. A real 1 s hold
+  read 35 times at one exact point (x 168 y 136), so a still position does not mark a phantom.
 - 2026-10-10: after the ~5 min full flash read, the board's first boot logged events ~7 min
   fast until NTP set the clock (the time kept through the reset drifted while the chip sat in
   the ROM loader). Only the event times; harmless.

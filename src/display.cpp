@@ -1007,9 +1007,12 @@ static bool displayOn = true;
 
 bool isDisplayOn() { return displayOn; }
 
+static unsigned long displayOffMs = 0; // when the backlight last went off (for the wake line)
+
 void setDisplayOn(bool on, const char* source) {
     if (on == displayOn) return;
     displayOn = on;
+    if (!on) displayOffMs = millis();
     digitalWrite(PIN_LCD_BL, on ? HIGH : LOW);
     Serial.print("LCD display "); Serial.print(on ? "ON" : "OFF"); Serial.print(" via "); Serial.println(source);
     sdLogEvent("DISPLAY", String("source=") + source + " action=" + (on ? "ON" : "OFF"));
@@ -1024,11 +1027,33 @@ void handleTouchInput() {
     // Dark screen: a press held 1 s wakes it (never reaches a button underneath).
     // Not a tap: 16-25 s after the backlight goes off the panel reports bursts
     // of phantom taps (0.2-0.4 s each, same row), which woke it (2026-10-05).
+    // Still woke by itself 4 times in 5 days (twice exactly 56 s after HA turned
+    // it off, 2026-10-07/09), so (2026-10-10): the hold restarts if two finger-down
+    // readings are over 150 ms apart (the loop was busy: two phantom taps either
+    // side of a pause looked like one hold), and each wake goes to the event log
+    // with what the press looked like.
     static bool wakePressHeld = false; // the rest of the waking press reaches nothing
+    static unsigned long lastPollMs = 0;
+    unsigned long nowMs = millis();
+    unsigned long gap = nowMs - lastPollMs;
+    lastPollMs = nowMs;
     if (!displayOn) {
-        static unsigned long pressStartMs = 0;
-        if (pressed && !wasPressed) pressStartMs = millis();
-        if (pressed && wasPressed && millis() - pressStartMs >= 1000) {
+        static unsigned long pressStartMs = 0, maxGap = 0;
+        static int readings = 0, minX, maxX, minY, maxY;
+        if (pressed && (!wasPressed || gap > 150)) { // a new press
+            pressStartMs = nowMs; maxGap = 0; readings = 0;
+            minX = maxX = tx; minY = maxY = ty;
+        }
+        if (pressed) {
+            readings++;
+            if (wasPressed && gap > maxGap) maxGap = gap;
+            minX = min(minX, tx); maxX = max(maxX, tx); minY = min(minY, ty); maxY = max(maxY, ty);
+        }
+        if (pressed && wasPressed && nowMs - pressStartMs >= 1000) {
+            sdLogEvent("DISPLAY", "wake press: " + String((nowMs - pressStartMs) / 1000.0, 2) + " s, " +
+                       String(readings) + " readings, x " + String(minX) + "-" + String(maxX) + " y " +
+                       String(minY) + "-" + String(maxY) + ", longest gap " + String(maxGap) + " ms, " +
+                       String((nowMs - displayOffMs) / 1000) + " s after off");
             setDisplayOn(true, "LCD");
             wakePressHeld = true;
         }

@@ -82,12 +82,25 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
   - [ ] `[SD]` SD card at 16 MHz on trial (was 4 MHz; user, 2026-10-10). Claude checks the
         event log for SD errors / `state=Missing` at the start of each session; close after
         2 quiet days, back to 4 MHz (`SD_CLOCK_HZ`, sd_logger.cpp) if a card misbehaves
+- [ ] `[LCD]` Watch: the dark LCD woke itself 4 times since the 1 s hold (10-05 22:13, 10-06
+      23:54, 10-07 18:45 and 10-09 23:58, the last two exactly 56 s after HA turned it off).
+      Since 2026-10-10 each wake logs `DISPLAY wake press: ...` (length, readings, position,
+      longest gap, time since off); Claude checks it at session start. If one shows without
+      you: the 2-minute no-wake after turning off is the next step (your real 1 s hold stayed
+      on one exact point, so position can't tell them apart)
 - [ ] `[SD]` Low priority: on the card's return 2026-10-10 14:03 the event log has
       `state=OK` before the buffered `state=Missing` from 14:01 (the buffer was written after
       the OK line; the 13:58 return had them in order). Only the order; nothing lost
 
 ## Done
 
+- [x] `[LCD]` LCD woke by itself after HA turned it off (your note, 2026-10-10): the 1 s hold now
+      restarts if two finger-down readings are over 150 ms apart (two phantom taps either side
+      of a busy moment counted as one hold), and each wake goes to the event log with what the
+      press looked like. COM15: off from MQTT, dark for 2.5 min (Claude); your short taps
+      didn't wake it, a 1 s hold did (`wake press: 1.01 s, 35 readings, x 168-168 y 136-136,
+      longest gap 40 ms, 251 s after off`). Whether it stops the phantom wakes: watch item
+      above. UNTESTED: the plain Touch-LCD-2 (compile) (2026-10-10, this commit)
 - [x] `[Docs]` Status report 06 (covers 2026-10-08 and 10-10); no notes to turn into items
       (2026-10-10, this commit)
 - [x] `[SD]` Audit 3.5 (rows held until the clock is set) skipped, and 1.1 (no SD access inside
