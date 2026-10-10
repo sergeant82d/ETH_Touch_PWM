@@ -2,7 +2,7 @@
 **Date**: October 10, 2026 (also covers October 8, which had no report of its own)
 **Session**: new W5500 module, the firmware audit finished, MQTT first-connect stalls, HA Restart
 button, daily history rebuilt, LCD gauge settings
-**Status**: Final for the day. Everything is on `main` (last code commit `c675010`). Bench board:
+**Status**: Final for the day. Everything is on `main` (last code commit `967e204`). Bench board:
 Touch-LCD-2 + W5500 Lite (`6U_Rack_Fans`, COM15, Ethernet at .229 and WiFi backup at .190, both
 reserved on the router). Settings version 11 (was 10; older files upgrade in place).
 
@@ -27,6 +27,7 @@ items: `../TODO.md`.
 | **Web requests (audit 5.1)** | Headers 3 s in all, lines capped at 512 characters, a page or download stops on a failed send or after 60 s | `0a84aaa` |
 | **Tidy-ups (audit 5.2, 5.3)** | The SD buffer's size kept in memory (was read from flash ~8 times a second); uptime no longer drops to 0 after 49.7 days | `2346746` |
 | **SD card speed** | 16 MHz instead of 4 MHz, on trial | `c675010` |
+| **LCD waking itself** | Your report: the dark LCD came on by itself. The 1 s hold now restarts if two readings are over 150 ms apart, and every wake from the screen is logged with what the press looked like | `967e204` |
 | **Docs** | Nagle explained in PROJECT_HISTORY; the Wifi_Fan_Knob changes of 10-07 read and applied; TODO kept current with each change | `769e7df`, `8df06fe` and with each change |
 
 Build: ~1.49 MB, 47.5 % of the 3 MB app slot; RAM 17 %; all three builds compile with no new
@@ -42,6 +43,7 @@ warnings. Free memory on Ethernet ~253 KB.
   - the History tab with the rebuilt days
   - the gauge settings on the web page, the LCD and in HA (a Max RPM save from the web)
   - every tab after the web request limits, and the History tab at 16 MHz
+  - the LCD wake: short taps on the dark screen didn't wake it, a 1 s hold did
 - **Logs and tests by Claude:**
   - ~80 restarts from an MQTT test script to pin down the first-connect stall; with the fix,
     every connection smooth (discovery 0.1 s)
@@ -54,13 +56,15 @@ warnings. Free memory on Ethernet ~253 KB.
     slow reader dropped after 15 s with no restart
   - uptime after a restart from HA: `uptimeAtReset=134s` at 135 s
   - 16 MHz: downloads ~1.5 times faster (month log 1.75 -> 1.21 s), files identical
+  - LCD off from MQTT: stayed dark 2.5 min; your hold logged `wake press: 1.01 s, 35
+    readings, x 168-168 y 136-136, longest gap 40 ms, 251 s after off`
 - **Full flash backups** before the risky flashes: `COM15_Lite_67f63b1_full-flash_2026-10-08.bin`
   and `COM15_Lite_4765c4f_full-flash_2026-10-10.bin` in `ETH_Touch_PWM_backups` (restore
   command in `backup_log.txt`).
 - **UNTESTED:** the plain Touch-LCD-2 and the ESP32-S3-ETH with this code (both compile; the
   ESP32-S3-ETH's SD wiring at 16 MHz too); a real dead W5500 (only simulated); a write failing
   partway through the buffer write-back; the 60 s download limit itself; the SD buffer past
-  80 % full.
+  80 % full; whether the LCD change stops the phantom wakes (needs nights of use).
 
 ## Findings
 
@@ -81,8 +85,13 @@ warnings. Free memory on Ethernet ~253 KB.
   network time arrived. Harmless.
 - **Event order:** once, the SD "card OK" line was logged before the buffered "card missing"
   line (only the order; low-priority item).
-- **10-09 23:58:** the LCD came back on 56 s after HA turned it off (`source=LCD`); asked,
-  no answer yet. Today's LCD override on/off at 14:48 was a stray touch (you).
+- **The LCD woke itself** (10-09 23:58, not you): the log shows 4 such wakes since the 1 s
+  hold went in on 10-05, two of them exactly 56 s after HA turned the screen off. The hold
+  counted any two finger-down readings in a row, so two phantom taps on either side of a busy
+  moment could add up to a second; fixed, and each wake is now logged. Your real hold stayed
+  on one exact point, so a still position can't mark a phantom. If it still happens, the
+  next step is ignoring touches for 2 minutes after the screen turns off.
+- Today's LCD override on/off at 14:48 was a stray touch while handling the card (you).
 
 ## Decisions
 
@@ -99,12 +108,13 @@ warnings. Free memory on Ethernet ~253 KB.
 - **Close on 10-12 if the log is still clean:** the Ethernet/W5500 item and the overnight
   freeze item.
 - **Trial:** SD at 16 MHz (close after 2 quiet days, or back to 4 MHz).
-- **Watching:** the 03:15 network-stage hang, touch I2C (parked).
+- **Watching:** the LCD waking itself (wake lines in the event log), the 03:15 network-stage
+  hang, touch I2C (parked).
 - **Low priority:** the event-order quirk after a card returns.
 
 ## Next steps
 
 - At the start of the next session (10-12), Claude reads the event log: `TASK_WDT`, W5500
   resets, SD errors, `MQTT slow send`, the midnight rows. If clean, close the W5500, freeze and
-  16 MHz items.
-- Question for you then: was the LCD turning on at 10-09 23:58 your touch?
+  16 MHz items. Also any `wake press` line you didn't make (HA turns the screen off each
+  night, so the nights will show it).
