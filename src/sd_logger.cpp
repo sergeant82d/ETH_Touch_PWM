@@ -110,6 +110,9 @@ static String resetReasonString() {
 static bool sdPresent = false;
 static const uint64_t MIN_FREE_BYTES = 5UL * 1024 * 1024; // 5MB safety margin
 
+// SD clock (audit, 2026-10-10: was 4 MHz). The LCD already drives the same lines faster.
+// Back to 4000000 if a card misbehaves (SD errors / state=Missing in the event log).
+static const uint32_t SD_CLOCK_HZ = 16000000;
 static const char* SPILLOVER_PATH = "/sd_pending.csv";
 static const size_t SPILLOVER_MAX_BYTES = 200 * 1024; // ~200KB cap
 static bool spilloverCapWarned = false;
@@ -504,7 +507,7 @@ void sdLoggerInit() {
     pinMode(PIN_SD_CS, OUTPUT);
     digitalWrite(PIN_SD_CS, HIGH); // deselect SD before the LCD uses the shared bus
 
-    sdPresent = SD.begin(PIN_SD_CS, sdSPI(), 4000000);
+    sdPresent = SD.begin(PIN_SD_CS, sdSPI(), SD_CLOCK_HZ);
     if (sdPresent) {
         SD.mkdir("/logs");
         SD.mkdir("/rollups");
@@ -669,7 +672,7 @@ void sdLoggerLoop() {
     const unsigned long SD_RETRY_PERIOD_MS = 15000;
     if (!sdPresent && millis() - lastSdRetryMs >= SD_RETRY_PERIOD_MS) {
         lastSdRetryMs = millis();
-        if (SD.begin(PIN_SD_CS, sdSPI(), 4000000)) {
+        if (SD.begin(PIN_SD_CS, sdSPI(), SD_CLOCK_HZ)) {
             sdPresent = true;
             SD.mkdir("/logs");
             SD.mkdir("/rollups");

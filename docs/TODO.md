@@ -75,14 +75,19 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       say which call next time
 - [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
       agreed with the user 2026-10-06:
-  - [ ] Skipped unless wanted: rows held until the clock is set (3.5), SD at 16 MHz; rule
-        kept in mind: no SD access inside an open LCD transaction (1.1)
+  - [ ] `[SD]` SD card at 16 MHz on trial (was 4 MHz; user, 2026-10-10). Claude checks the
+        event log for SD errors / `state=Missing` at the start of each session; close after
+        2 quiet days, back to 4 MHz (`SD_CLOCK_HZ`, sd_logger.cpp) if a card misbehaves
 - [ ] `[SD]` Low priority: on the card's return 2026-10-10 14:03 the event log has
       `state=OK` before the buffered `state=Missing` from 14:01 (the buffer was written after
       the OK line; the 13:58 return had them in order). Only the order; nothing lost
 
 ## Done
 
+- [x] `[SD]` Audit 3.5 (rows held until the clock is set) skipped, and 1.1 (no SD access inside
+      an open LCD write) closed as covered by the global `CLAUDE.md` display rule (user,
+      2026-10-10, Claude's recommendation). 3.5 costs only the minutes after a power cut
+      until the network gives the time (2026-10-10, this commit)
 - [x] `[SD]` `[Decide]` Audit 3.4: left as it is (user, 2026-10-10). Measured on COM15 (card out
       3.5 min, /api/status timed 5 times a second): each retry for the missing card holds the
       loop 0.5-1.0 s, every 15 s, only while the card is out; the LCD and touch pause, fans,

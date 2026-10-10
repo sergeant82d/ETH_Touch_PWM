@@ -296,6 +296,11 @@ growth. Current limit: `CLAUDE.md`, success criteria.
 - 2026-10-10: **No-card retry measured** (audit 3.4): `SD.begin()` with an empty slot holds the
   loop 0.5-1.0 s, every 15 s (timed from the PC through /api/status; the audit estimated
   1-1.5 s from the driver code).
+- 2026-10-10: **SD at 16 MHz** (was 4 MHz, audit; on trial). COM15, three runs each: month log
+  380 KB 1.75 -> 1.21 s, Sept log 105 KB 0.52 -> 0.33 s, a History day 1.39 -> 1.2 s (that
+  one is mostly the line-by-line parsing); file identical. Downloads now ~315 KB/s, so the
+  card was the limit before. `SD_CLOCK_HZ` in sd_logger.cpp; back to 4 MHz if a card
+  misbehaves.
 - 2026-10-10: after the ~5 min full flash read, the board's first boot logged events ~7 min
   fast until NTP set the clock (the time kept through the reset drifted while the chip sat in
   the ROM loader). Only the event times; harmless.
