@@ -69,6 +69,10 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       The 8.5 s `LOOP` on the first boot after the swap is the MQTT first-connect stall
       (audit 4.1 below), not the module. DHCP reservation: Ethernet set
       2026-10-08 (user); WiFi `28:84:85:87:E0:D4` at .190 (user, 2026-10-08)
+      2026-10-10 15:10: quiet since the swap (no W5500 reset, no `TASK_WDT`; every restart
+      since was a test or flash by Claude; longest untouched run 42 h). Plan (user,
+      2026-10-10): close this item and the freeze item at the start of the 2026-10-12
+      session if the log is still clean
 - [ ] `[Board]` `[HA]` 2026-10-06 03:15: the watchdog caught a hang in the network step
       (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
       unavailable 03:15:50, back 03:16:17). The finer stage names (`net:...`, `mqtt:...`) will
