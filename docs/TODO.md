@@ -75,9 +75,12 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       say which call next time
 - [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
       agreed with the user 2026-10-06:
-  - [ ] `[Board]` `[SD]` Measure how long a no-card mount retry blocks before changing it (3.4)
-  - [ ] Tidy-ups when those files are next edited: spillover size cached (5.2), uptime past
-        49.7 days (5.3)
+  - [ ] `[Decide]` `[SD]` 3.4, measured 2026-10-10 (COM15, card out 3.5 min, /api/status timed
+        5 times a second): each retry for the missing card holds the loop 0.5-1.0 s (status
+        answered in 0.78-0.97 s instead of 0.03 s), every 15 s, only while the card is out.
+        Meanwhile the LCD and touch pause; fans (hardware PWM), MQTT and the web page carry
+        on. The audit's fix: retry less often (15 s doubling to 2 min) at the cost of up to
+        2 min before a returned card is noticed. Claude's recommendation: leave it as it is
   - [ ] Skipped unless wanted: rows held until the clock is set (3.5), SD at 16 MHz; rule
         kept in mind: no SD access inside an open LCD transaction (1.1)
 - [ ] `[SD]` Low priority: on the card's return 2026-10-10 14:03 the event log has
@@ -86,6 +89,16 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[SD]` `[HA]` Audit 5.2 + 5.3: the internal buffer's size is kept in memory instead of the
+      file being opened ~8 times a second (LCD title bar, MQTT, web, logger) to read it;
+      measured again only after a buffered row. Uptime (web, HA, BOOT `uptimeAtReset`, TOUCH
+      events) from the 64-bit timer, so it no longer drops to 0 after 49.7 days. COM15
+      (Claude): web and HA uptime counting, restart from HA at 135 s logged
+      `uptimeAtReset=134s`, SD state OK. The first boot after the flash logged "no prior
+      state" (the restart record's layout changed, once). Card out 3.5 min (user): rows
+      buffered and written back (`buffer written to the card: 1 KB`), events in order.
+      UNTESTED: the buffer past 80 % full (~2 weeks without a card), 49.7 days; the other two
+      builds (compile) (2026-10-10, this commit)
 - [x] `[Web]` Audit 5.1, web request limits: the request's header lines get 3 s in all, lines
       are capped at 512 characters (the rest dropped), a POST body wait no longer spins, and a
       page or download stops on a short write or after 60 s (it used to go on, corrupting the

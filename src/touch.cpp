@@ -40,7 +40,7 @@ static void countI2cFail() {
     static unsigned long loggedFails = 0;
     if (loggedFails == 0 || millis() - lastEventMs >= 3600000UL) {
         lastEventMs = millis();
-        sdLogEvent("TOUCH", "I2C read failed (" + String(i2cFails) + " since boot, uptime " + String(millis() / 1000) + " s)");
+        sdLogEvent("TOUCH", "I2C read failed (" + String(i2cFails) + " since boot, uptime " + String(uptimeSeconds()) + " s)");
         loggedFails = i2cFails;
     }
 }

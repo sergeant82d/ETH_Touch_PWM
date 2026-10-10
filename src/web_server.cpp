@@ -229,7 +229,7 @@ static void handleStatus(NetworkClient &client) {
     doc["sketch"] = SKETCH_FILENAME;
     doc["build"] = __DATE__ " " __TIME__;
     doc["ip"] = localIP().toString();
-    doc["uptime"] = millis() / 1000;
+    doc["uptime"] = uptimeSeconds();
     doc["heap"] = ESP.getFreeHeap();
     doc["heapMin"] = ESP.getMinFreeHeap();          // lowest since boot
     doc["heapMinDuring"] = heapLowStage();          // part of loop() at that moment

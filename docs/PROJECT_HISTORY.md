@@ -288,6 +288,14 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   `client.setTimeout(2000)` stays: it also bounds each write, which the core retries while
   the client's window is full (a slow reader was dropped after ~15 s that way). The board
   sends ~200 KB/s on Ethernet (W5500 Lite, 20 MHz SPI).
+- 2026-10-10: **Audit 5.2/5.3**: the spillover buffer's size is cached (`spillBytes`, -1 =
+  measure on the next ask), and uptime comes from `esp_timer_get_time()` (`uptimeSeconds()`,
+  sd_logger.h); the RTC restart record stores seconds (`SNAPSHOT_MAGIC` bumped, so the first
+  boot after the flash says "no prior state"). Only uptime shown as a number needed it:
+  `millis()` differences are wrap-safe.
+- 2026-10-10: **No-card retry measured** (audit 3.4): `SD.begin()` with an empty slot holds the
+  loop 0.5-1.0 s, every 15 s (timed from the PC through /api/status; the audit estimated
+  1-1.5 s from the driver code).
 - 2026-10-10: after the ~5 min full flash read, the board's first boot logged events ~7 min
   fast until NTP set the clock (the time kept through the reset drifted while the chip sat in
   the ROM loader). Only the event times; harmless.

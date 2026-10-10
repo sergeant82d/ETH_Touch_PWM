@@ -64,6 +64,9 @@ bool isSdCardPresent();
 // should be reinserted soon before further log rows start being dropped.
 bool isSpilloverNearFull();
 
+// Seconds since boot; doesn't wrap after 49.7 days like millis() / 1000 (audit 5.3)
+uint32_t uptimeSeconds();
+
 // One SD health state for the LCD dot, the web page and Home Assistant
 // (user decision 2026-09-28): OK = green; GETTING_FULL (>= 90 % used, or the
 // internal buffer over 80 % while a card is in) = orange, slow flash;

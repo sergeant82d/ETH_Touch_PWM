@@ -32,7 +32,7 @@ struct SystemSnapshot {
     int manualOverrideDutyCycle;
     bool localSensorHealthy;
     bool networkSensorHealthy;
-    unsigned long uptimeMs;
+    uint32_t uptimeS;        // seconds (was ms, which wrapped after 49.7 days)
     char stage[12];          // part of loop() running (sdLoggerMarkStage)
     uint32_t freeHeap;       // at the last snapshot
     uint32_t minFreeHeap;    // lowest since boot
@@ -41,8 +41,13 @@ struct SystemSnapshot {
 
 // Changed with the layout (2026-10-05: stage and heap added), so a snapshot
 // left by older firmware isn't read with the new layout.
-static const uint32_t SNAPSHOT_MAGIC = 0xFA57C0E0; // 2026-10-06: lowStage added
+static const uint32_t SNAPSHOT_MAGIC = 0xFA57C0E1; // 2026-10-10: uptime in seconds (audit 5.3)
 RTC_NOINIT_ATTR SystemSnapshot rtcSnapshot;
+
+// Seconds since boot from the 64-bit microsecond timer: millis() / 1000 starts
+// again at 0 after 49.7 days (audit 5.3). Differences of millis() are wrap-safe
+// and stay as they are; only uptime shown as a number needed this.
+uint32_t uptimeSeconds() { return (uint32_t)(esp_timer_get_time() / 1000000); }
 
 void sdLoggerUpdateSnapshot() {
     rtcSnapshot.magic = SNAPSHOT_MAGIC;
@@ -55,7 +60,7 @@ void sdLoggerUpdateSnapshot() {
     rtcSnapshot.manualOverrideDutyCycle = manualOverrideDutyCycle;
     rtcSnapshot.localSensorHealthy = localSensorHealthy;
     rtcSnapshot.networkSensorHealthy = networkSensorHealthy;
-    rtcSnapshot.uptimeMs = millis();
+    rtcSnapshot.uptimeS = uptimeSeconds();
     rtcSnapshot.freeHeap = ESP.getFreeHeap();
     rtcSnapshot.minFreeHeap = ESP.getMinFreeHeap();
 }
@@ -110,6 +115,7 @@ static const size_t SPILLOVER_MAX_BYTES = 200 * 1024; // ~200KB cap
 static bool spilloverCapWarned = false;
 static bool drainPending = false;  // buffer to write to the card (remount, or left from before a restart)
 static size_t drainPos = 0;        // bytes of the buffer already on the card (lost on restart: duplicates, not gaps)
+static long spillBytes = -1;       // buffer size; -1 = measure on the next ask (audit 5.2)
 
 static String timestampNow() {
     if (timeStatus() == timeNotSet) return "notime";
@@ -163,6 +169,7 @@ static void appendToSpillover(const String &sdPath, const String &text) {
     }
     f.print(line);
     f.close();
+    spillBytes = -1; // measured again only when asked: once per buffered row, not 8 times a second
 }
 
 // ---- Column names (first line of each file, since 2026-09-28) ----
@@ -251,14 +258,18 @@ const char* sdStateText() {
 
 int sdUsedPercent() { return sdPresent ? usedPercent : -1; }
 
+// Asked by the LCD title bar every 200 ms, MQTT, the web page and the logger
+// (through sdState()): the size is kept, not read from the file each time (5.2).
 bool isSpilloverNearFull() {
     if (!isLittleFsMounted()) return false; // nothing to check if it's not even mounted
-    if (!LittleFS.exists(SPILLOVER_PATH)) return false;
-    File f = LittleFS.open(SPILLOVER_PATH, FILE_READ);
-    if (!f) return false;
-    size_t sz = f.size();
-    f.close();
-    return sz > (SPILLOVER_MAX_BYTES * 4 / 5); // >80% of cap
+    if (spillBytes < 0) {
+        spillBytes = 0;
+        if (LittleFS.exists(SPILLOVER_PATH)) {
+            File f = LittleFS.open(SPILLOVER_PATH, FILE_READ);
+            if (f) { spillBytes = f.size(); f.close(); }
+        }
+    }
+    return spillBytes > (long)(SPILLOVER_MAX_BYTES * 4 / 5); // >80% of cap
 }
 
 // Writes the buffer to the card in one go, in checked pieces of up to 4 KB
@@ -311,6 +322,7 @@ static void drainSpilloverToSD() {
         return;
     }
     LittleFS.remove(SPILLOVER_PATH);
+    spillBytes = 0;
     drainPos = 0;
     drainPending = false;
     spilloverCapWarned = false;
@@ -524,7 +536,7 @@ void sdLoggerInit() {
         desc += " override=" + String(rtcSnapshot.manualOverrideActive ? "ON" : "off");
         desc += " localOK=" + String(rtcSnapshot.localSensorHealthy ? "y" : "n");
         desc += " netOK=" + String(rtcSnapshot.networkSensorHealthy ? "y" : "n");
-        desc += " uptimeAtReset=" + String(rtcSnapshot.uptimeMs / 1000) + "s";
+        desc += " uptimeAtReset=" + String(rtcSnapshot.uptimeS) + "s";
         rtcSnapshot.stage[sizeof(rtcSnapshot.stage) - 1] = '\0';
         desc += " stage=" + String(rtcSnapshot.stage);
         rtcSnapshot.lowStage[sizeof(rtcSnapshot.lowStage) - 1] = '\0';

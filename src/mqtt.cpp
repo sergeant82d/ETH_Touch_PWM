@@ -290,7 +290,7 @@ static void publishState(bool force) {
     if (force || millis() - lastDiagMs >= 60000) {
         lastDiagMs = millis();
         pub(topic("ip"), localIP().toString());
-        pub(topic("uptime"), String(millis() / 1000));
+        pub(topic("uptime"), String(uptimeSeconds()));
     }
 }
 
