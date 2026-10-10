@@ -96,12 +96,12 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       version 11 (v10 upgraded on COM15, all kept). Full flash backup first
       (`ETH_Touch_PWM_backups/COM15_Lite_4765c4f_full-flash_2026-10-10.bin`). COM15 (Claude,
       MQTT test tool): discovery and states right, HA changes applied and logged, out-of-range
-      and max-below-min refused, values put back. UNTESTED: your look at the page, LCD and
-      HA; a save from the web page; the other two builds (compile) (2026-10-10, this commit)
+      and max-below-min refused, values put back. Page, LCD and HA checked by the user.
+      UNTESTED: the other two builds (compile) (2026-10-10, `415b202`)
 - [x] `[SD]` `daily.csv` rebuilt from the minute logs, 2026-09-27 to 10-09 (10-01/02 have no
       logs; 10-03 only 13 minutes), fan 2's glitches left out; the all-time record
       recalculated from it on card-in (22.9-32.6 °C local, fans up to 2224/2370 RPM). Card
-      copy by the user, checked by Claude (2026-10-10, this commit)
+      copy by the user, checked by Claude (2026-10-10, `415b202`)
 - [x] `[HA]` `[Net]` Audit 4.1 and the first-connect stall (2026-10-08). Every send goes
       through one checked function: a failed send closes the connection (reconnect in
       15 s), a message too big for the buffer is refused without reconnecting, a failed
@@ -113,7 +113,7 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       each (Claude). Also: the W5500 Lite back at 20 MHz; no W5500 at boot no longer
       boot-loops (found when Ethernet was switched off for a test; the board then ran on
       WiFi). UNTESTED: a real dead W5500 (only simulated); the other two builds (compile)
-      (2026-10-08, this commit)
+      (2026-10-08, `4765c4f`)
 - [x] `[LCD]` `[Decide]` Faster LCD drawing with DMA, as in Wifi_Fan_Knob: not for this project
       (user, 2026-10-08). DMA drawing stays the default for future projects where it makes
       sense (global `CLAUDE.md`, "Displays") (2026-10-08, this commit)
