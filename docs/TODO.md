@@ -75,12 +75,6 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       say which call next time
 - [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
       agreed with the user 2026-10-06:
-  - [ ] `[Decide]` `[SD]` 3.4, measured 2026-10-10 (COM15, card out 3.5 min, /api/status timed
-        5 times a second): each retry for the missing card holds the loop 0.5-1.0 s (status
-        answered in 0.78-0.97 s instead of 0.03 s), every 15 s, only while the card is out.
-        Meanwhile the LCD and touch pause; fans (hardware PWM), MQTT and the web page carry
-        on. The audit's fix: retry less often (15 s doubling to 2 min) at the cost of up to
-        2 min before a returned card is noticed. Claude's recommendation: leave it as it is
   - [ ] Skipped unless wanted: rows held until the clock is set (3.5), SD at 16 MHz; rule
         kept in mind: no SD access inside an open LCD transaction (1.1)
 - [ ] `[SD]` Low priority: on the card's return 2026-10-10 14:03 the event log has
@@ -89,6 +83,12 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[SD]` `[Decide]` Audit 3.4: left as it is (user, 2026-10-10). Measured on COM15 (card out
+      3.5 min, /api/status timed 5 times a second): each retry for the missing card holds the
+      loop 0.5-1.0 s, every 15 s, only while the card is out; the LCD and touch pause, fans,
+      MQTT and the web page carry on. The audit's slower retries (up to 2 min) would delay
+      noticing a returned card. The LCD override on/cancel at 14:48:54 was a stray touch while
+      handling the card (user) (2026-10-10, this commit)
 - [x] `[SD]` `[HA]` Audit 5.2 + 5.3: the internal buffer's size is kept in memory instead of the
       file being opened ~8 times a second (LCD title bar, MQTT, web, logger) to read it;
       measured again only after a buffered row. Uptime (web, HA, BOOT `uptimeAtReset`, TOUCH
