@@ -7,7 +7,7 @@
 // Bump this whenever the SystemConfig struct's fields/layout change.
 // loadSettings() checks this and falls back to defaults on a mismatch,
 // so a firmware update never reads a stale/misaligned raw-byte blob.
-#define CONFIG_STRUCT_VERSION 10
+#define CONFIG_STRUCT_VERSION 11
 
 // Factory nodeID. MQTT stays off until the user changes it on the web page,
 // so two unconfigured boards can't share one name on the broker / in HA.
@@ -34,8 +34,9 @@ struct SystemConfig {
     char unusedHaHost[64];
     int unusedHaPort;
     long fanRpmGaugeMin;   // LCD/web gauge display scale, not the fan curve itself
-    long fanRpmGaugeMax;
-    float tempGaugeMinF;   // always stored in F, converted for display as needed
+    long fanRpmGaugeMax;   // UNUSED since version 11: each fan's own fanMaxRpm
+    float tempGaugeMinF;   // always stored in F, converted for display as needed; set on the
+                           // web page and from HA since 2026-10-10
     float tempGaugeMaxF;
     // Old HA helper entity IDs, UNUSED since MQTT Phase 2; emptied like the above.
     // (The override state itself was never stored: it always boots to auto.)
@@ -80,6 +81,10 @@ struct SystemConfig {
     // measured RPM + this many RPM (+/-500, 10 RPM steps), held by a trim on its
     // duty (sensors.cpp). Index 0 (fan 1, the reference) is always 0. 4 = NUM_FANS.
     int32_t fanOffsetRpm[4];
+
+    // Each fan's full speed (version 11, user 2026-10-10): the top of its RPM bar on
+    // the LCD and the web LCD view. Entered by the user, 500-10000 in 10 RPM steps.
+    int32_t fanMaxRpm[4];
 };
 
 extern SystemConfig config;

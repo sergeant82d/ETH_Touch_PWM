@@ -239,13 +239,13 @@ static void handleGetConfig(NetworkClient &client) {
         c["pwm"] = pwmPins[i];
         c["tach"] = tachPins[i];
         c["offset"] = i < 4 ? config.fanOffsetRpm[i] : 0; // RPM vs fan 1 (fan 1: always 0)
+        c["maxRpm"] = i < 4 ? config.fanMaxRpm[i] : 2200;   // top of its gauge bar
     }
     doc["fahrenheit"] = config.isFahrenheit;
     doc["tMinC"] = serialized(String(config.tMin, 1));
     doc["tMaxC"] = serialized(String(config.tMax, 1));
     JsonObject gauge = doc["gauge"].to<JsonObject>(); // LCD bar scales (the web page's LCD view)
     gauge["rpmMin"] = config.fanRpmGaugeMin;
-    gauge["rpmMax"] = config.fanRpmGaugeMax;
     gauge["tMinF"] = config.tempGaugeMinF;
     gauge["tMaxF"] = config.tempGaugeMaxF;
     doc["tzName"] = config.tzName;
@@ -282,6 +282,9 @@ static void logConfigChanges(const SystemConfig &a, const SystemConfig &b) {
     if (fabs(a.tMax - b.tMax) > 0.05) chg("tMax", String(a.tMax, 1) + "C", String(b.tMax, 1) + "C");
     chg("fanCount", String(a.fanCount), String(b.fanCount));
     for (int i = 1; i < 4; i++) chg(("fan" + String(i + 1) + "Offset").c_str(), String(a.fanOffsetRpm[i]) + "rpm", String(b.fanOffsetRpm[i]) + "rpm");
+    for (int i = 0; i < 4; i++) chg(("fan" + String(i + 1) + "MaxRpm").c_str(), String(a.fanMaxRpm[i]) + "rpm", String(b.fanMaxRpm[i]) + "rpm");
+    if (fabs(a.tempGaugeMinF - b.tempGaugeMinF) > 0.05) chg("gaugeMin", String(a.tempGaugeMinF, 1) + "F", String(b.tempGaugeMinF, 1) + "F");
+    if (fabs(a.tempGaugeMaxF - b.tempGaugeMaxF) > 0.05) chg("gaugeMax", String(a.tempGaugeMaxF, 1) + "F", String(b.tempGaugeMaxF, 1) + "F");
     chg("units", a.isFahrenheit ? "F" : "C", b.isFahrenheit ? "F" : "C");
     chg("clock", a.is24Hour ? "24h" : "12h", b.is24Hour ? "24h" : "12h");
     chg("timeZone", a.tzName, b.tzName);
@@ -336,6 +339,23 @@ static const char* applyConfigJson(JsonDocument &in, SystemConfig &next) {
             if (v < -500 || v > 500) return "Fan offsets: -500 to +500 RPM.";
             next.fanOffsetRpm[i] = (v / 10) * 10;
         }
+    }
+    if (in["fanMaxRpm"].is<JsonArrayConst>()) { // each fan's full speed, top of its gauge bar
+        JsonArrayConst a = in["fanMaxRpm"];
+        for (int i = 0; i < 4 && i < (int)a.size(); i++) {
+            if (!a[i].is<int>()) return "Max RPM must be numbers.";
+            int v = a[i];
+            if (v < 500 || v > 10000) return "Max RPM: 500 to 10000.";
+            next.fanMaxRpm[i] = (v / 10) * 10;
+        }
+    }
+    if (in["gaugeMinF"].is<float>() || in["gaugeMaxF"].is<float>()) { // LCD temperature bars, in F
+        float lo = in["gaugeMinF"] | next.tempGaugeMinF;
+        float hi = in["gaugeMaxF"] | next.tempGaugeMaxF;
+        if (lo < -40 || lo > 250 || hi < -40 || hi > 250) return "Gauge temperatures must be -40 to 250 F (-40 to 121 C).";
+        if (hi <= lo) return "Gauge top must be above the bottom.";
+        next.tempGaugeMinF = lo;
+        next.tempGaugeMaxF = hi;
     }
     if (in["fahrenheit"].is<bool>()) next.isFahrenheit = in["fahrenheit"];
     if (in["tMinC"].is<float>() || in["tMaxC"].is<float>()) {

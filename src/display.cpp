@@ -80,7 +80,8 @@ static void clearScreen() {
 static bool setupOpen = false;  // setup screen: shown while no web login is set
 static void updateSetupScreen();
 
-// Gauge scales now live in config (config.fanRpmGaugeMin/Max, config.tempGaugeMinF/MaxF)
+// Gauge scales live in config (config.fanRpmGaugeMin to each fan's fanMaxRpm,
+// config.tempGaugeMinF/MaxF; the last three set on the web page and from HA)
 // so they're adjustable from the LCD settings menu, web page, and Home Assistant
 // rather than fixed at compile time.
 
@@ -691,12 +692,11 @@ static void drawFanRpmBars(int x0, int y0, int zoneWidth, int zoneHeight) {
     static LabelCache labels[2];
     int barsStartX = x0 + (zoneWidth - BAR_SPAN_W) / 2;
     long gaugeMin = config.fanRpmGaugeMin;
-    long gaugeMax = config.fanRpmGaugeMax;
 
     for (int i = 0; i < 2; i++) {
         int cx = barsStartX + i * (BAR_WIDTH + BAR_SPACING);
         drawGaugeBar(bars[i], cx, y0, BAR_WIDTH, zoneHeight, ST77XX_CYAN, true,
-                     (float)currentRPMs[i], (float)gaugeMin, (float)gaugeMax);
+                     (float)currentRPMs[i], (float)gaugeMin, (float)config.fanMaxRpm[i]);
         // Value label above each bar - just the number, no "RPM" suffix, to
         // fit within the narrow bar width.
         drawBarLabel(labels[i], cx, String(currentRPMs[i]), ST77XX_CYAN);

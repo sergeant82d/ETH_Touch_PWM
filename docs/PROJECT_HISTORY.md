@@ -7,7 +7,7 @@ work; it saves re-discovering things.
 
 - Everything is on `main`. Three builds: `waveshare_s3_lcd2` (Touch-LCD-2 + W5500 module),
   `waveshare_s3_lcd2_lite` (Touch-LCD-2 + W5500 Lite on the user's pins), `waveshare_s3_eth`
-  (ESP32-S3-ETH, no LCD). Settings version 10. Image ~1.48 MB (47 % of the 3 MB slot).
+  (ESP32-S3-ETH, no LCD). Settings version 11. Image ~1.49 MB (47.5 % of the 3 MB slot).
 - Watchdog: a hung loop() restarts the board after 30 s and the BOOT event names where it hung
   (`docs/BOARDS.md`). The cause of the 2026-10-05 overnight freeze is still unknown.
 - Event log (NET, MQTT, CONFIG, LOOP ...), self-heal restarts and Ethernet diagnostics:
@@ -236,8 +236,8 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   fits TCP retransmit waits (a lost packet) better than Nagle. Still open (`docs/TODO.md`,
   audit 4.1). Nagle stays off: it costs nothing here.
 - 2026-10-08: **Full flash read of COM15 fails** at 0x10A000 with esptool's stub ("Packet
-  content transfer stopped", any baud, always the same blocks: 0x10A000, 0x10E000,
-  0x185000). Those blocks read fine with `--no-stub` (slow, ~15 kbit/s). Read the rest with
+  content transfer stopped", any baud: 0x10A000, 0x10E000, 0x185000; on 2026-10-10
+  0x83000, 0xAD000, 0x185000, so not always the same ones). Those blocks read fine with `--no-stub` (slow, ~15 kbit/s). Read the rest with
   the stub and only the failing blocks without it (scratchpad script `backup_flash.py`, kept
   in the session only; the method is the point).
 - 2026-10-08: **SD writes are checked** (audit 3.1/3.2). The Arduino `File` layer ignores
@@ -274,5 +274,17 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   started, so the lwIP stack didn't exist yet. `Network.begin()` before `server.begin()`.
   Found by switching Ethernet off in a test build; the board was down ~15 min, a test that
   should have been watched from its first boot.
+- 2026-10-10: **Gauge ranges are settings** (settings version 11: `fanMaxRpm[4]` appended, v10
+  files upgraded, each fan starting at the old fixed 2200). The temperature bars' range already
+  lived in the settings (`tempGaugeMinF/MaxF`, in F) but nothing could change it; now the web
+  page (Fan Control) and HA do. `fanRpmGaugeMax` is unused (kept for the layout). HA gets the
+  gauge range in °F, its stored unit, and converts it to the user's unit itself.
+- 2026-10-10: **`daily.csv` rebuilt** from the minute logs (`tools/rebuild_daily.py`), 2026-09-27
+  to 10-09; copied to the card on the PC. 10-09 came out identical to the firmware's own row
+  (the check that the script works the same way). The all-time record was recalculated on
+  card-in. Old file and logs: `ETH_Touch_PWM_backups/daily_rebuild_2026-10-10/`.
+- 2026-10-10: after the ~5 min full flash read, the board's first boot logged events ~7 min
+  fast until NTP set the clock (the time kept through the reset drifted while the chip sat in
+  the ROM loader). Only the event times; harmless.
 
 Open items: `docs/TODO.md`.

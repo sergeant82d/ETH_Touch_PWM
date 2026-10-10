@@ -94,14 +94,17 @@ struct EntityDef {
     // number entities only
     float numMin = 0, numMax = 0, numStep = 0;
     const char* numMode = nullptr; // "box" | "slider"
+    bool configCategory = false;   // listed under the device's Configuration
 };
 
 static const char* DEG_C = "\xC2\xB0" "C"; // "°C"
+static const char* DEG_F = "\xC2\xB0" "F"; // the gauge range is stored in F; HA shows it in its own unit
 
 // HA lists a device's entities alphabetically by name within each card, so
 // the names group them. Sensors: "Air temperature ...", "Fan duty N",
 // "Fan speed N", "Fault ...", "SD card", "Summary of the day". Controls: "Fan curve start/top" (tMin/tMax),
-// "Manual override", "Manual override speed", "Restart".
+// "Manual override", "Manual override speed", "Restart"; configuration: "Fan max speed N",
+// "LCD gauge temperature min/max" (the bars' scales, 2026-10-10).
 // Every entity the device can have (all NUM_FANS fans), so the ones no
 // longer wanted can be removed from HA as well as the wanted ones added.
 static int buildEntities(EntityDef *out) {
@@ -122,6 +125,8 @@ static int buildEntities(EntityDef *out) {
     out[n++] = {"switch", "override", "Manual override", nullptr, nullptr, "mdi:hand-back-right", false, false};
     out[n++] = {"number", "override_speed", "Manual override speed", nullptr, "%", "mdi:fan", false, false, 0, 100, 1, "slider"};
     out[n++] = {"button", "restart", "Restart", "restart", nullptr, nullptr, false, false};
+    out[n++] = {"number", "gauge_t_min", "LCD gauge temperature min", "temperature", DEG_F, "mdi:gauge-low", false, false, -40, 250, 0.1, "box", true};
+    out[n++] = {"number", "gauge_t_max", "LCD gauge temperature max", "temperature", DEG_F, "mdi:gauge-full", false, false, -40, 250, 0.1, "box", true};
 #if HAS_LCD
     out[n++] = {"switch", "display", "LCD display", nullptr, nullptr, "mdi:monitor", false, false}; // standby
 #endif
@@ -130,11 +135,12 @@ static int buildEntities(EntityDef *out) {
         out[n++] = {"sensor", f + "_rpm", "Fan speed " + String(i), nullptr, "RPM", "mdi:fan", true, false};
         out[n++] = {"sensor", f + "_duty", "Fan duty " + String(i), nullptr, "%", "mdi:fan-chevron-up", true, false};
         out[n++] = {"binary_sensor", f + "_fault", "Fault fan " + String(i), "problem", nullptr, nullptr, false, false};
+        out[n++] = {"number", f + "_max_rpm", "Fan max speed " + String(i), nullptr, "RPM", "mdi:speedometer", false, false, 500, 10000, 10, "box", true};
     }
     return n;
 }
 
-static const int MAX_ENTITIES = 17 + 3 * 4;
+static const int MAX_ENTITIES = 19 + 4 * 4;
 
 // Fan entities beyond config.fanCount are unwanted
 static bool entityWanted(const EntityDef &e) {
@@ -181,6 +187,7 @@ static void publishEntityConfig(const String &node, const EntityDef &e, bool wan
         doc["mode"] = e.numMode;
     }
     if (e.diagnostic) doc["entity_category"] = "diagnostic";
+    if (e.configCategory) doc["entity_category"] = "config";
     JsonObject dev = doc["device"].to<JsonObject>();
     dev["identifiers"].to<JsonArray>().add(node);
     dev["name"] = node;
@@ -208,11 +215,13 @@ static void publishDiscovery(const String &node, bool removeAll) {
 // STATE (retained; on change, RPM with a dead band, diagnostics every 60 s)
 // ============================================================================
 
-// Slots: 0-4 fixed sensors, 5-12 duty/fault per fan, 13-16 controls, 17-19 SD card
+// Slots: 0-4 fixed sensors, 5-12 duty/fault per fan, 13-16 controls, 17-19 SD card,
+// 20 display, 21-22 gauge range, 23-26 max speed per fan
 static const int SLOT_T_MIN = 13, SLOT_T_MAX = 14, SLOT_OVERRIDE = 15, SLOT_OVERRIDE_SPEED = 16;
 static const int SLOT_SD = 17, SLOT_SD_USED = 18, SLOT_SD_FAULT = 19;
 static const int SLOT_DISPLAY = 20;
-static const int SLOT_COUNT = 21;
+static const int SLOT_GAUGE_MIN = 21, SLOT_GAUGE_MAX = 22, SLOT_MAX_RPM = 23;
+static const int SLOT_COUNT = 27;
 static String lastSent[SLOT_COUNT];
 static long lastRpm[4] = {-1, -1, -1, -1};
 static unsigned long lastRpmMs[4] = {0, 0, 0, 0};
@@ -242,6 +251,7 @@ static void publishState(bool force) {
         // Same fault rule the REST telemetry uses
         bool fault = currentDutyCycles[i] > 51 && currentRPMs[i] == 0;
         publishIfChanged(6 + i * 2, f + "_fault", fault ? "ON" : "OFF", force);
+        publishIfChanged(SLOT_MAX_RPM + i, f + "_max_rpm", String(config.fanMaxRpm[i]), force);
 
         // Tach RPM jitters by a pulse (30 RPM) every second: publish a change
         // of 60+, to/from stopped, or any change after 30 s.
@@ -259,6 +269,8 @@ static void publishState(bool force) {
     // Controls: changed here by HA, or by the web page / LCD
     publishIfChanged(SLOT_T_MIN, "t_min", String(config.tMin, 1), force);
     publishIfChanged(SLOT_T_MAX, "t_max", String(config.tMax, 1), force);
+    publishIfChanged(SLOT_GAUGE_MIN, "gauge_t_min", String(config.tempGaugeMinF, 1), force);
+    publishIfChanged(SLOT_GAUGE_MAX, "gauge_t_max", String(config.tempGaugeMaxF, 1), force);
     publishIfChanged(SLOT_OVERRIDE, "override", manualOverrideActive ? "ON" : "OFF", force);
     publishIfChanged(SLOT_OVERRIDE_SPEED, "override_speed", String((manualOverrideDutyCycle * 100 + 127) / 255), force);
 #if HAS_LCD
@@ -300,6 +312,36 @@ static void setThreshold(float &field, const char* name, const String &msg) {
     Serial.print(" -> "); Serial.println(v, 1);
     sdLogEvent("CONFIG", String("source=HA field=") + name + " old=" + String(field, 1) + "C new=" + String(v, 1) + "C");
     field = v;
+    saveSettings();
+}
+
+// LCD gauge temperature range, in F (HA converts to its own unit and back)
+static void setGaugeTemp(bool isMax, const String &msg) {
+    float v = msg.toFloat();
+    float lo = isMax ? config.tempGaugeMinF : v, hi = isMax ? v : config.tempGaugeMaxF;
+    const char* name = isMax ? "gaugeMax" : "gaugeMin";
+    if (msg.length() == 0 || v < -40 || v > 250 || hi <= lo) {
+        Serial.print("MQTT: "); Serial.print(name); Serial.print(" ignored, out of range or max not above min: "); Serial.println(msg);
+        return;
+    }
+    float &field = isMax ? config.tempGaugeMaxF : config.tempGaugeMinF;
+    if (fabs(v - field) <= 0.05) return;
+    sdLogEvent("CONFIG", String("source=HA field=") + name + " old=" + String(field, 1) + "F new=" + String(v, 1) + "F");
+    field = v;
+    saveSettings();
+}
+
+// A fan's full speed (top of its gauge bar), 500-10000 in 10 RPM steps
+static void setMaxRpm(int fan, const String &msg) {
+    long v = (lroundf(msg.toFloat()) / 10) * 10;
+    if (msg.length() == 0 || v < 500 || v > 10000) {
+        Serial.print("MQTT: fan max RPM ignored, out of range: "); Serial.println(msg);
+        return;
+    }
+    if (v == config.fanMaxRpm[fan]) return;
+    sdLogEvent("CONFIG", "source=HA field=fan" + String(fan + 1) + "MaxRpm old=" + String(config.fanMaxRpm[fan]) +
+                         "rpm new=" + String(v) + "rpm");
+    config.fanMaxRpm[fan] = v;
     saveSettings();
 }
 
@@ -391,6 +433,11 @@ static void onMessage(char *t, byte *payload, unsigned int len) {
         setThreshold(config.tMin, "tMin", msg);
     } else if (object == "t_max") {
         setThreshold(config.tMax, "tMax", msg);
+    } else if (object == "gauge_t_min" || object == "gauge_t_max") {
+        setGaugeTemp(object == "gauge_t_max", msg);
+    } else if (object.length() == 12 && object.startsWith("fan") && object.endsWith("_max_rpm")) {
+        int fan = object[3] - '1';
+        if (fan >= 0 && fan < config.fanCount) setMaxRpm(fan, msg);
     } else if (object == "override") {
         // ON starts at full speed, like the web page and LCD
         if (msg == "ON" && !manualOverrideActive) {

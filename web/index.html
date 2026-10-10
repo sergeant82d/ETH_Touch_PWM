@@ -453,10 +453,10 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
       <form class="panel" id="form-fans">
         <h2>Fan Channels</h2>
         <table class="fan-table">
-          <thead><tr><th>Use</th><th>Channel</th><th>PWM pin</th><th>Tach pin</th><th>Speed</th><th>Offset vs fan 1</th></tr></thead>
+          <thead><tr><th>Use</th><th>Channel</th><th>PWM pin</th><th>Tach pin</th><th>Speed</th><th>Offset vs fan 1</th><th>Max RPM</th></tr></thead>
           <tbody id="fan-rows"></tbody>
         </table>
-        <div class="hint" style="margin: -8px 0 18px">Offset: each other fan is held at fan 1's speed plus or minus this many RPM (10 RPM steps, up to 500), by adjusting its own speed a little every second. Needs both fans' tach wires; not used at full speed in the failsafe, or while fan 1 is off. Saved with the Save button below.<br>Tick the fans that are connected, in order: the next channel becomes available once the one before it is ticked; only the last ticked one can be unticked. Grey = not available (or not wired on this board).</div>
+        <div class="hint" style="margin: -8px 0 18px">Offset: each other fan is held at fan 1's speed plus or minus this many RPM (10 RPM steps, up to 500), by adjusting its own speed a little every second. Needs both fans' tach wires; not used at full speed in the failsafe, or while fan 1 is off. Saved with the Save button below.<br>Max RPM: the fan's full speed, the top of its bar on the LCD and the LCD view (the bar flashes from 90% of it, red from 95%). Also settable from Home Assistant.<br>Tick the fans that are connected, in order: the next channel becomes available once the one before it is ticked; only the last ticked one can be unticked. Grey = not available (or not wired on this board).</div>
         <h2>Fan Curve</h2>
         <div class="form">
           <div class="field"><span class="label">Temperature unit (web page and LCD)</span>
@@ -464,7 +464,13 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
           <div class="field"><label for="tMin">Fan curve start (<span class="u"></span>)</label><input type="number" id="tMin" step="0.1" required></div>
           <div class="field"><label for="tMax">Fan curve top (<span class="u"></span>)</label><input type="number" id="tMax" step="0.1" required></div>
         </div>
-        <div class="hint">Below the start the fans are off; from the start they run at 20%, rising to 100% at the top. Uses the blended temperature averaged over about 30 s; once on, the fans stop only 2 °F (1.1 °C) below the start, and their speed changes gradually (up to 2%/s faster, 0.5%/s slower). Also settable from Home Assistant.</div>
+        <div class="hint" style="margin-bottom: 18px">Below the start the fans are off; from the start they run at 20%, rising to 100% at the top. Uses the blended temperature averaged over about 30 s; once on, the fans stop only 2 °F (1.1 °C) below the start, and their speed changes gradually (up to 2%/s faster, 0.5%/s slower). Also settable from Home Assistant.</div>
+        <h2>LCD Gauges</h2>
+        <div class="form">
+          <div class="field"><label for="gaugeMin">Temperature bars bottom (<span class="u"></span>)</label><input type="number" id="gaugeMin" step="0.1" required></div>
+          <div class="field"><label for="gaugeMax">Temperature bars top (<span class="u"></span>)</label><input type="number" id="gaugeMax" step="0.1" required></div>
+        </div>
+        <div class="hint">The scale of the network and local temperature bars on the LCD and the LCD view (the bar flashes from 90% of the range, red from 95%). The fan bars use each fan's Max RPM above. Also settable from Home Assistant.</div>
         <div class="actions"><button class="btn" type="submit">Save</button><span class="msg"></span></div>
       </form>
     </section>
@@ -856,6 +862,7 @@ for (const [id, dir] of [["#ovr-minus", -1], ["#ovr-plus", 1]]) {
 // ---------- Fan channel table ----------
 let fanCount = 1;
 let fanOffsets = [0, 0, 0, 0]; // RPM vs fan 1, edited here until Save (like fanCount)
+let fanMaxRpm = [2200, 2200, 2200, 2200]; // each fan's full speed (gauge top), same
 function renderFanRows() {
   if (!config) return;
   const ch = config.channels, rows = $("#fan-rows");
@@ -872,9 +879,11 @@ function renderFanRows() {
       <td class="mono">${c.tach >= 0 ? "GPIO " + c.tach : "--"}</td>
       <td class="mono">${on && live ? live.rpm + " RPM" : "--"}</td>
       <td class="mono">${i === 0 ? "reference" : !on ? "--" :
-        `<button type="button" class="btn ghost off-btn" data-i="${i}" data-d="-10">&minus;</button> ${fanOffsets[i] > 0 ? "+" : ""}${fanOffsets[i]} RPM <button type="button" class="btn ghost off-btn" data-i="${i}" data-d="10">+</button> <button type="button" class="btn ghost off-btn" data-i="${i}" data-reset="1" ${fanOffsets[i] ? "" : "disabled"}>Reset</button>`}</td></tr>`;
+        `<button type="button" class="btn ghost off-btn" data-i="${i}" data-d="-10">&minus;</button> ${fanOffsets[i] > 0 ? "+" : ""}${fanOffsets[i]} RPM <button type="button" class="btn ghost off-btn" data-i="${i}" data-d="10">+</button> <button type="button" class="btn ghost off-btn" data-i="${i}" data-reset="1" ${fanOffsets[i] ? "" : "disabled"}>Reset</button>`}</td>
+      <td class="mono">${!on ? "--" : `<input type="number" class="max-rpm" data-i="${i}" min="500" max="10000" step="10" value="${fanMaxRpm[i]}" style="width: 6.5em">`}</td></tr>`;
   }).join("");
-  rows.querySelectorAll("input").forEach((cb) => cb.onchange = () => { fanCount = cb.checked ? +cb.dataset.i + 1 : +cb.dataset.i; renderFanRows(); });
+  rows.querySelectorAll(".max-rpm").forEach((inp) => inp.oninput = () => { fanMaxRpm[+inp.dataset.i] = +inp.value; });
+  rows.querySelectorAll("input[type=checkbox]").forEach((cb) => cb.onchange = () => { fanCount = cb.checked ? +cb.dataset.i + 1 : +cb.dataset.i; renderFanRows(); });
   rows.querySelectorAll(".off-btn").forEach((b) => b.onclick = () => {
     const i = +b.dataset.i;
     fanOffsets[i] = b.dataset.reset ? 0 : Math.max(-500, Math.min(500, fanOffsets[i] + +b.dataset.d));
@@ -905,7 +914,8 @@ function drawLcdView() {
   if (cv.width !== 320 * K) { cv.width = 320 * K; cv.height = 240 * K; }
   g.setTransform(K, 0, 0, K, 0, 0);
   g.fillStyle = C.black; g.fillRect(0, 0, 320, 240);
-  const gs = (config && config.gauge) || { rpmMin: 300, rpmMax: 2200, tMinF: 60, tMaxF: 110 };
+  const gs = (config && config.gauge) || { rpmMin: 300, tMinF: 60, tMaxF: 110 };
+  const rpmMax = (i) => (config && config.channels[i] && config.channels[i].maxRpm) || 2200;
   const tMinC = config ? +config.tMinC : 27, tMaxC = config ? +config.tMaxC : 40;
   const F = s.fahrenheit;
 
@@ -975,7 +985,7 @@ function drawLcdView() {
     rrect(x, y, 28, h, 10, color, false);
   };
   const rpm = [0, 1].map((i) => (s.fans[i] ? s.fans[i].rpm : 0));
-  [10, 58].forEach((x, i) => { bar(x, C.cyan, true, rpm[i], gs.rpmMin, gs.rpmMax); text(x, 28, 40, String(rpm[i]), 1, C.cyan); });
+  [10, 58].forEach((x, i) => { bar(x, C.cyan, true, rpm[i], gs.rpmMin, rpmMax(i)); text(x, 28, 40, String(rpm[i]), 1, C.cyan); });
   const toDisp = (c) => (F ? c * 9 / 5 + 32 : c);
   const scaleMin = F ? gs.tMinF : (gs.tMinF - 32) * 5 / 9, scaleMax = F ? gs.tMaxF : (gs.tMaxF - 32) * 5 / 9;
   [[234, s.network, C.magenta], [282, s.local, C.orange]].forEach(([x, t, color]) => {
@@ -1107,12 +1117,15 @@ async function loadConfig() {
   const c = config, f = c.fahrenheit;
   fanCount = c.fanCount;
   fanOffsets = c.channels.map((ch) => ch.offset || 0);
+  fanMaxRpm = c.channels.map((ch) => ch.maxRpm || 2200);
   renderFanRows();
   setRadio($("#form-net"), "ethMode", c.ethDhcp ? "dhcp" : "static");
   $("#eth-static").hidden = c.ethDhcp;
   setRadio($("#form-fans"), "unit", f ? "F" : "C");
   const show = (v) => (f ? v * 9 / 5 + 32 : +v).toFixed(1);
   $("#tMin").value = show(c.tMinC); $("#tMax").value = show(c.tMaxC);
+  const showF = (v) => (f ? +v : (v - 32) * 5 / 9).toFixed(1); // the gauge range is stored in F
+  $("#gaugeMin").value = showF(c.gauge.tMinF); $("#gaugeMax").value = showF(c.gauge.tMaxF);
   ["nodeId", "mqttBroker", "mqttPort", "mqttUser", "ip", "subnet", "gateway", "dns"].forEach((k) => $("#" + k).value = c[k]);
   $("#tz-filter").value = "";
   fillTimeZones(c.tzName);
@@ -1125,11 +1138,13 @@ async function loadConfig() {
 // Unit switch converts the shown thresholds so the numbers keep their meaning
 $("#form-fans").querySelectorAll("input[name=unit]").forEach((r) => r.onchange = () => {
   const toF = r.value === "F";
-  ["#tMin", "#tMax"].forEach((id) => { const v = +$(id).value; $(id).value = (toF ? v * 9 / 5 + 32 : (v - 32) * 5 / 9).toFixed(1); });
+  ["#tMin", "#tMax", "#gaugeMin", "#gaugeMax"].forEach((id) => { const v = +$(id).value; $(id).value = (toF ? v * 9 / 5 + 32 : (v - 32) * 5 / 9).toFixed(1); });
 });
 
 $("#form-fans").onsubmit = (e) => { e.preventDefault(); const f = e.target, F = radio(f, "unit") === "F";
-  save(f, { fanCount, fanOffsets, fahrenheit: F, tMinC: +toC(+$("#tMin").value, F).toFixed(2), tMaxC: +toC(+$("#tMax").value, F).toFixed(2) }, pollStatus); };
+  const toF = (v) => (F ? v : v * 9 / 5 + 32);
+  save(f, { fanCount, fanOffsets, fanMaxRpm: fanMaxRpm.map((v) => Math.round(v)), fahrenheit: F, tMinC: +toC(+$("#tMin").value, F).toFixed(2), tMaxC: +toC(+$("#tMax").value, F).toFixed(2),
+    gaugeMinF: +toF(+$("#gaugeMin").value).toFixed(2), gaugeMaxF: +toF(+$("#gaugeMax").value).toFixed(2) }, pollStatus); };
 $("#form-ha").onsubmit = (e) => { e.preventDefault();
   const body = { nodeId: $("#nodeId").value.trim(), mqttBroker: $("#mqttBroker").value.trim(), mqttPort: +$("#mqttPort").value, mqttUser: $("#mqttUser").value };
   if ($("#mqttPass").value) body.mqttPass = $("#mqttPass").value;
@@ -1723,7 +1738,7 @@ function demoApi(path, body) {
       fans: [{ rpm: 690, duty: 38, fault: false }, { rpm: 0, duty: 38, fault: true }], override: false, overridePct: 100,
       sd: true, sdState: "OK", sdUsed: 23, eth: true, net: "Ethernet", mqtt: "Connected as fanController_01", mqttOk: true, loginSet: true, display: true };
   }
-  if (path === "/api/config") return { fanCount: 2, channels: [{ pwm: 1, tach: 2, offset: 0 }, { pwm: 18, tach: 40, offset: -50 }, { pwm: -1, tach: -1 }, { pwm: -1, tach: -1 }], ethDhcp: false, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, gauge: { rpmMin: 300, rpmMax: 2200, tMinF: 60, tMaxF: 110 }, tzName: "America/Chicago", clock24: false,
+  if (path === "/api/config") return { fanCount: 2, channels: [{ pwm: 1, tach: 2, offset: 0, maxRpm: 2400 }, { pwm: 18, tach: 40, offset: -50, maxRpm: 2400 }, { pwm: -1, tach: -1 }, { pwm: -1, tach: -1 }], ethDhcp: false, fahrenheit: true, tMinC: 29.2, tMaxC: 40.6, gauge: { rpmMin: 300, tMinF: 60, tMaxF: 110 }, tzName: "America/Chicago", clock24: false,
     ip: "192.168.10.53", subnet: "255.255.255.0", gateway: "192.168.10.1", dns: "192.168.10.11", nodeId: "fanController_01",
     defaultNodeId: "fanController_xx", suggestedNodeId: "fanController_5386", mqttBroker: "192.168.10.85", mqttPort: 1883, mqttUser: "Brad", mqttPassSet: true, loginSet: true, webUser: "admin" };
   if (path === "/api/theme") return theme;

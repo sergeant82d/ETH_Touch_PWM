@@ -53,7 +53,8 @@ Broker: Mosquitto add-on on HA, `192.168.10.85:1883`, login required.
   blended/local/network", "Fan duty N", "Fan speed N", "Fault fan N / local probe /
   network probe"; IP address and Uptime under Diagnostic. Controls: "Fan curve start"
   (tMin), "Fan curve top" (tMax), "LCD display" (LCD boards), "Manual override",
-  "Manual override speed".
+  "Manual override speed". Configuration section: "Fan max speed N", "LCD gauge
+  temperature min/max", "Restart".
 - Discovery: `homeassistant/<component>/<nodeID>/<object>/config`, retained.
 - Availability: `<nodeID>/status` = `online` / `offline` (Last Will), retained.
 
@@ -79,9 +80,12 @@ them in its own unit system. `None` = unknown (probe failed).
 | `sd_fault` | binary_sensor "Fault SD card", problem | `ON` unless the card is OK | (new, 2026-09-28) |
 | `display` | switch "LCD display" (LCD boards only) | `ON` / `OFF`: LCD standby, backlight only; pressing the screen for 1 s also turns it on (not a tap: the panel reports phantom taps while dark); on after every boot | (new, 2026-10-04) |
 | `restart` | button "Restart", restart device class, configuration section; no state | HA sends `PRESS` on `restart/set` | (new, 2026-10-08) |
+| `gauge_t_min`, `gauge_t_max` | number "LCD gauge temperature min/max", °F (stored in F; HA shows its own unit), -40 to 250, configuration section | `60.0`, `110.0`: scale of the temperature bars on the LCD and the web LCD view; max must stay above min, else refused | (new, 2026-10-10) |
+| `fanN_max_rpm` | number "Fan max speed N", RPM, 500-10000 step 10, configuration section, per active fan | `2200`: the fan's full speed, top of its RPM bar | (new, 2026-10-10) |
 
 HA to device (not retained): `t_min/set`, `t_max/set`, `override/set`, `override_speed/set`,
-`display/set`, `restart/set`, `network_temp/set`.
+`display/set`, `restart/set`, `gauge_t_min/set`, `gauge_t_max/set`, `fanN_max_rpm/set`,
+`network_temp/set`.
 
 Rules:
 - The board connects 15 s after its network comes up, not at once (2026-10-08): the first

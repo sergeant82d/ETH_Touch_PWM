@@ -22,7 +22,6 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Your notes
 
-- `[Web]` `[HA]` `[LCD]` Add LCD Temperature gauge minimum and maximum temperature settings to the Config web page and HA. The Fan RPM gauges should be getting their max speed from the Config file of the active fan's calibration. 
 
 
 ## Open
@@ -83,9 +82,26 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
         49.7 days (5.3)
   - [ ] Skipped unless wanted: rows held until the clock is set (3.5), SD at 16 MHz; rule
         kept in mind: no SD access inside an open LCD transaction (1.1)
+- [ ] `[SD]` Low priority: on the card's return 2026-10-10 14:03 the event log has
+      `state=OK` before the buffered `state=Missing` from 14:01 (the buffer was written after
+      the OK line; the 13:58 return had them in order). Only the order; nothing lost
 
 ## Done
 
+- [x] `[Web]` `[HA]` `[LCD]` LCD gauge ranges (your note, 2026-10-10): Fan Control has a Max RPM
+      column (each fan's full speed, the top of its bar; 500-10000, was a fixed 2200) and an
+      "LCD Gauges" section (temperature bars' bottom and top, in your unit; 60-110 °F). HA:
+      "Fan max speed N" and "LCD gauge temperature min/max" in the device's configuration
+      section. No fan calibration exists here, so Max RPM is entered by you (agreed). Settings
+      version 11 (v10 upgraded on COM15, all kept). Full flash backup first
+      (`ETH_Touch_PWM_backups/COM15_Lite_4765c4f_full-flash_2026-10-10.bin`). COM15 (Claude,
+      MQTT test tool): discovery and states right, HA changes applied and logged, out-of-range
+      and max-below-min refused, values put back. UNTESTED: your look at the page, LCD and
+      HA; a save from the web page; the other two builds (compile) (2026-10-10, this commit)
+- [x] `[SD]` `daily.csv` rebuilt from the minute logs, 2026-09-27 to 10-09 (10-01/02 have no
+      logs; 10-03 only 13 minutes), fan 2's glitches left out; the all-time record
+      recalculated from it on card-in (22.9-32.6 °C local, fans up to 2224/2370 RPM). Card
+      copy by the user, checked by Claude (2026-10-10, this commit)
 - [x] `[HA]` `[Net]` Audit 4.1 and the first-connect stall (2026-10-08). Every send goes
       through one checked function: a failed send closes the connection (reconnect in
       15 s), a message too big for the buffer is refused without reconnecting, a failed
@@ -108,9 +124,7 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       the old record or none, and a missing or damaged one mends itself on the next pass
       (covers the audit's "no `ALL,` row"). History tab reads only the last 4 KB of
       `daily.csv`. COM15: record rebuilt at boot, same values, no temp file left (Claude).
-      To do next session: replace `daily.csv` with every day from 2026-09-27 recalculated from
-      the minute logs (your choice; fan 2's 6083/6180 RPM glitches on 09-29 left out):
-      `tools/rebuild_daily.py <folder with the downloaded logs> 2026-10-08`.
+      The rebuild of `daily.csv`: done 2026-10-10 (item above).
       History tab checked by the user. UNTESTED: the swap failing partway; the other two
       builds (compile) (2026-10-08, this commit)
 - [x] `[SD]` `[HA]` Audit 3.6: the day's highs and lows (the "Summary of the day" on the card
