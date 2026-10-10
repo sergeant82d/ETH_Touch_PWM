@@ -76,8 +76,6 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 - [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
       agreed with the user 2026-10-06:
   - [ ] `[Board]` `[SD]` Measure how long a no-card mount retry blocks before changing it (3.4)
-  - [ ] `[Web]` Web request limits: overall header deadline, line length cap, short writes in
-        downloads (5.1)
   - [ ] Tidy-ups when those files are next edited: spillover size cached (5.2), uptime past
         49.7 days (5.3)
   - [ ] Skipped unless wanted: rows held until the clock is set (3.5), SD at 16 MHz; rule
@@ -88,6 +86,15 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[Web]` Audit 5.1, web request limits: the request's header lines get 3 s in all, lines
+      are capped at 512 characters (the rest dropped), a POST body wait no longer spins, and a
+      page or download stops on a short write or after 60 s (it used to go on, corrupting the
+      file, for as long as the client trickled). COM15 (Claude): every page and file normal,
+      Sept log identical to before; a request stalled mid-line held the loop 3.0 s; a 100 KB
+      header line answered, heap unchanged; a client reading very slowly dropped after 15 s,
+      no restart, MQTT kept. Downloads ~200 KB/s (a full month ~10 s). Web page checked by
+      the user. UNTESTED: the 60 s limit itself; the other two builds (compile)
+      (2026-10-10, this commit)
 - [x] `[Web]` `[HA]` `[LCD]` LCD gauge ranges (your note, 2026-10-10): Fan Control has a Max RPM
       column (each fan's full speed, the top of its bar; 500-10000, was a fixed 2200) and an
       "LCD Gauges" section (temperature bars' bottom and top, in your unit; 60-110 °F). HA:

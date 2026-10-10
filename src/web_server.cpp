@@ -44,10 +44,35 @@ struct Request {
     size_t contentLength = 0;
 };
 
+// Limits per request (audit 5.1): a slow or broken client can't hold loop() long.
+// Headers get 3 s in all and lines are capped (the rest of a longer line is dropped;
+// we only need the request line, Content-Length and Authorization). Sending gets 60 s:
+// a whole month log (~2 MB) takes ~10 s on the LAN at ~200 KB/s (COM15, 2026-10-10).
+static unsigned long reqStart;          // set first thing in handleNativeWebTraffic()
+static const unsigned long HEADER_LIMIT_MS = 3000;
+static const unsigned long SEND_LIMIT_MS = 60000;
+static const size_t MAX_LINE = 512;
+
+// One line without "\r\n"; false = header time used up or the client left
+static bool readLine(NetworkClient &c, String &out) {
+    out = "";
+    while (millis() - reqStart < HEADER_LIMIT_MS) {
+        int ch = c.read();
+        if (ch < 0) {
+            if (!c.connected()) return false;
+            delay(1);                       // nothing yet: let other tasks run
+            continue;
+        }
+        if (ch == '\n') { out.trim(); return true; }
+        if (out.length() < MAX_LINE) out += (char)ch;
+    }
+    return false;
+}
+
 static bool readRequest(NetworkClient &client, Request &req) {
-    client.setTimeout(2000);
-    String line = client.readStringUntil('\n');
-    line.trim();
+    client.setTimeout(2000);                // also bounds each write (the core retries a stuck one)
+    String line;
+    if (!readLine(client, line)) return false;
     int sp1 = line.indexOf(' ');
     int sp2 = line.indexOf(' ', sp1 + 1);
     if (sp1 < 0 || sp2 < 0) return false;
@@ -60,8 +85,8 @@ static bool readRequest(NetworkClient &client, Request &req) {
     }
 
     for (int i = 0; i < 40; i++) { // headers, until the blank line
-        String h = client.readStringUntil('\n');
-        h.trim();
+        String h;
+        if (!readLine(client, h)) return false;
         if (h.length() == 0) break;
         int colon = h.indexOf(':');
         if (colon < 0) continue;
@@ -81,9 +106,25 @@ static String readBody(NetworkClient &client, size_t len) {
     body.reserve(len);
     unsigned long start = millis();
     while (body.length() < len && millis() - start < 3000) {
+        if (!client.available()) {
+            if (!client.connected()) break;
+            delay(1);
+            continue;
+        }
         while (client.available() && body.length() < len) body += (char)client.read();
     }
     return body;
+}
+
+// Every chunk of a page or download: false = stop (send time used up, or a short
+// write: the client is gone or stuck, and the rest would be a corrupt file anyway)
+static bool sendChunk(NetworkClient &client, const uint8_t *data, size_t n) {
+    if (millis() - reqStart > SEND_LIMIT_MS || client.write(data, n) != n) {
+        Serial.println("Web: send stopped (time limit or client gone)");
+        return false;
+    }
+    esp_task_wdt_reset(); // loop() watchdog (main.cpp): a download can take longer than it
+    return true;
 }
 
 static void sendHead(NetworkClient &client, int code, const char* type, size_t len) {
@@ -117,9 +158,8 @@ static void sendPage(NetworkClient &client) {
     sendHead(client, 200, "text/html; charset=utf-8", len);
     for (size_t sent = 0; sent < len; ) {
         size_t n = min((size_t)1024, len - sent);
-        size_t w = client.write(index_html_start + sent, n);
-        if (w == 0) break;
-        sent += w;
+        if (!sendChunk(client, index_html_start + sent, n)) break;
+        sent += n;
     }
 }
 
@@ -987,9 +1027,12 @@ static void handleHistoryDay(NetworkClient &client, const Request &req) {
         if (d > date) break;
         out += line;
         out += '\n';
-        if (out.length() > 1200) { client.print(out); out = ""; }
+        if (out.length() > 1200) {
+            if (!sendChunk(client, (const uint8_t*)out.c_str(), out.length())) break;
+            out = "";
+        }
     }
-    if (out.length()) client.print(out);
+    if (out.length()) sendChunk(client, (const uint8_t*)out.c_str(), out.length());
     f.close();
 }
 
@@ -1050,8 +1093,7 @@ static void handleHistoryFile(NetworkClient &client, const Request &req) {
         uint8_t buf[1024];
         while (f.available()) {
             int n = f.read(buf, sizeof(buf));
-            if (n <= 0 || client.write(buf, n) == 0) break;
-        esp_task_wdt_reset(); // loop() watchdog (main.cpp)
+            if (n <= 0 || !sendChunk(client, buf, n)) break;
         }
         f.close();
         return;
@@ -1072,8 +1114,7 @@ static void handleHistoryFile(NetworkClient &client, const Request &req) {
     uint8_t buf[1024];
     while (f.available()) {
         int n = f.read(buf, sizeof(buf));
-        if (n <= 0 || client.write(buf, n) == 0) break;
-        esp_task_wdt_reset(); // loop() watchdog (main.cpp)
+        if (n <= 0 || !sendChunk(client, buf, n)) break;
     }
     f.close();
 }
@@ -1111,6 +1152,7 @@ void webServerLoop() {
 }
 
 void handleNativeWebTraffic(NetworkClient &client) {
+    reqStart = millis();
     Request req;
     if (!readRequest(client, req)) {
         client.stop();

@@ -283,6 +283,11 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   to 10-09; copied to the card on the PC. 10-09 came out identical to the firmware's own row
   (the check that the script works the same way). The all-time record was recalculated on
   card-in. Old file and logs: `ETH_Touch_PWM_backups/daily_rebuild_2026-10-10/`.
+- 2026-10-10: **Web request limits** (audit 5.1): 3 s for all header lines, 512 characters
+  per line, 60 s per page or download, and a short `client.write()` ends the send.
+  `client.setTimeout(2000)` stays: it also bounds each write, which the core retries while
+  the client's window is full (a slow reader was dropped after ~15 s that way). The board
+  sends ~200 KB/s on Ethernet (W5500 Lite, 20 MHz SPI).
 - 2026-10-10: after the ~5 min full flash read, the board's first boot logged events ~7 min
   fast until NTP set the clock (the time kept through the reset drifted while the chip sat in
   the ROM loader). Only the event times; harmless.
