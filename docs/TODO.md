@@ -30,49 +30,6 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       ~4 s after boot; touch works afterwards. Touch read failures now go to the event log
       (TOUCH, the first and then at most one an hour); Claude checks it at the start of each
       session and picks this up only if it shows again (2026-09-29)
-- [ ] `[Board]` Overnight freeze (your note): 2026-10-05 05:05 the board stopped (last log row
-      05:05:16; no web, no HA) until the reset button at 09:52; no crash was logged, so it hung.
-      Cause unknown. Since `b91c006` a 30 s watchdog restarts it; if a BOOT event with
-      `reason=TASK_WDT` appears in the event log, its `stage=` names the stuck part of loop()
-      and `heap=`/`minHeap=` the memory just before (2026-10-05). 2026-10-07: likely found.
-      Watchdog restarts 2026-10-06 10:50 (`stage=loop`) and 16:45 (`stage=probe`); the 16:45
-      crash dump shows the W5500 driver's receive task (priority 15) looping on SPI reads of
-      the chip and starving loop(). Its loop only ends when the W5500 answers sensibly, so
-      garbage from the module hangs it (core code, can't be changed here; the watchdog
-      recovers in 30 s). Same suspect as the Ethernet item below. BOOT events now carry the
-      crash task and addresses, to confirm the next one. 2026-10-08: confirmed. Watchdog
-      restart 2026-10-07 20:53 (`stage=mqtt:loop`), crash line `task=w5500_tsk`, decoded to
-      `w5500_get_rx_received_size` > `w5500_read` > SPI, same as 10-06 16:45. Close with the
-      Ethernet item
-- [ ] `[Net]` Reopened 2026-10-06: Ethernet without an address after a drop, now on COM15 too.
-      2026-10-06 05:57 the board told HA "offline" (HA and Mosquitto logs clean, so the board
-      decided it had no network) and stayed off MQTT 73 min until a restart; it kept running
-      and logging. Same as COM9 on 2026-09-29. The NET events (this commit) will show link /
-      address changes; then: restart DHCP, then the W5500, when the link is up with no
-      address. Since the audit commit: DHCP restarted after 20 s and every 3 min, board
-      restart (backed off) without WiFi; the W5500 Lite runs at 10 MHz as a test.
-      2026-10-07: **cause found.** 2026-10-06 18:04:47 the link dropped for 2 s, then 17 h
-      on WiFi without an Ethernet address (343 DHCP restarts, no answer; the router gave .223
-      to another device, the board is now .229). The W5500's link register read `0xBF`: the
-      chip had reset itself and lost its setup. Now detected and the board restarts (this
-      commit). Suspect: the W5500 Lite's power or jumper wiring (10 MHz didn't help).
-      `[Board]` For you: check its 3.3 V feed (short, thick wires; ~100 uF + 100 nF at the
-      module), shorten the SPI jumpers; DHCP reservation for `2E:84:85:87:E0:D5` (Ethernet)
-      and `28:84:85:87:E0:D4` (WiFi) on the router (recommended over a static address).
-      Close after a quiet stretch.
-      2026-10-07: 16:47 the W5500 reset itself again (`0xBF`); the new self-heal restarted the
-      board and it was back on Ethernet with MQTT in ~36 s. 20:53 watchdog restart, same cause
-      (item above). Then 18 h quiet. Old module: 5 events in ~34 h (10-06 to 10-07).
-      **2026-10-08 ~15:25: W5500 Lite module replaced** (user: power and SPI wiring are solid
-      and short). Ethernet, address (4.6 s), MQTT fine; 60 pings, none lost. Count only events
-      after the swap; close after 3-4 days without `W5500 reset by itself` or a `TASK_WDT` BOOT.
-      The 8.5 s `LOOP` on the first boot after the swap is the MQTT first-connect stall
-      (audit 4.1 below), not the module. DHCP reservation: Ethernet set
-      2026-10-08 (user); WiFi `28:84:85:87:E0:D4` at .190 (user, 2026-10-08)
-      2026-10-10 15:10: quiet since the swap (no W5500 reset, no `TASK_WDT`; every restart
-      since was a test or flash by Claude; longest untouched run 42 h). Plan (user,
-      2026-10-10): close this item and the freeze item at the start of the 2026-10-12
-      session if the log is still clean
 - [ ] `[Board]` `[HA]` 2026-10-06 03:15: the watchdog caught a hang in the network step
       (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
       unavailable 03:15:50, back 03:16:17). The finer stage names (`net:...`, `mqtt:...`) will
@@ -82,18 +39,31 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
   - [ ] `[SD]` SD card at 16 MHz on trial (was 4 MHz; user, 2026-10-10). Claude checks the
         event log for SD errors / `state=Missing` at the start of each session; close after
         2 quiet days, back to 4 MHz (`SD_CLOCK_HZ`, sd_logger.cpp) if a card misbehaves
+        2026-10-12 10:45: 44 h at 16 MHz, no SD errors, two midnight rollovers fine
 - [ ] `[LCD]` Watch: the dark LCD woke itself 4 times since the 1 s hold (10-05 22:13, 10-06
       23:54, 10-07 18:45 and 10-09 23:58, the last two exactly 56 s after HA turned it off).
       Since 2026-10-10 each wake logs `DISPLAY wake press: ...` (length, readings, position,
       longest gap, time since off); Claude checks it at session start. If one shows without
       you: the 2-minute no-wake after turning off is the next step (your real 1 s hold stayed
       on one exact point, so position can't tell them apart)
+      2026-10-12: two more after the 150 ms rule, so they are one continuous 1 s press, not
+      joined taps: 10-10 22:35:27 (`1.03 s, 35 readings, x 236-262 y 124-124, longest gap
+      40 ms, 53 s after off`) and 10-12 03:29:49 (`1.00 s, 34 readings, x 277-283 y 126-126,
+      8697 s after off`). Both on one row (y 124-126) at the right side; yours was x 168
+      y 136. A 2-minute no-wake would have missed the 03:29 one. `[Decide]` next step
 - [ ] `[SD]` Low priority: on the card's return 2026-10-10 14:03 the event log has
       `state=OK` before the buffered `state=Missing` from 14:01 (the buffer was written after
       the OK line; the 13:58 return had them in order). Only the order; nothing lost
 
 ## Done
 
+- [x] `[Net]` `[Board]` Ethernet without an address / W5500 self-resets, and the overnight freeze
+      (2026-10-05): both the old W5500 Lite module (it reset itself 5 times in ~34 h and twice
+      hung the board, crash dumps in its driver's receive task). Replaced 2026-10-08 15:25 by
+      the user; since then no W5500 reset, no `TASK_WDT`, no crash; the board has run 44 h
+      untouched (Claude, event log 2026-10-12). Closed as planned (user, 2026-10-10); kept: the
+      W5500 self-reset detection, the watchdog and the crash line in BOOT events
+      (2026-10-12, this commit)
 - [x] `[LCD]` LCD woke by itself after HA turned it off (your note, 2026-10-10): the 1 s hold now
       restarts if two finger-down readings are over 150 ms apart (two phantom taps either side
       of a busy moment counted as one hold), and each wake goes to the event log with what the
