@@ -50,13 +50,23 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       joined taps: 10-10 22:35:27 (`1.03 s, 35 readings, x 236-262 y 124-124, longest gap
       40 ms, 53 s after off`) and 10-12 03:29:49 (`1.00 s, 34 readings, x 277-283 y 126-126,
       8697 s after off`). Both on one row (y 124-126) at the right side; yours was x 168
-      y 136. A 2-minute no-wake would have missed the 03:29 one. `[Decide]` next step
+      y 136. A 2-minute no-wake would have missed the 03:29 one. Decided (user, 2026-10-12):
+      a touch wake goes dark again after 5 min without a touch (Done below). Keep watching
+      the wake lines: a phantom now shows as a `wake press` followed 5 min later by
+      `source=LCD-idle action=OFF`
 - [ ] `[SD]` Low priority: on the card's return 2026-10-10 14:03 the event log has
       `state=OK` before the buffered `state=Missing` from 14:01 (the buffer was written after
       the OK line; the 13:58 return had them in order). Only the order; nothing lost
 
 ## Done
 
+- [x] `[LCD]` A screen woken by a press on the dark LCD goes dark again after 5 min without a
+      touch (your decision, 2026-10-12): the panel still reports whole 1 s phantom presses
+      now and then, which kept the backlight on all night. Any touch restarts the 5 min;
+      turned on from HA or the web page it stays on as before. Event `DISPLAY
+      source=LCD-idle action=OFF`. COM15: on from HA stayed on 11 min (Claude); your hold
+      woke it (`wake press: 1.01 s ... x 161-165 y 97-117, 6 s after off`), dark again 301 s
+      later. UNTESTED: the plain Touch-LCD-2 (compile) (2026-10-12, this commit)
 - [x] `[Net]` `[Board]` Ethernet without an address / W5500 self-resets, and the overnight freeze
       (2026-10-05): both the old W5500 Lite module (it reset itself 5 times in ~34 h and twice
       hung the board, crash dumps in its driver's receive task). Replaced 2026-10-08 15:25 by

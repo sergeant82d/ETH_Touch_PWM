@@ -1008,11 +1008,19 @@ static bool displayOn = true;
 bool isDisplayOn() { return displayOn; }
 
 static unsigned long displayOffMs = 0; // when the backlight last went off (for the wake line)
+// Woken by a press on the dark screen: goes dark again after 5 min without a touch
+// (user, 2026-10-12). The panel still reports whole 1 s phantom presses now and then
+// (10-10 22:35, 10-12 03:29), so a wake nobody made costs 5 min of light, not a night.
+static bool wokenByTouch = false;
+static unsigned long lastTouchMs = 0;
+static const unsigned long TOUCH_WAKE_IDLE_MS = 5UL * 60 * 1000;
 
 void setDisplayOn(bool on, const char* source) {
     if (on == displayOn) return;
     displayOn = on;
     if (!on) displayOffMs = millis();
+    wokenByTouch = on && strcmp(source, "LCD") == 0; // HA / web turning it on: stays on
+    lastTouchMs = millis();
     digitalWrite(PIN_LCD_BL, on ? HIGH : LOW);
     Serial.print("LCD display "); Serial.print(on ? "ON" : "OFF"); Serial.print(" via "); Serial.println(source);
     sdLogEvent("DISPLAY", String("source=") + source + " action=" + (on ? "ON" : "OFF"));
@@ -1037,6 +1045,12 @@ void handleTouchInput() {
     unsigned long nowMs = millis();
     unsigned long gap = nowMs - lastPollMs;
     lastPollMs = nowMs;
+    if (displayOn && pressed) lastTouchMs = nowMs;
+    if (displayOn && wokenByTouch && nowMs - lastTouchMs >= TOUCH_WAKE_IDLE_MS) {
+        setDisplayOn(false, "LCD-idle"); // event: source=LCD-idle action=OFF
+        wasPressed = pressed;
+        return;
+    }
     if (!displayOn) {
         static unsigned long pressStartMs = 0, maxGap = 0;
         static int readings = 0, minX, maxX, minY, maxY;

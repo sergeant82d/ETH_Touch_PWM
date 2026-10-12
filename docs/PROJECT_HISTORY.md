@@ -306,6 +306,11 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   readings, so two phantom taps on either side of a busy loop() could add up to 1 s; now a
   gap over 150 ms restarts it, and each wake logs `DISPLAY wake press: ...`. A real 1 s hold
   read 35 times at one exact point (x 168 y 136), so a still position does not mark a phantom.
+- 2026-10-12: **Phantom presses are whole 1 s presses.** Two more self-wakes after the 150 ms
+  rule (10-10 22:35, 53 s after off; 10-12 03:29, 2.4 h after off), each 34-35 readings with
+  no gap, on one row (y 124-126) at the right side. So no hold rule can tell them from a
+  finger; instead a touch wake goes dark again after 5 min without a touch
+  (`TOUCH_WAKE_IDLE_MS`, display.cpp). HA and web "on" are not timed.
 - 2026-10-10: after the ~5 min full flash read, the board's first boot logged events ~7 min
   fast until NTP set the clock (the time kept through the reset drifted while the chip sat in
   the ROM loader). Only the event times; harmless.
