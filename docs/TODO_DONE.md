@@ -1,0 +1,402 @@
+# To do: done items (archive)
+
+Done items moved here from `TODO.md`, newest first, unchanged. Items older than about two weeks
+move here (all-projects rule); the first move (2026-10-13, user) took everything but the three
+newest.
+
+## Done
+
+- [x] `[LCD]` A screen woken by a press on the dark LCD goes dark again after 5 min without a
+      touch (your decision, 2026-10-12): the panel still reports whole 1 s phantom presses
+      now and then, which kept the backlight on all night. Any touch restarts the 5 min;
+      turned on from HA or the web page it stays on as before. Event `DISPLAY
+      source=LCD-idle action=OFF`. COM15: on from HA stayed on 11 min (Claude); your hold
+      woke it (`wake press: 1.01 s ... x 161-165 y 97-117, 6 s after off`), dark again 301 s
+      later. UNTESTED: the plain Touch-LCD-2 (compile) (2026-10-12, `279710f`)
+- [x] `[Net]` `[Board]` Ethernet without an address / W5500 self-resets, and the overnight freeze
+      (2026-10-05): both the old W5500 Lite module (it reset itself 5 times in ~34 h and twice
+      hung the board, crash dumps in its driver's receive task). Replaced 2026-10-08 15:25 by
+      the user; since then no W5500 reset, no `TASK_WDT`, no crash; the board has run 44 h
+      untouched (Claude, event log 2026-10-12). Closed as planned (user, 2026-10-10); kept: the
+      W5500 self-reset detection, the watchdog and the crash line in BOOT events
+      (2026-10-12, `d51ecb0`)
+- [x] `[LCD]` LCD woke by itself after HA turned it off (your note, 2026-10-10): the 1 s hold now
+      restarts if two finger-down readings are over 150 ms apart (two phantom taps either side
+      of a busy moment counted as one hold), and each wake goes to the event log with what the
+      press looked like. COM15: off from MQTT, dark for 2.5 min (Claude); your short taps
+      didn't wake it, a 1 s hold did (`wake press: 1.01 s, 35 readings, x 168-168 y 136-136,
+      longest gap 40 ms, 251 s after off`). Whether it stops the phantom wakes: watch item
+      above. UNTESTED: the plain Touch-LCD-2 (compile) (2026-10-10, this commit)
+- [x] `[Docs]` Status report 06 (covers 2026-10-08 and 10-10); no notes to turn into items
+      (2026-10-10, this commit)
+- [x] `[SD]` Audit 3.5 (rows held until the clock is set) skipped, and 1.1 (no SD access inside
+      an open LCD write) closed as covered by the global `CLAUDE.md` display rule (user,
+      2026-10-10, Claude's recommendation). 3.5 costs only the minutes after a power cut
+      until the network gives the time (2026-10-10, this commit)
+- [x] `[SD]` `[Decide]` Audit 3.4: left as it is (user, 2026-10-10). Measured on COM15 (card out
+      3.5 min, /api/status timed 5 times a second): each retry for the missing card holds the
+      loop 0.5-1.0 s, every 15 s, only while the card is out; the LCD and touch pause, fans,
+      MQTT and the web page carry on. The audit's slower retries (up to 2 min) would delay
+      noticing a returned card. The LCD override on/cancel at 14:48:54 was a stray touch while
+      handling the card (user) (2026-10-10, this commit)
+- [x] `[SD]` `[HA]` Audit 5.2 + 5.3: the internal buffer's size is kept in memory instead of the
+      file being opened ~8 times a second (LCD title bar, MQTT, web, logger) to read it;
+      measured again only after a buffered row. Uptime (web, HA, BOOT `uptimeAtReset`, TOUCH
+      events) from the 64-bit timer, so it no longer drops to 0 after 49.7 days. COM15
+      (Claude): web and HA uptime counting, restart from HA at 135 s logged
+      `uptimeAtReset=134s`, SD state OK. The first boot after the flash logged "no prior
+      state" (the restart record's layout changed, once). Card out 3.5 min (user): rows
+      buffered and written back (`buffer written to the card: 1 KB`), events in order.
+      UNTESTED: the buffer past 80 % full (~2 weeks without a card), 49.7 days; the other two
+      builds (compile) (2026-10-10, this commit)
+- [x] `[Web]` Audit 5.1, web request limits: the request's header lines get 3 s in all, lines
+      are capped at 512 characters (the rest dropped), a POST body wait no longer spins, and a
+      page or download stops on a short write or after 60 s (it used to go on, corrupting the
+      file, for as long as the client trickled). COM15 (Claude): every page and file normal,
+      Sept log identical to before; a request stalled mid-line held the loop 3.0 s; a 100 KB
+      header line answered, heap unchanged; a client reading very slowly dropped after 15 s,
+      no restart, MQTT kept. Downloads ~200 KB/s (a full month ~10 s). Web page checked by
+      the user. UNTESTED: the 60 s limit itself; the other two builds (compile)
+      (2026-10-10, this commit)
+- [x] `[Web]` `[HA]` `[LCD]` LCD gauge ranges (your note, 2026-10-10): Fan Control has a Max RPM
+      column (each fan's full speed, the top of its bar; 500-10000, was a fixed 2200) and an
+      "LCD Gauges" section (temperature bars' bottom and top, in your unit; 60-110 °F). HA:
+      "Fan max speed N" and "LCD gauge temperature min/max" in the device's configuration
+      section. No fan calibration exists here, so Max RPM is entered by you (agreed). Settings
+      version 11 (v10 upgraded on COM15, all kept). Full flash backup first
+      (`ETH_Touch_PWM_backups/COM15_Lite_4765c4f_full-flash_2026-10-10.bin`). COM15 (Claude,
+      MQTT test tool): discovery and states right, HA changes applied and logged, out-of-range
+      and max-below-min refused, values put back. Page, LCD and HA checked by the user.
+      UNTESTED: the other two builds (compile) (2026-10-10, `415b202`)
+- [x] `[SD]` `daily.csv` rebuilt from the minute logs, 2026-09-27 to 10-09 (10-01/02 have no
+      logs; 10-03 only 13 minutes), fan 2's glitches left out; the all-time record
+      recalculated from it on card-in (22.9-32.6 °C local, fans up to 2224/2370 RPM). Card
+      copy by the user, checked by Claude (2026-10-10, `415b202`)
+- [x] `[HA]` `[Net]` Audit 4.1 and the first-connect stall (2026-10-08). Every send goes
+      through one checked function: a failed send closes the connection (reconnect in
+      15 s), a message too big for the buffer is refused without reconnecting, a failed
+      subscribe closes it too (one stalled subscribe had left the board deaf to HA), sends
+      over 0.5 s are logged; reply wait 2 s. The stall (1-10 s on the first connection after
+      a boot, 70-90 % of boots, Ethernet and WiFi alike) is avoided by connecting 15 s
+      after the network comes up; cause not found (`docs/PROJECT_HISTORY.md`). COM15, ~80
+      restarts from the MQTT test tool: 11 boots with the fix, no stall, discovery 0.1 s
+      each (Claude). Also: the W5500 Lite back at 20 MHz; no W5500 at boot no longer
+      boot-loops (found when Ethernet was switched off for a test; the board then ran on
+      WiFi). UNTESTED: a real dead W5500 (only simulated); the other two builds (compile)
+      (2026-10-08, `4765c4f`)
+- [x] `[LCD]` `[Decide]` Faster LCD drawing with DMA, as in Wifi_Fan_Knob: not for this project
+      (user, 2026-10-08). DMA drawing stays the default for future projects where it makes
+      sense (global `CLAUDE.md`, "Displays") (2026-10-08, this commit)
+- [x] `[SD]` Audit 3.3 + no more 30-day purge (your decision, 2026-10-08): `daily.csv` keeps
+      every day (~30 KB a year), so it is only ever appended to (checked, 3.1). The all-time
+      record is worked out again from all of `daily.csv` (at boot, card in, new day) instead
+      of read-merge-write, and written to `alltime.tmp`, then swapped in: a power cut leaves
+      the old record or none, and a missing or damaged one mends itself on the next pass
+      (covers the audit's "no `ALL,` row"). History tab reads only the last 4 KB of
+      `daily.csv`. COM15: record rebuilt at boot, same values, no temp file left (Claude).
+      The rebuild of `daily.csv`: done 2026-10-10 (item above).
+      History tab checked by the user. UNTESTED: the swap failing partway; the other two
+      builds (compile) (2026-10-08, this commit)
+- [x] `[SD]` `[HA]` Audit 3.6: the day's highs and lows (the "Summary of the day" on the card
+      and in HA) are kept in RTC memory through any restart but a power cut, with the date
+      they belong to; a restart over midnight still closes the old day, labelled with its
+      own date (was "now - 12 h"). The day change is now checked before the minute row, so
+      the new day's first row no longer counts in the old day. BOOT events say `day ...
+      hi/lo kept` or `start over`. COM15: restart from HA kept them (`day 20261008 hi/lo
+      kept: local 30.8-30.9C`) (Claude). UNTESTED: the midnight rollover with this build
+      (tonight: 2026-10-08's row covers only from 16:37, the flash); a restart across
+      midnight; the other two builds (compile) (2026-10-08, this commit)
+- [x] `[SD]` Audit 3.1 + 3.2: row and event writes go through the C file calls, which report
+      every step (the Arduino File layer ignored its final flush, so a write to a card that
+      was gone counted as done); a failed write marks the card missing and the row goes to
+      the internal buffer. The buffer is written back in one go (as agreed, not the audit's
+      slices) in checked pieces of up to 4 KB, deleted only when all of it is on the card,
+      otherwise kept and continued from where it stopped. New: a buffer left from before a
+      restart is written once the clock is set (it used to wait for the next card
+      pull). Events `SD buffer written to the card: N KB` / `buffer kept: ...`. COM15: card
+      out 16:20-16:29, 9 rows and the events buffered and written back, no gap, no restart
+      (user + Claude). UNTESTED: a write failing partway through the write-back (too quick
+      to pull a card during it), a buffer left over a restart; the other two builds
+      (compile). All-time record and daily rewrite: still unchecked, with 3.3
+      (2026-10-08, this commit)
+- [x] `[Web]` Card titles in Title Case on every tab (your request, 2026-10-08), e.g. `Fan Curve`,
+      `Backup WiFi Network`, `Firmware Update (OTA)`, the login dialog `Log In`; field labels,
+      hints and buttons stay in sentence case. Rule added to `D:\GitHub\WEB_STYLE.md`
+      (section 5). COM15: checked by the user. UNTESTED: the other two builds (2026-10-08,
+      this commit)
+- [x] `[Web]` Network tab: the "Setup hotspot" card is now "HotSpot password" (your note,
+      2026-10-06). COM15 serves it (Claude). UNTESTED: your look at the page (2026-10-08,
+      this commit)
+- [x] `[HA]` Restart button in Home Assistant (your request, 2026-10-08), like Wifi_Fan_Knob's
+      (`388a3e2`): button "Restart" in the device's configuration section. Presses in the
+      first 30 s of each MQTT connection are ignored and logged, so a retained `PRESS` left on
+      the broker can't restart the board over and over (counted from the connection, not
+      boot: a retained message comes back at every reconnect). COM15 (Claude, MQTT test
+      tool): discovery correct, a press at 41 s restarted it (`RESTART source=HA`), a press
+      at 18 s was ignored. Pressed in HA by the user: restarted fine. Full flash backup first
+      (`ETH_Touch_PWM_backups/COM15_Lite_67f63b1_full-flash_2026-10-08.bin`). UNTESTED:
+      the other two builds (compile) (2026-10-08, this
+      commit)
+- [x] `[Net]` `[Board]` Event log analysis 2026-10-07 and fixes: a W5500 that reset itself is
+      detected (link register OPSEL bit clear on two reads) and restarts the board, WiFi or
+      not; BOOT events after a crash or watchdog name the task and code addresses from the
+      crash dump in flash (`docs/BOARDS.md` says how to decode them); MQTT sends without
+      Nagle delay. COM15: boots, Ethernet, MQTT, discovery 2.6 s (Claude). 2026-10-08, board:
+      the W5500 restart (10-07 16:47) and the crash line (10-07 20:53) both worked on real
+      faults. UNTESTED: the other two builds (compile only) (2026-10-07, `67f63b1`)
+- [x] `[Docs]` Status report 05; your note turned into an item (2026-10-06, this commit)
+- [x] `[Net]` `[Board]` More detail for the Ethernet-without-an-address item (your question):
+      NET events give link speed/duplex, time to address (~4.5 s on COM15), and on link down,
+      lease lost and every "no address" step the DHCP client state and the W5500's own link
+      register (`docs/BOARDS.md` says how to read them). Any loop() step over 5 s goes to the
+      event log as LOOP (History filter "Slow"). COM15: boots and a cable pull logged as
+      expected (Claude, user pulled the cable); the LOOP event and the "no address" lines
+      UNTESTED (need the fault) (2026-10-06, this commit)
+- [x] `[Net]` `[HA]` Audit, first batch (`docs/AUDIT_2026-10-06.md`): MQTT no longer reconnects
+      when Ethernet returns, only once when the WiFi backup goes off (2.1); the MQTT event
+      names the address the connection uses. Ethernet link without an address: DHCP
+      restarted, then a backed-off restart (2.2). Self-heal only with a working network,
+      backing off 15-240 min (2.3). SD writes are watchdog stage `sd:write`, DHCP `net:dhcp`
+      (2.4). W5500 Lite at 10 MHz (1.2). COM15, two cable pulls: one 1 s reconnect at WiFi
+      off (user + Claude). UNTESTED: 2.2, 2.3 (need the faults) (2026-10-06, this commit)
+- [x] `[Decide]` Free-memory target (CLAUDE.md success criteria): ~200 KB on Ethernet,
+      ~120 KB while the WiFi backup is joined (was ~150 KB for all; user, 2026-10-06, this
+      commit)
+- [x] `[Board]` `[Web]` Memory: the lowest free memory is now tracked with the part of loop()
+      running then (serial "HEAP: new low", DIAGNOSTIC line with largest block and free
+      PSRAM, System tab "Free memory ... lowest ... during ...", BOOT event `minHeap= during`).
+      Fixed: a WiFi scan whose results the page never collected kept the WiFi on and ~30 KB
+      in use; dropped after 30 s now (COM15: 221 -> 252 KB, Claude). Touch I2C failures to
+      the event log, History filter "Touch" (2026-10-06, this commit)
+- [x] `[Web]` LCD view "No connection" overlay: after two missed status updates (~4-6 s) the
+      view dims and shows the time of the last good values; clears by itself. Takes the place
+      of "Display off" while shown (your question: they would have overlapped). Background
+      tabs update slower (browser timer throttling). Checked by the user, cable out and back
+      (2026-10-06, this commit)
+- [x] `[LCD]` `[Web]` Top-bar status icons (your design, `docs/LCD_DESIGN.md`): Ethernet,
+      WiFi, hotspot left of the name; MQTT, SD card right of it; grey = inactive, green = in
+      use, WiFi flashes while joining, hotspot flashes black on orange, MQTT orange when not
+      connected, SD as before. Names over 15 letters use the small font. Web LCD view the
+      same (`/api/status` gains `hotspot`, `wifiJoining`). Standby hint on the web page
+      fixed (1 s press). Checked by the user on COM15, normal and cable-out (2026-10-06,
+      this commit)
+- [x] `[LCD]` `[Docs]` LVGL archive note: `docs/LCD_DESIGN.md` (why cancelled, your mock-ups,
+      top-bar icon design and states, display conventions, what each style would take);
+      icons drawn and approved, `docs/images/icon_preview.png` (2026-10-06, this commit)
+- [x] `[Web]` `[HA]` Phones: Manual override right below the LCD view; History tab moved to
+      next-to-last (before System). A settings save reconnects MQTT only when the name,
+      broker, port, MQTT login or fan count changed (every save did). Checked by the user
+      (2026-10-06, this commit)
+- [x] `[Board]` `[HA]` Event log: NET (Ethernet link/address, WiFi, hotspot, network in use)
+      and MQTT (connected, lost, failed + reason, network temperature, HA status) events;
+      finer watchdog stages (`net:wifi+/-`, `net:ap+/-`, `net:dns`, `mqtt:conn/loop/pub`);
+      History filter buttons for them. Every web settings change logged per field (your
+      question: before, only the fan curve, override, display, setup, login, reset were).
+      Fixed: a needless MQTT reconnect at every boot (its retry failed, 15 s lost).
+      Self-heal: MQTT wanted but off for 15 min = restart, logged with the reason (UNTESTED).
+      COM15: boot events clean (Claude); settings lines on the board and the web (user)
+      (2026-10-06, this commit)
+- [x] `[Docs]` Status report 04; notes turned into items (2026-10-05, this commit)
+- [x] `[LCD]` Screen flicker: every part of the dashboard redraws only when what it shows
+      changes (bars and their numbers were wiped every 200 ms, the rest every 2 s); bars no
+      longer go through black, only the part above the new fill is cleared. A full-screen
+      page closing redraws everything once. User: "screen looks great" (COM15, 2026-10-05,
+      `5eec4c8`)
+- [x] `[LCD]` `[Web]` Override - / + (your note): LCD panel has big - and + either side of the
+      speed instead of the slider; web keeps the slider with - and + at its ends. A tap is 1 %;
+      held, they repeat after 0.5 s, in 5 % steps after 2 s; the web sends the speed on
+      release. Checked by the user on COM15, LCD and web (2026-10-05, `80283a7`)
+- [x] `[Board]` "GPIO isr service already installed" in the boot log: harmless. ETH.begin()
+      installs the GPIO interrupt service, then the tach attachInterrupt() asks again; the core
+      treats the "already installed" answer as success. Not related to the touch problems
+      (touch is polled, no interrupt). Closed by the user (2026-10-05, `80283a7`)
+- [x] `[Web]` Page layout (your notes): WiFi tab merged into Network (status header, Ethernet,
+      WiFi network, WiFi address, hotspot; `#wifi` links open it); System tab order Firmware,
+      Appearance, Time, OTA, Device name, Web login, Restart, Factory reset; on phones the LCD
+      view is the Dashboard's first card. Docs updated. Checked by the user on PC and phone
+      (2026-10-05, `f5d3bc7`)
+- [x] `[LCD]` `[Web]` Restart button (your note): System tab, panel "Restart" just above Factory
+      reset (asks to confirm, needs the login, nothing changed or lost); LCD on the QR page
+      (gear), held 2 s with a filling button, so phantom taps can't trigger it (instead of a
+      new swipe page, agreed with the user). Both log a RESTART event. Tested by the user on
+      COM15 (2026-10-05, `f9a23ce`)
+- [x] `[LCD]` `[Board]` Cancel on the Manual Override panel seemed not to work unless the slider
+      had been moved (your note): the override did end, but since the fan smoothing
+      (`ea3557e`) the curve eased down from the override's speed at 0.5 %/s (100 % -> ~2.5 min
+      loud). Now the curve's speed applies at once when an override ends. COM15: MQTT test
+      100 % -> 34 % at once, RPM back in ~5 s (Claude); LCD Cancel (user, 2026-10-05, `7e098a9`)
+- [x] `[LCD]` `[Web]` LCD turned itself back on after HA/web turned it off (your note; the web
+      view was right, the board really was on again): 16-25 s after the backlight goes off the
+      touch panel reports bursts of phantom taps (0.2-0.6 s, mostly one row, ~19 in 2 min; none
+      in 4 min with it on), and a tap woke it. Now a 1 s press wakes it, and the rest of that
+      press reaches nothing. COM15: 19 phantom taps, stayed dark (Claude); hold wakes, tap
+      doesn't, buttons fine afterwards (user, 2026-10-05, `b3188e5`)
+- [x] `[Board]` Loop watchdog: loop() not back within 30 s = restart, and the BOOT event
+      gives the stuck part (`stage=`) and free memory. Tested on COM15 with a deliberate hang
+      in the web step: restarted, logged `reason=TASK_WDT ... stage=web heap=256668`
+      (Claude, 2026-10-05, `b91c006`)
+- [x] `[Net]` `[SD]` `[Web]` Closed tentatively by the user (2026-10-05); reopen if seen again:
+      - Ethernet got no new DHCP address after a link drop (COM9, twice, 2026-09-29; power
+        theory). If again: log the Ethernet/DHCP state, restart DHCP (then the W5500) when the
+        link is up without an address
+      - loop() stalled ~3 min with the cable out (2026-10-04; not reproduced in three
+        unplugs). The watchdog now restarts after 30 s and logs where
+      - Manual Override slider sometimes didn't change the speed (2026-10-02)
+      - A failing (knock-off) SD card made each retry block loop() up to ~0.5 s and the web page
+        stalled (2026-09-29); some cards were lost once the buffered data was written to them
+        (2026-10-04), probably the same
+- [x] `[Web]` Per-fan speed offset (your note): Fan channels table, - / + / Reset, 10 RPM steps,
+      +/-500; fan N held at fan 1's RPM + offset by a trim on its duty, on RPMs averaged over
+      ~10 s; 20-100 % limits, none in the failsafe or while fan 1 is off, no trim without a tach
+      reading. Settings version 10 (v9 file upgraded on COM15, all settings kept). Tested on
+      COM15: +200 held at +191..+214 (30 s averages), -200 at -173..-227; a 400 RPM jump
+      overshoots once and settles in ~90 s; below ~25 % fan 2 can't go 200 under fan 1 (20 %
+      floor). LCD page for it: later (2026-10-04, this commit)
+- [x] `[Net]` Clock after a power cut took ~5 min to be set: main.cpp's setSyncInterval(300)
+      overrode the 5 s retry. Now set ~12 s after a cold start (user power-cycled COM15,
+      2026-10-04, this commit)
+- [x] `[Board]` W5500 Lite build pins (fans, tach, DS18B20, W5500): in use, work (user,
+      2026-10-04). You'll edit the pins yourself from here (docs/BOARDS.md, "Changing pins")
+- [x] `[Board]` Both-probes-failed failsafe (both fans full speed): tested, good (user, 2026-10-04)
+- [x] `[Board]` Touch-LCD-2 build (`waveshare_s3_lcd2`): flashed, works (user, 2026-10-04)
+- [x] `[LCD]` Setup screen views (no network / hotspot / network): taken care of (user,
+      2026-10-04). Still true by design: the hotspot turns off 30 s after a network works,
+      which drops a phone that is on it
+- [x] `[HA]` HA YAML for plotting the daily summary: cancelled by the user (2026-10-04)
+- [x] `[Board]` Steadier fans (your PID question): the curve follows the blended temperature
+      averaged over ~30 s, hysteresis at the start (off only 1.1 C / 2 F below it), duty
+      changes at most 2 %/s up and 0.5 %/s down; failsafe and override still immediate, and
+      after the failsafe (e.g. the first second after boot) the curve restarts at 20 %.
+      COM15: steady 29-31 % after boot, 1 % move when the network temperature arrived.
+      PI/PID only if the History tab still shows hunting. Day-long behaviour UNTESTED
+      (2026-10-04, this commit)
+- [x] `[Question]` Native ESP-IDF: answered 2026-10-04 (most code rewritten, weeks; Arduino as
+      an IDF component would keep it); cancelled by the user
+- [x] `[Board]` Loop pauses: MQTT connect limited to 1 s and discovery resent only when the node
+      or fan count changed or HA sends its birth message (was ~30 messages per reconnect,
+      2-2.8 s); web connections are parked until the request arrives (browser spare
+      connections held loop() 1 s); the DS18B20 conversion is read on the next sample
+      instead of waited for (0.6 s). COM15: no SLOW lines in 4 min with page/status traffic;
+      probe, MQTT fine. HA-restart re-announce UNTESTED (2026-10-04, this commit)
+- [x] `[Web]` Factory reset on the System tab (login + type RESET): deletes /settings.cfg and
+      restarts into the Setup page; theme, notes, SD kept. Refused without login (tested);
+      the reset itself UNTESTED (2026-10-04, this commit)
+- [x] `[Web]` Node ID in Title Case in the sidebar, same rule as the LCD title bar ("6U Rack
+      Fans") (your note, 2026-10-04, this commit)
+- [x] `[LCD]` Override panel artifacts (user): closing it (Stay On / Cancel) now wipes and
+      redraws the whole dashboard, like the QR page; the slider label's wipe no longer cuts
+      the panel border. Checked by the user on COM15 (2026-10-04, this commit)
+- [x] `[LCD]` Touch: every tap logged (raw and screen coordinates) on COM15. The coordinate
+      mapping is right (Manual Control, slider, Stay On, tap-to-cancel all hit first time, no
+      I2C read failures). The "sporadic" part was the gear: near the top edge taps read
+      30-60 px low (aimed at y ~13, arrived at y 31-79, x 233-316), outside its 60x36 area.
+      The gear area is now the whole top-right corner (x 225+, y 0-90); user: "feels good"
+      (2026-10-04, this commit)
+- [x] `[Net]` NTP after network switches (your note): the DNS server of the network in use is
+      set again and SNTP restarted after every switch and hotspot on/off; log line per switch
+      and in the minute DIAGNOSTIC (net, DNS, time sync). Tested on COM15: time synced within
+      2-4 s through boot, Ethernet->WiFi, WiFi->Ethernet and Ethernet->hotspot->Ethernet
+      (user + Claude, 2026-10-04, this commit)
+- [x] `[Net]` Crash (LoadProhibited in mDNS) when saving WiFi after the setup hotspot had been
+      on and off: MDNS.end() followed the deleted hotspot interface. mDNS is now started once
+      and renamed in place. Same sequence repeated without a crash (COM15, 2026-10-04, this
+      commit)
+- [x] `[LCD]` `[HA]` `[Web]` LCD standby (your note): backlight off/on from HA (switch
+      "LCD display"), the web page (button under the LCD view; the view dims) or a tap on the
+      dark screen (wakes it, nothing else). On after every boot. HA path tested via MQTT on
+      the COM14 board (Claude); web button and tap UNTESTED (2026-10-04, this commit)
+- [x] `[LCD]` `[Web]` Layout batch (your notes): status dots network, MQTT, SD (LCD and web
+      LCD view); temperature bars network left, local right; clock top level with the column
+      labels and the big temperature centred between clock and button; alert colour red from
+      75 % of fan curve start -> top (was top - 5 C). Network dot/MQTT now need an address,
+      not just a cable link (one cause of the LCD/web light mismatch). LCD layout confirmed
+      and approved by the user (2026-10-04, `b730576`)
+- [x] `[Net]` WiFi without Ethernet (your note: restart started the hotspot instead of the
+      saved WiFi): no W5500 = join WiFi at once (was 30 s); W5500 but no address at boot =
+      wait 10 s; the hotspot waits while a WiFi join is under way (up to 45 s). Boot log on
+      COM14: joined ~1 s after boot, no hotspot (Claude, 2026-10-04, this commit)
+- [x] `[Web]` Normal tabs' rough spots: closed by the user, the Setup page covers first-time
+      setup (`1567e95`). Unchanged on the normal tabs (reopen if it bothers): each Save
+      reloads every form and wipes other panels' unsaved fields; a node ID change reaches
+      the `.local` name only at the next restart or WiFi-tab save (2026-09-29)
+- [x] `[Net]` Setup hotspot and a static WiFi address: tested, working (user, 2026-09-29)
+- [x] `[Web]` "Socket health" from the Claude web plans: it meant SD card health, done with
+      the SD health state (`6bb7e19`) (user, 2026-09-29)
+- [x] `[LCD]` QR code page (gear icon): the QR codes scan on the W5500 Lite boards (user,
+      2026-09-29, `4026820`). Opening it by touch is unreliable: in the touch item
+- [x] `[Board]` Pin remap for the original Touch-LCD-2 build (PWM2 6, TACH1 4, TACH2 16):
+      closed by the user, replaced by the W5500 Lite build `59d3b9b` (2026-09-29)
+- [x] `[Web]` LCD view: the °F/°C label on the Manual Control button sat above the button's
+      border (your note). Fixed itself; archived, cause unknown (2026-09-29)
+- [x] `[Web]` First-time setup page: Setup tab while no login is set (name and login,
+      network and time, fans, Home Assistant optional), one Save, one restart, then it says
+      where the board is; unique suggested name from the MAC; login button hidden until a
+      login exists. LCD setup screen with QR codes; hotspot shown on the LCD (orange dot,
+      "Hotspot on"). Used by the user on both Lite boards (2026-09-29, this commit)
+- [x] `[Docs]` `docs/SETUP.md`: setting up a new board, step by step as the firmware needs it
+      today, with the rough spots (your note, 2026-09-29, this commit)
+- [x] `[Board]` Third build `waveshare_s3_lcd2_lite`: Touch-LCD-2 + W5500 Lite on your pins.
+      Ethernet, MQTT, SD, web page and touch work on the new board (COM8) (user, 2026-09-29,
+      `59d3b9b`)
+- [x] `[Docs]` Status report 02; your notes moved into Open (2026-09-28, this commit)
+- [x] `[Docs]` Wifi_Fan_Knob handoff: which of today's features fit it, written to that repo's
+      `docs/HANDOFF_FROM_ETH_Touch_PWM.md` (2026-09-28)
+- [x] `[LCD]` MQTT status dot on the LCD title bar and the web LCD view. Web view checked on
+      the ESP32-S3-ETH; the real LCD UNTESTED (2026-09-28, `d5b909f`)
+- [x] `[Web]` LCD view card on the Dashboard: the Touch-LCD-2 screen redrawn from live data
+      (option b). Works on the ESP32-S3-ETH (user, 2026-09-28, `6d41e3c`); fonts approximate.
+- [x] `[SD]` SD health on every display: OK green; >= 90 % used orange, slow flash; missing red,
+      fast flash. Web dot + text and System row, HA "SD card" / "SD card used" / "Fault SD card",
+      event log; replaces the unused `isSpilloverNearFull()` as a state of its own. Found and
+      fixed on the way: a card pulled while running was never noticed (now a sector read every
+      10 s, remount every 15 s), and events logged while the card was out were written back
+      into the month log instead of events.csv. User tested pull/reinsert on the ESP32-S3-ETH
+      (2026-09-28). Not yet: the LCD dot (Touch-LCD-2), a >= 90 % full card
+- [x] `[Web]` History tab: Day chart, Last 30 days (click a day to open it), all-time records,
+      Events with filters, Downloads; per-minute log gained duty and override; CSV column names.
+      User: "looks amazing" (2026-09-28; `7bf5979` + this commit). 30-day view on real data
+      waits for the first rollup on the new card
+- [x] `[Web]` Notes box on the Dashboard: scrollable, emoji row, byte counter (4000 max),
+      "last saved ... by ...", unsaved-changes warning; stored on the board (/notes.json),
+      saving needs the login. User checked on the ESP32-S3-ETH (2026-09-28)
+- [x] `[Web]` Themes: the Wifi_Fan_Knob gold/navy is its own preset "Navy & gold"; "Classic
+      dark" is a new neutral dark (charcoal, blue accent). Five presets now. User checked on
+      the ESP32-S3-ETH (2026-09-28)
+- [x] `[Docs]` TODO.md in the tagged Open/Done layout (your decisions); project CLAUDE.md
+      trimmed to what the global one doesn't cover (2026-09-28, `e543ab5`)
+- [x] `[Question]` What would BLE bring? Answered 2026-09-28: BLE can't serve the web page, so
+      pairing wouldn't open it; it could only pass the address or set WiFi (Improv). Real gain
+      only if the board read BLE thermometers itself. Cost ~300-500 KB flash, RAM, shared radio.
+      Recommendation: skip BLE unless reading BLE sensors directly is wanted
+- [x] `[SD]` SD daily rollup over a real day change works on the ESP32-S3-ETH (user, 2026-09-28)
+- [x] `[Web]` Time zone picker (IANA zones + POSIX rules, daylight saving automatic; settings
+      version 7): works (user, 2026-09-28; `f6c51b4`)
+- [x] `[Web]` New web page (left tabs, themes, web login, OTA with board check): works well,
+      theme selector on PC and mobile, temporary login replaced (user, 2026-09-28; `4be8091`)
+- [x] `[HA]` Phase 3: network temperature and daily summary over MQTT, REST removed; first
+      "Summary of the day" arrived in HA with clear data (user, 2026-09-28; `a28141b`)
+- [x] `[Docs]` Status report 01 (2026-09-27, `998f7cd`)
+- [x] `[HA]` Merge `mqtt` into `main` (2026-09-27, fast-forward to `f832628`; branch deleted)
+- [x] `[Docs]` Phase 5: docs and success criteria for the MQTT-era firmware (2026-09-27, `f832628`)
+- [x] `[HA]` Phase 4 (in HA): old helpers, rest_command and automations removed, fault
+      notifications rebuilt on the MQTT problem sensors (user, 2026-09-27)
+- [x] `[HA]` HA automations: network temperature for `fanController_01`, fault notifications
+      (user, 2026-09-27)
+- [x] `[Net]` Ethernet DHCP or static on the Network tab (settings version 9; new boards start on
+      DHCP, upgraded ones keep their static address). User tested DHCP (2026-09-27, `5dd3214`)
+- [x] `[Web]` Fan channels as a checkbox table: fan 1 fixed, next wired channel addable, last
+      removable, channels 3-4 "not wired", factory default 1 fan. User tested: removing and
+      re-adding fan 2 updated HA quickly (2026-09-27, `5dd3214`)
+- [x] `[Net]` WiFi backup and back: cable pulled, joined WiFi by DHCP, MQTT and .local over
+      WiFi, no restart; cable back, WiFi dropped ~60 s later (2026-09-27, `55d72a9`)
+- [x] `[Net]` Ethernet on the core's ETH driver (lwIP), SNTP via pool.ntp.org; each board uses
+      its chip's own MAC (was DE:AD:BE:EF:FE:ED on every board) (2026-09-27, `a43d531`)
+- [x] `[Web]` Active network and logged-in user in the page frame; OTA drop zone
+      (2026-09-27, `240e986`)
+- [x] `[HA]` Phase 2: fan curve start/top and manual override from HA (2026-09-27, `47d448c`)
+- [x] `[Board]` USB serial no longer stalls loop() (2026-09-27, `ff254bd`)
+- [x] `[HA]` HA entities grouped on the device page by name (2026-09-27, `f73f58b`)
+- [x] `[Board]` Second board: ESP32-S3-ETH build `waveshare_s3_eth` (2026-09-27, `18ea0e8`)
+- [x] `[HA]` Phase 1: MQTT settings, node ID, read-only sensors (2026-09-27, `64a6771`)
+- [x] `[HA]` MQTT design verified in HA with `tools/mqtt_sim.py` (2026-09-27, `c19398c`)
+- [x] `[Board]` 1 fan setting was reset to 2 at boot; now 1-2 allowed (2026-09-27)
