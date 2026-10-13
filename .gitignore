@@ -11,3 +11,5 @@ tools/mqtt_secrets.json
 
 # Home Assistant history exports (user, for troubleshooting)
 docs/HA_Data/
+# Graphify code graph (local, rebuilt with: graphify update .)
+graphify-out/
