@@ -26,15 +26,7 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Open
 
-- [ ] `[Board]` Low priority, parked (user, 2026-10-06): one I2C read error (touch bus) at
-      ~4 s after boot; touch works afterwards. Touch read failures now go to the event log
-      (TOUCH, the first and then at most one an hour); Claude checks it at the start of each
-      session and picks this up only if it shows again (2026-09-29)
-- [ ] `[Board]` `[HA]` 2026-10-06 03:15: the watchdog caught a hang in the network step
-      (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
-      unavailable 03:15:50, back 03:16:17). The finer stage names (`net:...`, `mqtt:...`) will
-      say which call next time
-- [ ] `[LCD]` Watch: the dark LCD woke itself 4 times since the 1 s hold (10-05 22:13, 10-06
+- [ ] `[LCD]` Watch: phantom touches. The dark LCD woke itself 4 times since the 1 s hold (10-05 22:13, 10-06
       23:54, 10-07 18:45 and 10-09 23:58, the last two exactly 56 s after HA turned it off).
       Since 2026-10-10 each wake logs `DISPLAY wake press: ...` (length, readings, position,
       longest gap, time since off); Claude checks it at session start. If one shows without
@@ -45,33 +37,20 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       40 ms, 53 s after off`) and 10-12 03:29:49 (`1.00 s, 34 readings, x 277-283 y 126-126,
       8697 s after off`). Both on one row (y 124-126) at the right side; yours was x 168
       y 136. A 2-minute no-wake would have missed the 03:29 one. Decided (user, 2026-10-12):
-      a touch wake goes dark again after 5 min without a touch (Done below). Keep watching
+      a touch wake goes dark again after 5 min without a touch (`279710f`). Keep watching
       the wake lines: a phantom now shows as a `wake press` followed 5 min later by
       `source=LCD-idle action=OFF`
-- [ ] `[SD]` Low priority: on the card's return 2026-10-10 14:03 the event log has
-      `state=OK` before the buffered `state=Missing` from 14:01 (the buffer was written after
-      the OK line; the 13:58 return had them in order). Only the order; nothing lost
+      2026-10-13: phantoms also press buttons on the lit screen. 08:00:47, 45 s after HA's
+      morning routine turned the LCD on, one hit Manual Control and the fans ran at 100 % for
+      45 min (you stopped it from the web page). Overnight two more wakes: 04:40:08 (`x 35-130
+      y 83-92, 21842 s after off`; stayed lit 12.5 min, more phantoms kept resetting the
+      5 min) and 04:53:09 (`x 202-263 y 130-130, 33 s after off`). Many come ~45-56 s after
+      the backlight switches on or off. Since `6c7e48e`: an LCD override stops after 60 s
+      unless confirmed, every LCD override event logs `at x= y=`, and a finger counts as
+      lifted only after 60 ms. Your real presses on Manual Control landed at x 133-166
+      y 192-217. Claude checks at session start for wake and override lines you didn't make.
+      Not yet tried: what the touch chip itself reports with each touch (event type and
+      gesture code, which the driver ignores), to tell a phantom from a finger
 
 ## Done
 
-- [x] Firmware audit `docs/AUDIT_2026-10-06.md` finished: every item done, or closed by your
-      decision (3.4 left as is, 3.5 skipped, 1.1 covered by the global display rule); the
-      items are in `docs/TODO_DONE.md` (Claude, 2026-10-13, this commit)
-- [x] `[LCD]` `[HA]` Override started by a phantom press (your report, 2026-10-13): HA turned the
-      LCD on at 08:00:02, a phantom press hit Manual Control at 08:00:47 and the fans ran at
-      100 % for 45 min until you stopped it from the web page. Now an override started on the
-      LCD stops by itself after 60 s unless Keep On, - or + is pressed; every LCD override
-      event logs where the press landed (`at x= y=`). Found while testing: one tap on the
-      flashing button stopped the override and started it again in the same second (one
-      empty or failed touch reading mid-tap made a second press); a finger now counts as
-      lifted only after 2 empty readings (60 ms). COM15 (user): unconfirmed one stopped at
-      exactly 60 s, Keep On kept it, two tap-to-stops clean. UNTESTED: the plain Touch-LCD-2
-      (compile) (2026-10-13, `6c7e48e`)
-- [x] `[Net]` Clock after a flash: the log ran up to 12.5 min off for 5 min after a USB flash
-      (TimeLib took the time kept through the reset and re-read only every 5 min; the error
-      grows with uptime, ~1 % of it). Now TimeLib re-reads as soon as SNTP syncs (at boot and
-      every hour). COM15: the new path runs (serial, restart from HA) (Claude). UNTESTED: a
-      flash after a long uptime, the case that showed it; the other two builds (compile)
-      (2026-10-13, `6c7e48e`)
-- [x] `[SD]` SD card at 16 MHz: trial closed, 3 days without an SD error, three midnight
-      rollovers (Claude, event log 2026-10-13) (2026-10-13, `6c7e48e`)

@@ -1,11 +1,47 @@
 # To do: done items (archive)
 
 Done items moved here from `TODO.md`, newest first, unchanged. Items older than about two weeks
-move here (all-projects rule); the first move (2026-10-13, user) took everything but the three
-newest.
+move here (all-projects rule). Two one-time moves on 2026-10-13 (user): first everything but
+the three newest, then everything but the open LCD phantom-touch item.
 
 ## Done
 
+- [x] `[Board]` Touch I2C read error at boot (parked since 2026-10-06): closed (user, 2026-10-13).
+      The event log has had one ever, 2026-10-06 10:25:03 (`I2C read failed (1 since boot,
+      uptime 3 s)`), and none in the dozens of boots since; touch has worked every time. The
+      TOUCH event stays, so a new one would show (Claude, event log 2026-10-13)
+      (2026-10-13, this commit)
+- [x] `[Board]` `[HA]` Watchdog restart in the network step, 2026-10-06 03:16 (`stage=network`,
+      as HA rebooted after its 03:03 backup): closed (user, 2026-10-13). Not seen again: the
+      last `TASK_WDT` restart was 2026-10-07 20:53, the old W5500 module (replaced 10-08), and
+      every nightly HA backup since passed without one. Most likely the same W5500 driver hang
+      (it starves loop() in whatever step is running). The finer stage names (`net:...`,
+      `mqtt:...`) and the crash line in BOOT events stay, so a repeat would say where
+      (Claude, event log 2026-10-13) (2026-10-13, this commit)
+- [x] `[SD]` Event order after a card returns (2026-10-10 14:03: `state=OK` logged before the
+      buffered `state=Missing`): closed without a change (user, 2026-10-13). Only the order of
+      two lines, nothing lost; the other card returns logged in order (2026-10-13, this commit)
+- [x] Firmware audit `docs/AUDIT_2026-10-06.md` finished: every item done, or closed by your
+      decision (3.4 left as is, 3.5 skipped, 1.1 covered by the global display rule); the
+      items are in `docs/TODO_DONE.md` (Claude, 2026-10-13, `c6a99e6`)
+- [x] `[LCD]` `[HA]` Override started by a phantom press (your report, 2026-10-13): HA turned the
+      LCD on at 08:00:02, a phantom press hit Manual Control at 08:00:47 and the fans ran at
+      100 % for 45 min until you stopped it from the web page. Now an override started on the
+      LCD stops by itself after 60 s unless Keep On, - or + is pressed; every LCD override
+      event logs where the press landed (`at x= y=`). Found while testing: one tap on the
+      flashing button stopped the override and started it again in the same second (one
+      empty or failed touch reading mid-tap made a second press); a finger now counts as
+      lifted only after 2 empty readings (60 ms). COM15 (user): unconfirmed one stopped at
+      exactly 60 s, Keep On kept it, two tap-to-stops clean. UNTESTED: the plain Touch-LCD-2
+      (compile) (2026-10-13, `6c7e48e`)
+- [x] `[Net]` Clock after a flash: the log ran up to 12.5 min off for 5 min after a USB flash
+      (TimeLib took the time kept through the reset and re-read only every 5 min; the error
+      grows with uptime, ~1 % of it). Now TimeLib re-reads as soon as SNTP syncs (at boot and
+      every hour). COM15: the new path runs (serial, restart from HA) (Claude). UNTESTED: a
+      flash after a long uptime, the case that showed it; the other two builds (compile)
+      (2026-10-13, `6c7e48e`)
+- [x] `[SD]` SD card at 16 MHz: trial closed, 3 days without an SD error, three midnight
+      rollovers (Claude, event log 2026-10-13) (2026-10-13, `6c7e48e`)
 - [x] `[LCD]` A screen woken by a press on the dark LCD goes dark again after 5 min without a
       touch (your decision, 2026-10-12): the panel still reports whole 1 s phantom presses
       now and then, which kept the backlight on all night. Any touch restarts the 5 min;
