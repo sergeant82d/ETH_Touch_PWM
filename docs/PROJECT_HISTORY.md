@@ -306,6 +306,22 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   readings, so two phantom taps on either side of a busy loop() could add up to 1 s; now a
   gap over 150 ms restarts it, and each wake logs `DISPLAY wake press: ...`. A real 1 s hold
   read 35 times at one exact point (x 168 y 136), so a still position does not mark a phantom.
+- 2026-10-13: **Phantom presses also hit buttons on the lit screen.** 45 s after HA's morning
+  routine turned the LCD on, one started the override at 100 % (45 min until the user noticed);
+  a phantom wake at 04:40 stayed lit 12.5 min because more phantoms reset the 5 min timer.
+  Many phantoms come ~45-56 s after the backlight switches. LCD overrides now stop after 60 s
+  unless confirmed, and log the press position.
+- 2026-10-13: **Touch release debounce.** One empty or failed reading of the CST816D in the
+  middle of a tap looked like lift + new press: a tap that stopped the override started it
+  again. Lifted = 2 empty readings in a row (60 ms at the 30 ms poll).
+- 2026-10-13: **TimeLib vs SNTP after a reset.** `time()` survives a reset, kept by the RTC
+  timer, which drifts ~1 % of the uptime (12.5 min slow after 21 h, 7 min fast after the
+  5 min flash read). `getNtpTime()` accepted it and TimeLib re-read only every 300 s, so the
+  log was wrong for up to 5 min although SNTP had fixed the system clock within seconds. The
+  SNTP callback (its own task) sets a flag; `networkLoop()` calls `setSyncProvider()`, which
+  re-reads at once.
+- 2026-10-13: one MQTT first-connect stall (8.7 s) at a power-on boot (10-12 12:13), despite
+  the 15 s wait: the first in ~20 boots since the fix. Noted only.
 - 2026-10-12: **Phantom presses are whole 1 s presses.** Two more self-wakes after the 150 ms
   rule (10-10 22:35, 53 s after off; 10-12 03:29, 2.4 h after off), each 34-35 readings with
   no gap, on one row (y 124-126) at the right side. So no hold rule can tell them from a

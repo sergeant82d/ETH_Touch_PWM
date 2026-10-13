@@ -66,10 +66,12 @@ static time_t toLocal(time_t utc) {
 }
 
 static unsigned long lastSyncMs = 0;   // 0 = not synced since boot
+static volatile bool sntpJustSynced = false;
 
+// Runs in the SNTP task: only a flag here; networkLoop() hands the time to TimeLib
 static void onSntpSync(struct timeval *tv) {
     lastSyncMs = millis();
-    Serial.println("SNTP: time synchronized.");
+    sntpJustSynced = true;
 }
 
 // (Re)starts SNTP. Called when the network gets its address (link up): SNTP
@@ -417,6 +419,14 @@ static void w5500ResetCheck(unsigned long now) {
 }
 
 void networkLoop() {
+    // TimeLib takes the time kept through a reset at once and re-reads only every
+    // 5 min, so after a USB flash the log ran up to 12 min off for 5 min
+    // (2026-10-10/13). Re-read as soon as SNTP has corrected the clock.
+    if (sntpJustSynced) {
+        sntpJustSynced = false;
+        Serial.println("SNTP: time synchronized.");
+        setSyncProvider(getNtpTime); // reads the corrected time now
+    }
     static unsigned long lastRun = 0;
     if (millis() - lastRun < 500) return;
     lastRun = millis();

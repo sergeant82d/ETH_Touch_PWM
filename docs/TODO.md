@@ -36,10 +36,6 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       say which call next time
 - [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
       agreed with the user 2026-10-06:
-  - [ ] `[SD]` SD card at 16 MHz on trial (was 4 MHz; user, 2026-10-10). Claude checks the
-        event log for SD errors / `state=Missing` at the start of each session; close after
-        2 quiet days, back to 4 MHz (`SD_CLOCK_HZ`, sd_logger.cpp) if a card misbehaves
-        2026-10-12 10:45: 44 h at 16 MHz, no SD errors, two midnight rollovers fine
 - [ ] `[LCD]` Watch: the dark LCD woke itself 4 times since the 1 s hold (10-05 22:13, 10-06
       23:54, 10-07 18:45 and 10-09 23:58, the last two exactly 56 s after HA turned it off).
       Since 2026-10-10 each wake logs `DISPLAY wake press: ...` (length, readings, position,
@@ -60,6 +56,24 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[LCD]` `[HA]` Override started by a phantom press (your report, 2026-10-13): HA turned the
+      LCD on at 08:00:02, a phantom press hit Manual Control at 08:00:47 and the fans ran at
+      100 % for 45 min until you stopped it from the web page. Now an override started on the
+      LCD stops by itself after 60 s unless Keep On, - or + is pressed; every LCD override
+      event logs where the press landed (`at x= y=`). Found while testing: one tap on the
+      flashing button stopped the override and started it again in the same second (one
+      empty or failed touch reading mid-tap made a second press); a finger now counts as
+      lifted only after 2 empty readings (60 ms). COM15 (user): unconfirmed one stopped at
+      exactly 60 s, Keep On kept it, two tap-to-stops clean. UNTESTED: the plain Touch-LCD-2
+      (compile) (2026-10-13, this commit)
+- [x] `[Net]` Clock after a flash: the log ran up to 12.5 min off for 5 min after a USB flash
+      (TimeLib took the time kept through the reset and re-read only every 5 min; the error
+      grows with uptime, ~1 % of it). Now TimeLib re-reads as soon as SNTP syncs (at boot and
+      every hour). COM15: the new path runs (serial, restart from HA) (Claude). UNTESTED: a
+      flash after a long uptime, the case that showed it; the other two builds (compile)
+      (2026-10-13, this commit)
+- [x] `[SD]` SD card at 16 MHz: trial closed, 3 days without an SD error, three midnight
+      rollovers (Claude, event log 2026-10-13) (2026-10-13, this commit)
 - [x] `[LCD]` A screen woken by a press on the dark LCD goes dark again after 5 min without a
       touch (your decision, 2026-10-12): the panel still reports whole 1 s phantom presses
       now and then, which kept the backlight on all night. Any touch restarts the 5 min;
