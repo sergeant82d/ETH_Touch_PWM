@@ -54,12 +54,14 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[Docs]` Status report 07 (covers 2026-10-12 and 10-13); no notes to turn into items
+      (2026-10-13, this commit)
 - [x] `[Web]` History tab, Downloads (your question, 2026-10-13): the month logs grow by one a
       month, so the card lists the current and previous month, and every month sits in one
       collapsed row "All monthly logs (/logs, N files)", by year, newest first (hover a month
       for its size). Month files sorted newest first (the board sends them in card order);
       `daily.csv` described as "every day" (was "30 days"); sizes over 1 MB in MB. Page only,
-      no firmware web-code change. Checked by you on COM15 (2026-10-13, this commit)
+      no firmware web-code change. Checked by you on COM15 (2026-10-13, `f1ae7d8`)
 - [x] `[Web]` Cards keep a fixed width (900 px) on large monitors, as on Wifi_Fan_Knob (your
       request, 2026-10-13): `.main > * { max-width: 900px; }`; rule added to `WEB_STYLE.md`
       ("Content width"). Checked by you on COM15; History charts and the Fan Control table fit,
