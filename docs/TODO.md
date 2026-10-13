@@ -54,3 +54,7 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[Web]` Cards keep a fixed width (900 px) on large monitors, as on Wifi_Fan_Knob (your
+      request, 2026-10-13): `.main > * { max-width: 900px; }`; rule added to `WEB_STYLE.md`
+      ("Content width"). Checked by you on COM15; History charts and the Fan Control table fit,
+      phones unchanged. UNTESTED: the other two builds (compile) (2026-10-13, this commit)

@@ -81,6 +81,7 @@ body { font-family: var(--font); color: var(--text); background: linear-gradient
 
 /* --- Content --- */
 .main { flex: 1; min-width: 0; padding: 24px 32px 40px; }
+.main > * { max-width: 900px; } /* cards keep their width on large monitors (user, 2026-10-13; as Wifi_Fan_Knob) */
 .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px;
   padding-bottom: 14px; border-bottom: 1px solid var(--accent-line); flex-wrap: wrap; }
 .page-title { font-size: 1.5rem; font-weight: 700; }
