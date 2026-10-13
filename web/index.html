@@ -445,7 +445,7 @@ progress { width: 100%; height: 10px; accent-color: var(--accent); }
           <thead><tr><th>File</th><th>Contents</th><th>Size</th><th></th></tr></thead>
           <tbody id="hist-files"></tbody>
         </table>
-        <div class="hint">Raw CSV files from the SD card, e.g. for Excel. A full month can take a few seconds.</div>
+        <div class="hint">Raw CSV files from the SD card, e.g. for Excel. The current and previous month are listed; every month is under "All monthly logs" (hover a month for its size). A full month can take a few seconds.</div>
       </div>
     </section>
 
@@ -1433,14 +1433,27 @@ async function loadHistoryDay(date) {
   renderHistory();
 }
 
-const FILE_INFO = (p) => p.startsWith("/logs/") ? "Readings every minute, " + p.slice(6, 13) : p.includes("daily") ? "Daily highs and lows (30 days)" : p.includes("alltime") ? "All-time records" : "Events: boots, overrides, setting changes";
+const FILE_INFO = (p) => p.startsWith("/logs/") ? "Readings every minute, " + p.slice(6, 13) : p.includes("daily") ? "Daily highs and lows (every day)" : p.includes("alltime") ? "All-time records" : "Events: boots, overrides, setting changes";
+// Month logs grow by one a month (user, 2026-10-13): the current and previous month as rows,
+// every month in one collapsed row below them, by year, newest first
 async function loadHistoryFiles() {
   try {
-    const r = DEMO ? { sd: true, files: [{ path: "/logs/2026-09.csv", size: 612345 }, { path: "/rollups/daily.csv", size: 1234 }, { path: "/events.csv", size: 8765 }] } : await api("/api/history/files");
-    const kb = (n) => n < 1024 ? n + " B" : (n / 1024).toFixed(n < 102400 ? 1 : 0) + " KB";
-    $("#hist-files").innerHTML = !r.sd ? `<tr><td colspan="4" class="muted">No SD card.</td></tr>`
-      : r.files.map((f) => `<tr><td class="mono">${esc(f.path)}</td><td>${FILE_INFO(f.path)}</td><td class="mono">${kb(f.size)}</td>
-          <td><a class="btn ghost" style="padding:5px 12px; text-decoration:none" href="/api/history/file?path=${encodeURIComponent(f.path)}" download>Download</a></td></tr>`).join("");
+    const r = DEMO ? { sd: true, files: [{ path: "/logs/2026-09.csv", size: 612345 }, { path: "/logs/2026-10.csv", size: 1912345 }, { path: "/logs/2025-12.csv", size: 2012345 },
+      { path: "/rollups/daily.csv", size: 1234 }, { path: "/rollups/alltime.csv", size: 187 }, { path: "/events.csv", size: 8765 }] } : await api("/api/history/files");
+    const kb = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(n < 102400 ? 1 : 0) + " KB" : (n / 1048576).toFixed(1) + " MB";
+    const href = (p) => "/api/history/file?path=" + encodeURIComponent(p);
+    const row = (f) => `<tr><td class="mono">${esc(f.path)}</td><td>${FILE_INFO(f.path)}</td><td class="mono">${kb(f.size)}</td>
+          <td><a class="btn ghost" style="padding:5px 12px; text-decoration:none" href="${href(f.path)}" download>Download</a></td></tr>`;
+    if (!r.sd) { $("#hist-files").innerHTML = `<tr><td colspan="4" class="muted">No SD card.</td></tr>`; return; }
+    const logs = r.files.filter((f) => f.path.startsWith("/logs/")).sort((a, b) => b.path.localeCompare(a.path));
+    const others = r.files.filter((f) => !f.path.startsWith("/logs/"));
+    const years = {};
+    logs.forEach((f) => (years[f.path.slice(6, 10)] ||= []).push(f));
+    const all = !logs.length ? "" : `<tr><td colspan="4"><details><summary style="cursor: pointer">All monthly logs (/logs, ${logs.length} file${logs.length === 1 ? "" : "s"})</summary>
+          ${Object.keys(years).sort().reverse().map((y) => `<div style="margin: 8px 0 0 18px"><span class="mono">${y}:</span> ${years[y].map((f) =>
+            `<a class="mono" href="${href(f.path)}" download title="${esc(f.path)}, ${kb(f.size)}" style="margin-left: 12px; color: var(--accent)">${f.path.slice(11, 13)}</a>`).join("")}</div>`).join("")}
+          </details></td></tr>`;
+    $("#hist-files").innerHTML = logs.slice(0, 2).map(row).join("") + all + others.map(row).join("");
   } catch (e) { $("#hist-files").innerHTML = `<tr><td colspan="4" class="msg bad">${esc(e.message)}</td></tr>`; }
 }
 
