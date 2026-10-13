@@ -34,8 +34,6 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       (`stage=network`) at the moment HA rebooted after its 03:03 backup (HA history: entities
       unavailable 03:15:50, back 03:16:17). The finer stage names (`net:...`, `mqtt:...`) will
       say which call next time
-- [ ] Firmware audit `docs/AUDIT_2026-10-06.md` (section numbers in brackets), in the order
-      agreed with the user 2026-10-06:
 - [ ] `[LCD]` Watch: the dark LCD woke itself 4 times since the 1 s hold (10-05 22:13, 10-06
       23:54, 10-07 18:45 and 10-09 23:58, the last two exactly 56 s after HA turned it off).
       Since 2026-10-10 each wake logs `DISPLAY wake press: ...` (length, readings, position,
@@ -56,6 +54,9 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] Firmware audit `docs/AUDIT_2026-10-06.md` finished: every item done, or closed by your
+      decision (3.4 left as is, 3.5 skipped, 1.1 covered by the global display rule); the
+      items are in `docs/TODO_DONE.md` (Claude, 2026-10-13, this commit)
 - [x] `[LCD]` `[HA]` Override started by a phantom press (your report, 2026-10-13): HA turned the
       LCD on at 08:00:02, a phantom press hit Manual Control at 08:00:47 and the fans ran at
       100 % for 45 min until you stopped it from the web page. Now an override started on the
