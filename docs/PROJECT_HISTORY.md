@@ -306,6 +306,15 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   readings, so two phantom taps on either side of a busy loop() could add up to 1 s; now a
   gap over 150 ms restarts it, and each wake logs `DISPLAY wake press: ...`. A real 1 s hold
   read 35 times at one exact point (x 168 y 136), so a still position does not mark a phantom.
+- 2026-10-14: **Firmware version.** `__DATE__ __TIME__` in web_server.cpp only updated when
+  that file was recompiled, so a page-only change kept an old date. `tools/build_info.py`
+  (`extra_scripts = pre:`) writes `src/build_info.cpp` (git-ignored) on every build:
+  `BUILD_INFO` = "YYYY-MM-DD HH:MM, commit <short hash>[ + changes]" (`git status
+  --untracked-files=no`). Used by `/api/status` (System tab), the BOOT event and HA discovery
+  (`sw_version`). Commit first, then flash, so the board shows a clean hash.
+- 2026-10-14: the clock fix tested after a long uptime (28.7 h): the BOOT event, written before
+  the network time arrives, still carries the remembered time (~3 min slow); everything after
+  the first SNTP sync is right. Read BOOT times after a flash with that in mind.
 - 2026-10-13: **Phantom presses also hit buttons on the lit screen.** 45 s after HA's morning
   routine turned the LCD on, one started the override at 100 % (45 min until the user noticed);
   a phantom wake at 04:40 stayed lit 12.5 min because more phantoms reset the 5 min timer.

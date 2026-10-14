@@ -4,6 +4,7 @@
 #include "fan_network.h"
 #include "sd_logger.h"
 #include "pins.h"
+#include "build_info.h"
 #if HAS_LCD
 #include "display.h"
 #endif
@@ -193,6 +194,7 @@ static void publishEntityConfig(const String &node, const EntityDef &e, bool wan
     dev["name"] = node;
     dev["manufacturer"] = "DIY";
     dev["model"] = "ETH Touch PWM fan controller";
+    dev["sw_version"] = BUILD_INFO; // HA device page: which firmware runs
     dev["configuration_url"] = "http://" + localIP().toString() + "/";
 
     String payload;

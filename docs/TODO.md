@@ -54,6 +54,14 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[Web]` `[HA]` Firmware version shown (your request, 2026-10-14: the System tab said
+      "Oct 10" for days, `__DATE__` only changed when web_server.cpp was recompiled).
+      `tools/build_info.py` writes the build time and git commit on every build, "+ changes"
+      when the code differs from that commit; shown on the System tab (Build), in every BOOT
+      event (`firmware ...`) and on HA's device page (Firmware). Checked by you on COM15
+      (web, HA); BOOT line read by Claude. Also the first real test of the clock fix: after
+      28.7 h up, only the BOOT line (written before the network time) was ~3 min off, the
+      next events right. UNTESTED: the other two builds (compile) (2026-10-14, this commit)
 - [x] `[Docs]` Status report 07 (covers 2026-10-12 and 10-13); no notes to turn into items
       (2026-10-13, this commit)
 - [x] `[Web]` History tab, Downloads (your question, 2026-10-13): the month logs grow by one a

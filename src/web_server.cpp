@@ -5,6 +5,7 @@
 #include "fan_network.h"
 #include "mqtt.h"
 #include "sd_logger.h"
+#include "build_info.h"
 #if HAS_LCD
 #include "display.h"
 #endif
@@ -227,7 +228,7 @@ static void handleStatus(NetworkClient &client) {
     doc["node"] = config.nodeID;
     doc["board"] = BOARD_NAME;
     doc["sketch"] = SKETCH_FILENAME;
-    doc["build"] = __DATE__ " " __TIME__;
+    doc["build"] = BUILD_INFO;
     doc["ip"] = localIP().toString();
     doc["uptime"] = uptimeSeconds();
     doc["heap"] = ESP.getFreeHeap();

@@ -13,3 +13,5 @@ tools/mqtt_secrets.json
 docs/HA_Data/
 # Graphify code graph (local, rebuilt with: graphify update .)
 graphify-out/
+# Written on every build by tools/build_info.py
+src/build_info.cpp

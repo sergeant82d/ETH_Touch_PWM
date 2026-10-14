@@ -1,6 +1,7 @@
 #include "sd_logger.h"
 #include "pins.h"
 #include "config.h"
+#include "build_info.h"
 #include "sensors.h"
 #if HAS_LCD
 #include "display.h"
@@ -531,7 +532,7 @@ void sdLoggerInit() {
     // memory. A true cold boot (ESP_RST_POWERON) has nothing meaningful in
     // rtcSnapshot - that memory domain genuinely lost power too.
     String reason = resetReasonString();
-    String desc = "reason=" + reason;
+    String desc = "reason=" + reason + " | firmware " + BUILD_INFO;
 
     if (esp_reset_reason() != ESP_RST_POWERON && rtcSnapshot.magic == SNAPSHOT_MAGIC) {
         desc += " | lastState: blend=" + String(rtcSnapshot.blendedAverageC, 1) + "C";
