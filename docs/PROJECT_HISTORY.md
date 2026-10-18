@@ -306,6 +306,15 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   readings, so two phantom taps on either side of a busy loop() could add up to 1 s; now a
   gap over 150 ms restarts it, and each wake logs `DISPLAY wake press: ...`. A real 1 s hold
   read 35 times at one exact point (x 168 y 136), so a still position does not mark a phantom.
+- 2026-10-15/17: **Phantom band.** The CST816D's phantoms sweep along one line (y 109-130 in
+  screen space, sliding in x; the chip even reports slide gestures), likely a faulty sense line.
+  Readings at y 105-133 now count as no finger; nothing on the dashboard or QR page is
+  touch-active there, and - / + keep their upper halves. Blocked up to 2926 readings an hour.
+  The chip's event flag (XposH bits 7-6) and gesture code don't tell a finger from a phantom:
+  real presses came as "down" or "contact", a phantom even reported a long press (0x0C).
+  Override panel: only Keep On confirms (+ sat on the phantom row and confirmed a phantom
+  override); Manual Control locked 1 s after an override action (Cancel overlaps it);
+  Cancel / Keep On touch areas reach the bottom of the screen (presses read 20-40 px low).
 - 2026-10-14: **Firmware version.** `__DATE__ __TIME__` in web_server.cpp only updated when
   that file was recompiled, so a page-only change kept an old date. `tools/build_info.py`
   (`extra_scripts = pre:`) writes `src/build_info.cpp` (git-ignored) on every build:

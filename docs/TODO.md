@@ -49,11 +49,34 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
       unless confirmed, every LCD override event logs `at x= y=`, and a finger counts as
       lifted only after 60 ms. Your real presses on Manual Control landed at x 133-166
       y 192-217. Claude checks at session start for wake and override lines you didn't make.
-      Not yet tried: what the touch chip itself reports with each touch (event type and
-      gesture code, which the driver ignores), to tell a phantom from a finger
+      2026-10-15: a phantom started the override at 22:03 (y 161) and a second one on + kept
+      it on (- / + counted as confirming; the + button sits on the phantom row). During the
+      test you pressed + once and the log caught 11 more presses in 11 s, all at y 109-127,
+      sliding along x 108-271 (slide gestures too); one phantom also opened the QR page.
+      The chip's own report doesn't separate them: your presses came as "down" and as
+      "contact", phantoms as both. Since this item's Done entry: only Keep On confirms, every panel
+      press is logged with the chip report, readings at y 105-133 are ignored (phantom band,
+      hourly count `TOUCH ignored N readings`), Manual Control is locked 1 s after any
+      override action (Cancel sits where it is on the dashboard: one Cancel restarted the
+      override), the QR page opening is logged, Cancel / Keep On answer down to the bottom
+      of the screen (your presses read low, y 192-228).
+      2026-10-17 (48 h with the band): 1 to 2926 band readings blocked an hour (2926 at 03-04
+      on 10-17), no phantom override or wake from the band. Two phantoms outside it (you,
+      2026-10-17): 10-16 08:02:32 QR page at x 233 y 75 (30 s after HA turned the screen
+      on; it closes itself after 60 s) and 10-17 17:41:07 a wake at y 83-90, chip "down
+      contact", gesture 0x0C (long press), 27 s after off. Replacing the Touch-LCD-2 board
+      is the real fix (the touch panel is laminated on it); the software contains it
 
 ## Done
 
+- [x] `[LCD]` `[HA]` Phantom presses on the override panel (your report, 2026-10-15): only Keep
+      On confirms an LCD override; every press on the panel logged with position and the
+      touch chip's report; readings in the phantom band y 105-133 ignored (hourly count);
+      Manual Control locked 1 s after any override action; QR page openings logged; Cancel /
+      Keep On touch areas down to the bottom of the screen. COM15 (you, 2026-10-15): + no
+      longer confirms (stopped at 60 s), Keep On does, the band ignored presses there, three
+      Cancels without a restart; 48 h running (Claude). UNTESTED: the taller Cancel / Keep On
+      areas (added 2026-10-17); the plain Touch-LCD-2 (compile) (2026-10-17, this commit)
 - [x] `[Web]` `[HA]` Firmware version shown (your request, 2026-10-14: the System tab said
       "Oct 10" for days, `__DATE__` only changed when web_server.cpp was recompiled).
       `tools/build_info.py` writes the build time and git commit on every build, "+ changes"

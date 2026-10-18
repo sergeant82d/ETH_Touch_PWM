@@ -20,4 +20,9 @@ void touchInit();
 // once tested, this is the function to adjust.
 bool getTouchPoint(int &x, int &y);
 
+// What the chip itself reported with the last finger reading (2026-10-15, to tell
+// phantom presses from a finger): gesture code (0 none, 1-4 slides, 5 click,
+// 0x0B double click, 0x0C long press) and event (0 down, 1 up, 2 contact, 3 none).
+void touchLastChip(uint8_t &gesture, uint8_t &event);
+
 #endif // TOUCH_H

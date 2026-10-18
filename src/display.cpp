@@ -66,12 +66,17 @@ static int barsHeight() { return (FOOTER_Y - 6) - BARS_TOP; }
 // See handleTouchInput() for the state machine; updateMainDashboardUI()
 // and refreshBarsOnly() no-op while this is true.
 static bool overlayOpen = false;
-// An override started from the LCD stops by itself unless confirmed (Keep On, - or +)
+// An override started from the LCD stops by itself unless confirmed with Keep On
 // within 60 s (user, 2026-10-13): a phantom press on Manual Control started one
 // 45 s after HA turned the screen on, and it ran 45 min at full speed.
 static bool lcdOverrideUnconfirmed = false;
 static unsigned long lcdOverrideStartMs = 0;
 static const unsigned long LCD_OVERRIDE_CONFIRM_MS = 60000;
+// Manual Control is ignored for 1 s after any override action: Cancel sits where the
+// button is on the dashboard behind the panel, so the same press (or its bounce) started
+// a new override 1 s after Cancel (2026-10-15)
+static unsigned long manualLockUntil = 0;
+static void lockManualButton() { manualLockUntil = millis() + 1000; }
 static bool infoOpen = false;   // QR code info page (gear icon)
 
 // Flicker (2026-10-05): every part of the dashboard remembers what it last
@@ -767,6 +772,9 @@ static const int OVERLAY_VALUE_W = OVERLAY_PLUS_X - OVERLAY_VALUE_X;
 static const int OVERLAY_BTN_W = (OVERLAY_BOX_W - 30) / 2;
 static const int OVERLAY_BTN_H = 26;
 static const int OVERLAY_BTN_Y = OVERLAY_BOX_Y + OVERLAY_BOX_H - 36;
+// Cancel / Keep On answer presses down to the bottom of the screen: the panel reads presses
+// low, and presses aimed at Cancel landed at y 192-228 (2026-10-15; drawn y 164-190)
+static const int OVERLAY_BTN_TOUCH_H = LCD_HEIGHT - OVERLAY_BTN_Y;
 static const int OVERLAY_CANCEL_X = OVERLAY_BOX_X + 10;
 static const int OVERLAY_KEEPON_X = OVERLAY_CANCEL_X + OVERLAY_BTN_W + 10;
 
@@ -1032,6 +1040,18 @@ void setDisplayOn(bool on, const char* source) {
     sdLogEvent("DISPLAY", String("source=") + source + " action=" + (on ? "ON" : "OFF"));
 }
 
+// What the touch chip reported during the current press (touchLastChip): one bit per
+// event and per gesture code seen, for the wake and override log lines (2026-10-15)
+static uint16_t pressEvents = 0, pressGestures = 0;
+static String chipText() {
+    static const char* EV[] = {"down", "up", "contact", "none"};
+    String t = "chip events";
+    for (int i = 0; i < 4; i++) if (pressEvents & (1 << i)) t += String(" ") + EV[i];
+    t += ", gestures";
+    for (int g = 0; g < 16; g++) if (pressGestures & (1 << g)) t += " 0x" + String(g, HEX);
+    return t;
+}
+
 void handleTouchInput() {
     static bool wasPressed = false;
 
@@ -1041,7 +1061,30 @@ void handleTouchInput() {
     static int emptyReadings = 0, lastX = 0, lastY = 0;
     int tx, ty;
     bool pressed = getTouchPoint(tx, ty);
-    if (pressed) { emptyReadings = 0; lastX = tx; lastY = ty; }
+    // Phantom band (user, 2026-10-15): nearly every phantom press lands at y 109-130 (a
+    // horizontal line across the middle, sliding along it; likely a faulty sense line in
+    // the panel), where nothing on the dashboard is touch-active. Readings there count as
+    // no finger; how many is logged at most once an hour.
+    static const int PHANTOM_BAND_TOP = 105, PHANTOM_BAND_BOTTOM = 133;
+    static unsigned long bandIgnored = 0, bandReportMs = 0;
+    if (pressed && ty >= PHANTOM_BAND_TOP && ty <= PHANTOM_BAND_BOTTOM) {
+        pressed = false;
+        bandIgnored++;
+    }
+    if (bandIgnored && millis() - bandReportMs >= 3600000UL) {
+        bandReportMs = millis();
+        sdLogEvent("TOUCH", "ignored " + String(bandIgnored) + " readings in the phantom band (y " +
+                            String(PHANTOM_BAND_TOP) + "-" + String(PHANTOM_BAND_BOTTOM) + ") since the last report");
+        bandIgnored = 0;
+    }
+    if (pressed) {
+        emptyReadings = 0; lastX = tx; lastY = ty;
+        if (!wasPressed) pressEvents = pressGestures = 0; // a new press
+        uint8_t g, e;
+        touchLastChip(g, e);
+        pressEvents |= 1 << (e & 3);
+        pressGestures |= 1 << (g & 15);
+    }
     else if (wasPressed && ++emptyReadings < 2) { pressed = true; tx = lastX; ty = lastY; }
 
     // Dark screen: a press held 1 s wakes it (never reaches a button underneath).
@@ -1068,6 +1111,12 @@ void handleTouchInput() {
         static int readings = 0, minX, maxX, minY, maxY;
         if (pressed && (!wasPressed || gap > 150)) { // a new press
             pressStartMs = nowMs; maxGap = 0; readings = 0;
+            if (wasPressed) { // restarted after a gap: count the chip's reports afresh
+                uint8_t g, e;
+                touchLastChip(g, e);
+                pressEvents = 1 << (e & 3);
+                pressGestures = 1 << (g & 15);
+            }
             minX = maxX = tx; minY = maxY = ty;
         }
         if (pressed) {
@@ -1079,7 +1128,7 @@ void handleTouchInput() {
             sdLogEvent("DISPLAY", "wake press: " + String((nowMs - pressStartMs) / 1000.0, 2) + " s, " +
                        String(readings) + " readings, x " + String(minX) + "-" + String(maxX) + " y " +
                        String(minY) + "-" + String(maxY) + ", longest gap " + String(maxGap) + " ms, " +
-                       String((nowMs - displayOffMs) / 1000) + " s after off");
+                       String((nowMs - displayOffMs) / 1000) + " s after off, " + chipText());
             setDisplayOn(true, "LCD");
             wakePressHeld = true;
         }
@@ -1147,6 +1196,7 @@ void handleTouchInput() {
             manualOverrideActive = false; // back to the fan curve
             overlayOpen = false;
             redrawWholeDashboard();
+            lockManualButton();
             if (wasOn) {
                 Serial.println("Override DEACTIVATED: not confirmed on the LCD within 60 s");
                 sdLogEvent("OVERRIDE", "source=LCD action=OFF (not confirmed in 60 s)");
@@ -1175,26 +1225,33 @@ void handleTouchInput() {
             bool onMinus = pointInRect(tx, ty, OVERLAY_MINUS_X - 6, OVERLAY_STEP_Y - 6, OVERLAY_STEP_W + 12, OVERLAY_STEP_H + 12);
             bool onPlus = pointInRect(tx, ty, OVERLAY_PLUS_X - 6, OVERLAY_STEP_Y - 6, OVERLAY_STEP_W + 12, OVERLAY_STEP_H + 12);
             if (onMinus || onPlus) {
-                lcdOverrideUnconfirmed = false;
+                // - / + adjust but don't confirm: the + button sits on the row where
+                // phantom presses land, and one confirmed a phantom override (2026-10-15)
                 stepDir = onMinus ? -1 : 1;
                 stepPressMs = lastStepMs = millis();
                 drawStepButton(onMinus ? OVERLAY_MINUS_X : OVERLAY_PLUS_X, onMinus ? "-" : "+", true);
                 stepOverride(stepDir);
+                sdLogEvent("OVERRIDE", String("source=LCD action=STEP ") + (onMinus ? "-" : "+") + " speed=" + String(overridePct()) +
+                                       "% at x=" + String(tx) + " y=" + String(ty) + ", " + chipText());
             } else {
-                if (pointInRect(tx, ty, OVERLAY_CANCEL_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_H)) {
+                if (pointInRect(tx, ty, OVERLAY_CANCEL_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_TOUCH_H)) {
                     manualOverrideActive = false; // revert to auto
                     lcdOverrideUnconfirmed = false;
                     overlayOpen = false;
                     redrawWholeDashboard(); // override box left artifacts (user, 2026-10-04)
+                    lockManualButton();
                     Serial.println("Override DEACTIVATED via LCD (Cancel)");
-                    sdLogEvent("OVERRIDE", "source=LCD action=OFF (cancel) at x=" + String(tx) + " y=" + String(ty));
-                } else if (pointInRect(tx, ty, OVERLAY_KEEPON_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_H)) {
+                    sdLogEvent("OVERRIDE", "source=LCD action=OFF (cancel) at x=" + String(tx) + " y=" + String(ty) + ", " + chipText());
+                } else if (pointInRect(tx, ty, OVERLAY_KEEPON_X, OVERLAY_BTN_Y, OVERLAY_BTN_W, OVERLAY_BTN_TOUCH_H)) {
                     overlayOpen = false; // stays active; button keeps flashing (see refreshBarsOnly())
                     lcdOverrideUnconfirmed = false;
                     redrawWholeDashboard();
+                    lockManualButton();
                     int pct = (manualOverrideDutyCycle * 100) / 255;
                     Serial.print("Override kept ON via LCD - speed="); Serial.print(pct); Serial.println("%");
-                    sdLogEvent("OVERRIDE", "source=LCD action=SPEED (keep-on) speed=" + String(pct) + "% at x=" + String(tx) + " y=" + String(ty));
+                    sdLogEvent("OVERRIDE", "source=LCD action=SPEED (keep-on) speed=" + String(pct) + "% at x=" + String(tx) + " y=" + String(ty) + ", " + chipText());
+                } else { // on the panel but no button: logged too, a phantom shows here
+                    sdLogEvent("OVERRIDE", "source=LCD press outside the buttons at x=" + String(tx) + " y=" + String(ty) + ", " + chipText());
                 }
             }
         }
@@ -1211,7 +1268,11 @@ void handleTouchInput() {
                 infoOpen = true;
                 drawInfoPage();
                 Serial.println("LCD: info page (QR codes) opened");
-            } else if (pointInRect(tx, ty, CENTER_X, MANUAL_BTN_Y, CENTER_W, MANUAL_BTN_H)) {
+                // Logged: a phantom opened it once (2026-10-15)
+                sdLogEvent("DISPLAY", "QR page opened at x=" + String(tx) + " y=" + String(ty) + ", " + chipText());
+            } else if (pointInRect(tx, ty, CENTER_X, MANUAL_BTN_Y, CENTER_W, MANUAL_BTN_H) &&
+                       (long)(millis() - manualLockUntil) >= 0) {
+                lockManualButton();
                 if (!manualOverrideActive) {
                     manualOverrideActive = true;
                     manualOverrideDutyCycle = 255; // default full speed per spec
@@ -1222,11 +1283,11 @@ void handleTouchInput() {
                     Serial.println("Override ACTIVATED via LCD - speed=100%");
                     // Where the press landed: tells a phantom from a finger (2026-10-13)
                     sdLogEvent("OVERRIDE", "source=LCD action=ON speed=100% at x=" + String(tx) + " y=" + String(ty) +
-                                           ", unconfirmed: stops in 60 s without Keep On");
+                                           ", unconfirmed: stops in 60 s without Keep On, " + chipText());
                 } else {
                     manualOverrideActive = false; // tap while flashing turns override off directly
                     Serial.println("Override DEACTIVATED via LCD (tap while flashing)");
-                    sdLogEvent("OVERRIDE", "source=LCD action=OFF (tap-while-flashing) at x=" + String(tx) + " y=" + String(ty));
+                    sdLogEvent("OVERRIDE", "source=LCD action=OFF (tap-while-flashing) at x=" + String(tx) + " y=" + String(ty) + ", " + chipText());
                 }
             }
         }

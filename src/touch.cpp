@@ -26,6 +26,9 @@ void touchInit() {
 // DIAGNOSTIC (2026-10-04, touch "sporadic"): every finger down/up is logged
 // with raw and mapped coordinates, and failed I2C reads are counted.
 static bool logWasDown = false;
+static uint8_t lastGesture = 0, lastEvent = 3;
+
+void touchLastChip(uint8_t &gesture, uint8_t &event) { gesture = lastGesture; event = lastEvent; }
 static unsigned long i2cFails = 0, lastFailReportMs = 0;
 
 // Also to the event log (the boot-time failure only ever showed on the serial
@@ -66,6 +69,8 @@ bool getTouchPoint(int &x, int &y) {
         return false;
     }
 
+    lastGesture = gesture;
+    lastEvent = xh >> 6;
     int rawX = ((xh & 0x0F) << 8) | xl;
     int rawY = ((yh & 0x0F) << 8) | yl;
 
