@@ -3,19 +3,24 @@
 How this project came to be, and what was learned (2026-09-27). Read this before starting
 work; it saves re-discovering things.
 
-## Current status (2026-10-06)
+## Current status (2026-10-21) - PROJECT COMPLETE
 
-- Everything is on `main`. Three builds: `waveshare_s3_lcd2` (Touch-LCD-2 + W5500 module),
-  `waveshare_s3_lcd2_lite` (Touch-LCD-2 + W5500 Lite on the user's pins), `waveshare_s3_eth`
-  (ESP32-S3-ETH, no LCD). Settings version 11. Image ~1.49 MB (47.5 % of the 3 MB slot).
+- **Final.** The project closed 2026-10-21. The closing wrap-up is
+  `docs/Status_Reports/STATUS_REPORT_08.md`; `docs/TODO.md` has no open items. **Any new work
+  belongs to a V2.0 of the system** - a new project with its own docs, this repo as reference.
+- Everything is on `main` (last code commit `40c1b1`). Three builds: `waveshare_s3_lcd2`
+  (Touch-LCD-2 + W5500 module), `waveshare_s3_lcd2_lite` (Touch-LCD-2 + W5500 Lite on the
+  user's pins; touch compiled out, `-DTOUCH_ENABLED=0`), `waveshare_s3_eth` (ESP32-S3-ETH,
+  no LCD). Settings version 11. Image ~1.49 MB (47.5 % of the 3 MB slot), free memory on
+  Ethernet ~253 KB. The plain and eth builds are compile-checked only with the final code.
 - Watchdog: a hung loop() restarts the board after 30 s and the BOOT event names where it hung
-  (`docs/BOARDS.md`). The cause of the 2026-10-05 overnight freeze is still unknown.
+  (`docs/BOARDS.md`). The cause of the 2026-10-05 overnight freeze is still unknown (accepted).
 - Event log (NET, MQTT, CONFIG, LOOP ...), self-heal restarts and Ethernet diagnostics:
-  `docs/BOARDS.md`. Firmware audit and its open items: `docs/AUDIT_2026-10-06.md`, `docs/TODO.md`.
+  `docs/BOARDS.md`. Firmware audit: `docs/AUDIT_2026-10-06.md` (finished).
 - **ESP32-S3-ETH (fan_controller_01, COM10):** fully tested up to 2026-09-28; not reflashed
-  since.
+  since, so it runs older firmware.
 - **Touch-LCD-2 W5500 Lite boards (COM8/COM9/COM14/COM15 on different days):** the bench boards
-  since 2026-09-29; everything since then was tested on them (`docs/TODO.md`, Done).
+  since 2026-09-29; everything since then was tested on them (`docs/TODO_DONE.md`).
 - **Touch-LCD-2 (plain build):** flashed and works (user, 2026-10-04).
 - **Home Assistant:** MQTT only; the network-temperature automation needs one action per
   controller name (`docs/MQTT.md`).
@@ -360,4 +365,4 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   ignored) and Claude (BOOT/NET/MQTT clean, heap 253 KB). UNTESTED: the other two builds
   (compile only, behavior unchanged).
 
-Open items: `docs/TODO.md`.
+Open items: none - the project is complete (see `docs/Status_Reports/STATUS_REPORT_08.md`).
