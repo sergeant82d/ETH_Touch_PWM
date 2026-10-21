@@ -39,14 +39,19 @@
 #include <TimeLib.h>
 #include <esp_task_wdt.h>
 
-// --- Diagnostic toggle: overnight lockup investigation - RESOLVED ---
-// The lockup was traced to insufficient power (PC USB port couldn't
-// sustain the LCD + Ethernet + SD card load) - not touch/I2C, which was
-// the original lead suspect. Confirmed resolved by switching to external
-// power. Touch re-enabled; the diagnostic heap logging further down in
-// this file is left in place as ongoing health telemetry rather than
-// removed, since it's cheap and still useful.
+// Touch is compiled in wherever there's an LCD, unless a build overrides it
+// with -DTOUCH_ENABLED=0 in its build_flags (the bench board runs with touch
+// compiled out since 2026-10-21 - phantom presses, docs/TODO.md). The LCD
+// itself is unaffected; HA and the web page still control it and the fans.
+// This macro was once the diagnostic toggle for the overnight lockup
+// investigation - RESOLVED: insufficient power (PC USB port couldn't
+// sustain the LCD + Ethernet + SD card load), not touch/I2C, the original
+// lead suspect. Confirmed by switching to external power. The diagnostic
+// heap logging further down in this file is left in place as ongoing health
+// telemetry rather than removed, since it's cheap and still useful.
+#ifndef TOUCH_ENABLED
 #define TOUCH_ENABLED HAS_LCD // the ESP32-S3-ETH build has no LCD/touch
+#endif
 
 // __FILE__ only reports each module's own filename when used inside a .cpp
 // file - it can't see the main sketch's name from web_server.cpp or anywhere
@@ -94,7 +99,7 @@ void setup() {
 #if TOUCH_ENABLED
     touchInit();
 #else
-    Serial.println("DIAGNOSTIC: touch disabled for this run (TOUCH_ENABLED=0).");
+    Serial.println("Touch disabled at build time (TOUCH_ENABLED=0).");
 #endif
 
     applyTimeZone();

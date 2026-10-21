@@ -349,4 +349,15 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   fast until NTP set the clock (the time kept through the reset drifted while the chip sat in
   the ROM loader). Only the event times; harmless.
 
+- 2026-10-21: **Touch compiled out on the bench board** (user decision after two weeks of
+  phantom presses): `TOUCH_ENABLED` is now a build switch - the environment adds
+  `-DTOUCH_ENABLED=0` (waveshare_s3_lcd2_lite) and main.cpp defaults it to `HAS_LCD` only
+  when the build doesn't set it. Every touch call site already sat behind the macro, so
+  nothing else changed; the linker drops `handleTouchInput()` and touch.cpp when
+  unreferenced (verified: the lite image has no touch strings). The LCD itself is untouched
+  and still follows HA/web; the LCD wake, the override panel and the QR page are touch-only
+  and gone from the LCD. Checked on COM15 by the user (OTA install, taps in many places
+  ignored) and Claude (BOOT/NET/MQTT clean, heap 253 KB). UNTESTED: the other two builds
+  (compile only, behavior unchanged).
+
 Open items: `docs/TODO.md`.

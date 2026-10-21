@@ -26,49 +26,21 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Open
 
-- [ ] `[LCD]` Watch: phantom touches. The dark LCD woke itself 4 times since the 1 s hold (10-05 22:13, 10-06
-      23:54, 10-07 18:45 and 10-09 23:58, the last two exactly 56 s after HA turned it off).
-      Since 2026-10-10 each wake logs `DISPLAY wake press: ...` (length, readings, position,
-      longest gap, time since off); Claude checks it at session start. If one shows without
-      you: the 2-minute no-wake after turning off is the next step (your real 1 s hold stayed
-      on one exact point, so position can't tell them apart)
-      2026-10-12: two more after the 150 ms rule, so they are one continuous 1 s press, not
-      joined taps: 10-10 22:35:27 (`1.03 s, 35 readings, x 236-262 y 124-124, longest gap
-      40 ms, 53 s after off`) and 10-12 03:29:49 (`1.00 s, 34 readings, x 277-283 y 126-126,
-      8697 s after off`). Both on one row (y 124-126) at the right side; yours was x 168
-      y 136. A 2-minute no-wake would have missed the 03:29 one. Decided (user, 2026-10-12):
-      a touch wake goes dark again after 5 min without a touch (`279710f`). Keep watching
-      the wake lines: a phantom now shows as a `wake press` followed 5 min later by
-      `source=LCD-idle action=OFF`
-      2026-10-13: phantoms also press buttons on the lit screen. 08:00:47, 45 s after HA's
-      morning routine turned the LCD on, one hit Manual Control and the fans ran at 100 % for
-      45 min (you stopped it from the web page). Overnight two more wakes: 04:40:08 (`x 35-130
-      y 83-92, 21842 s after off`; stayed lit 12.5 min, more phantoms kept resetting the
-      5 min) and 04:53:09 (`x 202-263 y 130-130, 33 s after off`). Many come ~45-56 s after
-      the backlight switches on or off. Since `6c7e48e`: an LCD override stops after 60 s
-      unless confirmed, every LCD override event logs `at x= y=`, and a finger counts as
-      lifted only after 60 ms. Your real presses on Manual Control landed at x 133-166
-      y 192-217. Claude checks at session start for wake and override lines you didn't make.
-      2026-10-15: a phantom started the override at 22:03 (y 161) and a second one on + kept
-      it on (- / + counted as confirming; the + button sits on the phantom row). During the
-      test you pressed + once and the log caught 11 more presses in 11 s, all at y 109-127,
-      sliding along x 108-271 (slide gestures too); one phantom also opened the QR page.
-      The chip's own report doesn't separate them: your presses came as "down" and as
-      "contact", phantoms as both. Since this item's Done entry: only Keep On confirms, every panel
-      press is logged with the chip report, readings at y 105-133 are ignored (phantom band,
-      hourly count `TOUCH ignored N readings`), Manual Control is locked 1 s after any
-      override action (Cancel sits where it is on the dashboard: one Cancel restarted the
-      override), the QR page opening is logged, Cancel / Keep On answer down to the bottom
-      of the screen (your presses read low, y 192-228).
-      2026-10-17 (48 h with the band): 1 to 2926 band readings blocked an hour (2926 at 03-04
-      on 10-17), no phantom override or wake from the band. Two phantoms outside it (you,
-      2026-10-17): 10-16 08:02:32 QR page at x 233 y 75 (30 s after HA turned the screen
-      on; it closes itself after 60 s) and 10-17 17:41:07 a wake at y 83-90, chip "down
-      contact", gesture 0x0C (long press), 27 s after off. Replacing the Touch-LCD-2 board
-      is the real fix (the touch panel is laminated on it); the software contains it
-
 ## Done
 
+- [x] `[LCD]` Watch: phantom touches (open since 2026-10-05): the CST816D reports phantom
+      presses - a sweeping band at y 105-133 (up to 2926 readings blocked an hour), wakes
+      and lit-screen button presses ~26-56 s after the backlight switches (last: 10-19
+      00:23 wake y 89-95, 10-21 08:00 QR page y 48). Contained step by step (1 s hold,
+      150 ms gap rule, 5 min idle, band ignore, Keep-On-only confirm, panel locks - see
+      the 2026-10-15/17 Done entries and PROJECT_HISTORY). Resolved on this board by your
+      decision 2026-10-21: touch compiled out on the waveshare_s3_lcd2_lite build
+      (`-DTOUCH_ENABLED=0`); the LCD stays and follows HA/web, the LCD override panel and
+      QR page are gone (touch-only). Checked by you on COM15 (OTA install, taps in many
+      places ignored, screen still follows HA/web) and Claude (BOOT/NET/MQTT clean, heap
+      253 KB). UNTESTED: the plain waveshare_s3_lcd2 and waveshare_s3_eth builds (compile
+      only, behavior unchanged). Replacing the Touch-LCD-2 board stays the hardware fix
+      if touch is ever wanted again (this commit)
 - [x] `[LCD]` `[HA]` Phantom presses on the override panel (your report, 2026-10-15): only Keep
       On confirms an LCD override; every press on the panel logged with position and the
       touch chip's report; readings in the phantom band y 105-133 ignored (hourly count);
