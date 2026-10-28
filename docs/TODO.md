@@ -28,6 +28,14 @@ How this list works (the all-projects format, agreed 2026-10-07; started here 20
 
 ## Done
 
+- [x] `[LCD]` `[Web]` Official MQTT icon in the LCD top bar (your request 2026-10-27, after the
+      project close): the homemade icon replaced by the official one from
+      github.com/mqtt/mqttorg-graphics (`svg/mqtt-icon-transparent.svg`, free to use), scaled to
+      14 x 14 in the usual 16 x 16 1-bit box; the web page's LCD preview has the same bitmap.
+      Old vs new: `docs/images/mqtt_icon_preview.png`. Checked by you on COM15 (LCD and web
+      page) and Claude (BOOT/NET/MQTT clean, settings kept, heap 257 KB). No full flash backup
+      this time (your choice: the read kept dropping COM15). UNTESTED: the plain
+      waveshare_s3_lcd2 build (compile only) (this commit)
 - [x] `[LCD]` Watch: phantom touches (open since 2026-10-05): the CST816D reports phantom
       presses - a sweeping band at y 105-133 (up to 2926 readings blocked an hour), wakes
       and lit-screen button presses ~26-56 s after the backlight switches (last: 10-19

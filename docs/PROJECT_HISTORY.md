@@ -365,4 +365,15 @@ growth. Current limit: `CLAUDE.md`, success criteria.
   ignored) and Claude (BOOT/NET/MQTT clean, heap 253 KB). UNTESTED: the other two builds
   (compile only, behavior unchanged).
 
+- 2026-10-27: **Official MQTT icon** (small change after the close, user request): the LCD
+  top bar's homemade MQTT icon replaced by the official one (github.com/mqtt/mqttorg-graphics,
+  `svg/mqtt-icon-transparent.svg`; free to use, no endorsement implied). The SVG is a rounded
+  square cut by three rings centred on its bottom-left corner; it was rasterised to 14 x 14
+  (8x8 supersampling, 50 % threshold, corner pixels cleared to hint at the rounding) inside
+  the 16 x 16 box. Gotcha: the icons exist twice - `ICON_MQTT` in display.cpp and
+  `LCD_ICONS.mqtt` in web/index.html (the web page's LCD preview); change both. Old vs new:
+  `docs/images/mqtt_icon_preview.png`. Checked on COM15 by the user (LCD and web) and Claude.
+  Full flash backup failed: block 0x185000 needed `--no-stub` again, and after a few stalled
+  reads COM15 dropped off USB until replugged (twice); the user chose to flash without it.
+
 Open items: none - the project is complete (see `docs/Status_Reports/STATUS_REPORT_08.md`).
