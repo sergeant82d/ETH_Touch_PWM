@@ -19,3 +19,7 @@ Built on two Waveshare ESP32-S3 Development boards - the ESP32-S3-Touch-LCD-2 (2
 
 
 This project created by Claude AI, as directed by this GitHub account holder. 
+
+## License
+
+MIT - see [LICENSE](LICENSE). Libraries pulled in by PlatformIO keep their own licenses.
